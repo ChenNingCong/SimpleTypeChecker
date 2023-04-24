@@ -260,7 +260,7 @@ svg {
 .context-entry,
 .typ-view {
   line-height: var(--line-height);
-  white-space: pre;
+  white-space: nowrap;
   font-family: "Source Code Pro", monospace;
   font-weight: normal;
   font-size: 13pt;
@@ -475,7 +475,7 @@ body {
 }
 
 .code {
-  /*white-space: nowrap;*/
+  white-space: nowrap;
 }
 
 .cell-container {
@@ -539,7 +539,7 @@ body {
   position: relative;
   z-index: var(--code-text-z);
   user-select: none;
-  white-space: pre;
+  white-space: nowrap;
 }
 
 /* NOTE(andrew): below 3 styles are part of
@@ -953,8 +953,8 @@ svg.tile-selected {
   color: rgb(126, 80, 0);
   opacity: 20%;
   font-family: system-ui;
-  vertical-align: middle;
   font-size: 0.59em;
+  display: block;
 }
 
 #filters {
@@ -1238,6 +1238,7 @@ svg.tile-selected {
 
 .comment {
   color: #a0c1aa;
+  white-space: pre;
 }
 
 /* TODO slightly hacky way to be able to scroll to all content vertically - can't see scrollbars on the bottom even when there though...*/

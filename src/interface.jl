@@ -1,184 +1,11 @@
 module Interface
 include("datastruct.jl")
+include("type.jl")
+include("utility.jl")
 include("adapter.jl")
-# A wrapper for any Julia value
-struct JuVal
-    val::Any
-    isPoison::Bool
-    isConst::Bool
-end
+include("error.jl")
 
-isPoisonVal(v::JuVal) = v.isPoison
-isConstVal(v::JuVal) = v.isConst
-@inline makeConstVal(v::Any) = JuVal(v, false, true)
-@inline makeNonConstVal() = JuVal(nothing, false, false)
-@inline makePoisonVal() = JuVal(nothing, true, false)
-
-# A wrapper for any Julia type
-struct JuType
-    val::Any
-    isPoison::Bool
-end
-isPoisonType(v::JuType) = v.isPoison
-@inline makeJuType(v::Any) = JuType(v, false)
-@inline makePoisonType() = JuType(nothing, true)
-
-# A wrapper for any Julia value
-struct JuExpr
-    val::Any
-end
-
-# AST construction
-const TypedAST = JuExpr
-
-struct Var
-    ast::JuAST
-    id::Symbol
-end
-
-struct Assign
-    ast::JuAST
-    lhs::Var
-    rhs::TypedAST
-end
-
-struct TypedAssign
-    ast::JuAST
-    lhs::Var
-    typ::TypedAST
-    rhs::TypedAST
-end
-
-struct FunCall
-    ast::JuAST
-    f::TypedAST
-    args::Vector{TypedAST}
-    kwargs::Vector{TypedAST}
-end
-
-struct CurlyCall
-    ast::JuAST
-    f::TypedAST
-    args::Vector{TypedAST}
-end
-
-struct Literal
-    ast::JuAST
-    val::JuVal
-end
-
-struct Block
-    ast::JuAST
-    stmts::Vector{TypedAST}
-end
-
-struct IfStmt
-    ast::JuAST
-    branches::Vector{Tuple{TypedAST, TypedAST}}
-    else_::Union{TypedAST, Nothing}
-end
-
-struct WhileStmt
-    ast::JuAST
-    cond::TypedAST
-    body::TypedAST
-end
-
-struct ForStmt
-    ast::JuAST
-    var::Var
-    iter::TypedAST
-    body::TypedAST
-end
-
-struct Return
-    ast::JuAST
-    e::Union{TypedAST, Nothing}
-end
-
-struct GetProperty
-    ast::JuAST
-    x::TypedAST
-    p::Symbol
-end
-
-struct SetProperty
-    ast::JuAST
-    x::TypedAST
-    p::Symbol
-    v::TypedAST
-end
-
-struct ArrayRef
-    ast::JuAST
-    arr::TypedAST
-    i::TypedAST
-end
-
-struct ArraySet
-    ast::JuAST
-    arr::TypedAST
-    i::TypedAST
-    v::TypedAST
-end
-
-
-
-struct FunDef
-    ast::JuAST
-    f::Symbol
-    args::Vector{Pair{Symbol, Union{TypedAST, Nothing}}}
-    kwargs::Vector{Pair{Symbol, Union{TypedAST, Nothing}}}
-    params::Vector{Symbol}
-    rt::Union{Nothing, TypedAST}
-    body::TypedAST
-end
-
-function getLiteralVal(l::Literal)::JuVal
-    return l.val
-end
-
-# end of ast construction 
-
-# Flow node, used to map type and ast
-
-@enum FlowNodeKind begin
-    LiteralFlowNode
-    AssignFlowNode
-    EmptyBlockFlowNode
-    EmptyElseFlowNode
-    BlockFlowNode
-    VarFlowNode
-    GlobalVarFlowNode
-    FunCallNode
-    CurlyCallNode
-    GetPropertyNode
-    SetPropertyNode
-    ArrayRefNode
-    ArraySetNode
-
-    ReturnNode
-    EmptyReturnNode
-    
-    ParamNode
-    SparamNode
-
-    
-    IfFlowNode # PhiNode actually
-    ConditionalFlowNode # variable that defines conditionally
-    PiNode
-    NegPiNode
-end
-
-mutable struct FlowNode
-    const ast::JuAST
-    const nodeKind::FlowNodeKind
-    const source::Vector{FlowNode}
-    const val::JuVal # constant value
-    const typ::JuType
-end
-
-function tryMergeFlowType(v1::FlowNode, v2::FlowNode)
+@nocheck function tryMergeFlowType(v1::FlowNode, v2::FlowNode)
     v1typ = v1.typ
     v2typ = v2.typ
     @assert !isPoisonType(v1typ) && !isPoisonType(v2typ)
@@ -189,7 +16,7 @@ function tryMergeFlowType(v1::FlowNode, v2::FlowNode)
     end
 end
 
-function tryMergeValue(v1::JuVal, v2::JuVal)::Bool
+@nocheck function tryMergeValue(v1::JuVal, v2::JuVal)::Bool
     if isConstVal(v1) && isConstVal(v2)
         if v1.val == v2.val
             return true
@@ -200,7 +27,7 @@ function tryMergeValue(v1::JuVal, v2::JuVal)::Bool
     return false
 end
 
-function tryMergeType(v1::JuType, v2::JuType, allowUnion::Bool)
+@nocheck function tryMergeType(v1::JuType, v2::JuType, allowUnion::Bool)
     @assert !isPoisonType(v1) && !isPoisonType(v2)
     newv = Union{v1.val, v2.val}
     if !allowUnion
@@ -228,268 +55,6 @@ function tryMergeFlowNode(ast::JuAST, v::Vector{FlowNode}, allowUnion::Bool)::Fl
     end
 end
 
-
-function makeLiteralFlowNode(ast::Literal, val::JuVal)
-    FlowNode(ast.ast, LiteralFlowNode, FlowNode[], val, makeJuType(Core.Typeof(val.val)))
-end
-
-function makeBlockFlowNode(ast::Block, last::FlowNode)
-    FlowNode(ast.ast, BlockFlowNode, FlowNode[], last.val, last.typ)
-end
-
-function makeEmptyBlockFlowNode(ast::Block)
-    FlowNode(ast.ast, EmptyBlockFlowNode, FlowNode[], makeConstVal(nothing), makeJuType(Nothing))
-end
-
-function makeAssignFlowNode(ast::Assign, rhs::FlowNode)
-    FlowNode(ast.ast, AssignFlowNode, FlowNode[rhs], rhs.val, rhs.typ)
-end
-
-function makeVarFlowNode(ast::Var, ref::FlowNode)
-    FlowNode(ast.ast, VarFlowNode, FlowNode[ref], ref.val, ref.typ)
-end
-
-function makeGlobalVarFlowNode(ast::Var, val::JuVal)
-    FlowNode(ast.ast, GlobalVarFlowNode, FlowNode[], val, makeJuType(Core.Typeof(val.val)))
-end
-
-function makeFunCallFlowNode(ast::FunCall, args::Vector{FlowNode}, val::JuVal, typ::JuType)
-    FlowNode(ast.ast, FunCallNode, args, val, typ)
-end
-
-function makeCurlyCallFlowNode(ast::CurlyCall, args::Vector{FlowNode}, val::JuVal, typ::JuType)
-    FlowNode(ast.ast, CurlyCallNode, args, val, typ)
-end
-
-function makeReturnFlowNode(ast::Return, e::FlowNode)
-    FlowNode(ast.ast, ReturnNode, FlowNode[e], e.val, e.typ)
-end
-
-function makeEmtpyReturnFlowNode(ast::Return)
-    FlowNode(ast.ast, EmptyReturnNode, FlowNode[], makeConstVal(nothing), makeJuType(Nothing))
-end
-
-struct ContextValue
-    typ::FlowNode               # primary type of this context variable
-    curtyp::FlowNode            # inferred type on this path
-end
-
-# Context for variable binding and other useful things, immutable
-struct Context
-    mapping::ImmutableDict{Symbol, ContextValue}
-end
-
-mutable struct Engine
-    retVal::Union{Nothing, FlowNode}
-end
-
-
-function Context()
-    return Context(ImmutableDict{Symbol, ContextValue}())
-end
-
-function hasvar(ctx::Context, var::Symbol)::Bool
-    return exist(ctx.mapping, var)
-end
-
-function lookup(ctx::Context, var::Symbol)::ContextValue
-    return ctx.mapping.data[var]
-end
-
-function update(ctx::Context, var::Symbol, val::ContextValue)::Context
-    return Context(update(ctx.mapping, var, val))
-end
-
-# Inference result for one ast
-struct InferResult
-    ctx::Context
-    node::FlowNode
-end
-
-function flattenIf!(rel, ast::JuAST)::Union{JuExpr, Nothing}
-    if length(ast.children) == 3 
-        push!(rel, (typedConvertAST(ast.children[1]), typedConvertAST(ast.children[2])))
-        if ast.children[3].head == :elseif
-            flattenIf!(rel, ast.children[3])
-        else
-            return typedConvertAST(ast.children[3])
-        end
-    else
-        return nothing
-    end
-end
-
-function flattenIf(ast::JuAST)::JuExpr
-    rel = Vector{Tuple{JuExpr, JuExpr}}()
-    else_b = flattenIf!(rel, ast)
-    return JuExpr(IfStmt(ast, rel, else_b))
-end
-
-function collectArgs(e::JuAST)::Pair{Symbol, Union{JuExpr,Nothing}}
-    if e.head == :(::)
-        if length(e.children) != 2
-            error("Invalid assert syntax")
-        end
-        var = e.children[1]
-        ex = e.children[2]
-        if var.head != :literal
-            error("assert is applied to non-symbol")
-        end
-        return (var.val::Symbol) => typedConvertAST(ex)
-    elseif e.head == :literal
-        return (e.val::Symbol) => nothing
-    else
-        error("Not assert")
-    end
-end
-
-function extractSymbol(ast::JuAST)::Symbol
-    if ast.head != :literal
-        error("Not a symbol")
-    end
-    return ast.val::Symbol
-end
-
-function typedConvertAST(ast::JuAST)::JuExpr
-    # TODO : check whether this is correct!
-    if ast.head == :literal
-        if ast.val isa Symbol
-            return JuExpr(Var(ast, ast.val))
-        else
-            return JuExpr(Literal(ast, makeConstVal(ast.val)))
-        end
-    elseif ast.head == :quote
-        if length(ast.children) >= 1 && ast.children[1].val isa Symbol
-            return JuExpr(Literal(ast, makeConstVal(ast.children[1].val)))
-        else
-            error("Disallowed quoted expression")
-        end
-    elseif ast.head == :curly
-        f = typedConvertAST(ast.children[1])
-        args = [typedConvertAST(i) for i in ast.children[2:end]]
-        return JuExpr(CurlyCall(ast, f, args))
-    elseif ast.head == :call
-        f = typedConvertAST(ast.children[1])
-        args = [typedConvertAST(i) for i in ast.children[2:end] if i.head != :kw]
-        kwargs = [typedConvertAST(i) for i in ast.children[2:end] if i.head == :kw]
-        return JuExpr(FunCall(ast, f, args, kwargs))
-    elseif ast.head == :(=)
-        rhs = typedConvertAST(ast.children[2])
-        lhs_ = ast.children[1]
-        if lhs_.head == :(.) || lhs_.head == :ref
-            p_ = lhs_.children[1]
-            x_ = lhs_.children[2]
-            p = typedConvertAST(p_)
-            if lhs_.head == :(.)
-                if x_.head == :quote
-                    c = x_.children[1]
-                    return JuExpr(SetProperty(ast, p, c.val::Symbol, rhs))
-                else
-                    error("Not a quote for get property")
-                end
-            else
-                return JuExpr(ArraySet(ast, p, typedConvertAST(x_), rhs))
-            end
-        else
-            lhs = typedConvertAST(lhs_)
-            if lhs.val isa Var
-                return JuExpr(Assign(ast, lhs.val, rhs))
-            else
-                error("bad assign")
-            end
-        end
-    elseif ast.head == :ref
-        lhs = typedConvertAST(ast.children[1])
-        rhs = typedConvertAST(ast.children[2])
-        return JuExpr(ArrayRef(ast, lhs, rhs))
-    elseif ast.head == :(.)
-        lhs = typedConvertAST(ast.children[1])
-        rhs = ast.children[2]
-        if rhs.head == :quote
-            x_ = rhs.children[1] 
-            return JuExpr(GetProperty(ast, lhs, x_.val::Symbol))
-        else
-            error("Not a quote for get property")
-        end
-    elseif ast.head == :if
-        return flattenIf(ast)
-    elseif ast.head == :block
-        return JuExpr(Block(ast, [typedConvertAST(i) for i in ast.children]))
-    elseif ast.head == :return 
-        if length(ast.children) == 1
-            return JuExpr(Return(ast, typedConvertAST(ast.children[1])))
-        else
-            return JuExpr(Return(ast, nothing))
-        end
-    elseif ast.head == :toplevel
-        stmts = [typedConvertAST(i) for i in ast.children]
-        return JuExpr(Block(ast, stmts))
-    elseif ast.head == :while
-        cond = ast.children[1]
-        body = ast.children[2]
-        return JuExpr(WhileStmt(ast, typedConvertAST(cond), typedConvertAST(body)))
-    elseif ast.head == :for
-        cond = ast.children[1]
-        body = ast.children[2]
-        if cond.head != :(=)
-            error("Invalid for expression")
-        end
-        var = typedConvertAST(cond.children[1])
-        varval = var.val
-        if varval isa Var
-            iter = cond.children[2]
-            return JuExpr(ForStmt(ast, varval, typedConvertAST(iter), typedConvertAST(body)))
-        else
-            error("iterate variable is not a symbol")
-        end
-    elseif ast.head == :string
-        return JuExpr(Literal(ast, makeConstVal(ast.children[1].val)))
-    elseif ast.head == :function
-        if length(ast.children) < 2
-            error("Unsupported empty function body")
-        end
-        body = typedConvertAST(ast.children[2])
-        fast = ast.children[1]
-        if fast.head == :where
-            println(fast.children[2:end])
-            # TODO : support subtyping contraint here...
-            params = [extractSymbol(i) for i in fast.children[2:end]]
-            fast = fast.children[1]
-        else
-            params = Symbol[]
-        end
-        local rt::Union{Nothing, JuExpr}
-        if fast.head == :(::)
-            rt = typedConvertAST(fast.children[2])
-            fast = fast.children[1]
-        else
-            rt = nothing
-        end
-        if fast.head == :call
-            f = typedConvertAST(fast.children[1])
-            args = [collectArgs(i) for i in fast.children[2:end] if i.head != :kw]
-            for i in fast.children[2:end] 
-                if i.head == :kw
-                    error("kwargs is unsupported")
-                end
-            end
-            fval = f.val
-            if fval isa Var
-                return JuExpr(FunDef(ast, fval.id, args, Pair{Symbol, Union{TypedAST, Nothing}}[], params, rt, body))
-            else
-                error("Only support named function definition")
-            end
-        else
-            error("Only support named function definition")
-        end
-    else
-        println(ast.head)
-        error()
-    end
-end
-
-
-
 #=
 We consider here a simple programming language with following constructions:
 <exprs> := list of <expr>
@@ -511,7 +76,7 @@ We consider here a simple programming language with following constructions:
 =#
 
 function inferExpr(eng::Engine, ctx::Context, ast::JuExpr)::InferResult
-    val::Any = ast.val
+    val= ast.val
     if val isa Literal
         return inferLiteral(eng, ctx, val)
     elseif val isa Assign
@@ -530,6 +95,10 @@ function inferExpr(eng::Engine, ctx::Context, ast::JuExpr)::InferResult
         return inferReturn(eng, ctx, val)
     elseif val isa ArrayRef
         return inferArrayRef(eng, ctx, val)
+    elseif val isa ArraySet
+        return inferArraySet(eng, ctx, val)
+    elseif val isa SetProperty
+        return inferSetField(eng, ctx, val)
     elseif val isa GetProperty
         return inferGetField(eng, ctx, val)
     elseif val isa ForStmt
@@ -549,36 +118,121 @@ struct GetProperty
 end
 =#
 
-function inferGetField(eng::Engine, ctx::Context, ast::GetProperty)::InferResult
-    rel = inferExpr(eng, ctx, ast.x)
-    tt = fieldtype(rel.node.typ.val, ast.p)
-    newnode = FlowNode(ast.ast, GetPropertyNode, [rel.node], makeNonConstVal(), makeJuType(tt))
-    InferResult(rel.ctx, newnode)
+# TODO : make the logic correct here
+# TODO : fix me here !!!
+@nocheck function evalGetField(ast::JuAST, node::FlowNode, v::JuVal, p::Symbol)::FlowNode
+    vval = v.val
+    if vval isa Module
+        if isdefined(vval, p)
+            # TODO handle non-const global here
+            v = getproperty(vval, p)
+            return FlowNode(ast, GetPropertyNode, FlowNode[node], makeConstVal(v), makeJuType(Core.Typeof(v)))
+        else
+            error("Undefined global $p in module $vval")
+        end
+    else
+        if hasfield(Core.Typeof(vval), p)
+            tt = fieldtype(Core.Typeof(vval), p)
+            newnode = FlowNode(ast, GetPropertyNode, FlowNode[node], makeNonConstVal(), makeJuType(tt))
+            return newnode
+        else
+            error("type $(Core.Typeof(vval)) has no property $p")
+        end
+    end
 end
 
-function inferArrayRef(eng::Engine, ctx::Context, ast::ArrayRef)::InferResult
-    rel1 = inferExpr(eng, ctx, ast.arr)
-    rel2 = inferExpr(eng, rel1.ctx, ast.i)
-    mm = Base.code_typed_by_type(Tuple{typeof(Base.getindex), rel1.node.typ.val, rel2.node.typ.val})
-    if length(mm) >= 2
-        error("More than one matching method")
-    elseif length(mm) == 0
-        error("No matching method for array indexing operation")
+@nocheck function inferGetField(eng::Engine, ctx::Context, ast::GetProperty)::InferResult
+    rel = inferExpr(eng, ctx, ast.x)
+    # we need to distinguish getproperty on module and other types...
+    if isConstVal(rel.node.val)
+        newnode = evalGetField(ast.ast, rel.node, rel.node.val, ast.p)
+        return InferResult(rel.ctx, newnode)
+    else
+        if hasfield(rel.node.typ.val, ast.p)
+            tt = fieldtype(rel.node.typ.val, ast.p)
+            newnode = FlowNode(ast.ast, GetPropertyNode, FlowNode[rel.node], makeNonConstVal(), makeJuType(tt))
+            return InferResult(rel.ctx, newnode)
+        else
+            error("type $(rel.node.typ.val) has no property $(ast.p)")
+        end
     end
-    tt = mm[1][2]
-    newnode = FlowNode(ast.ast, ArrayRefNode, [rel1.node, rel2.node], makeNonConstVal(), makeJuType(tt))
-    InferResult(rel2.ctx, newnode)
+end
+
+@nocheck function inferSetField(eng::Engine, ctx::Context, ast::SetProperty)::InferResult
+    rel = inferExpr(eng, ctx, ast.x)
+    # TODO : check property before
+    if !hasfield(rel.node.typ.val, ast.p)
+        error("type $(rel.node.typ.val) has no property $(ast.p)")
+    end
+    tt = fieldtype(rel.node.typ.val, ast.p)
+    rel1 = inferExpr(eng, rel.node, ast.v)
+    if !(el1.node.typ.val <: tt)
+        error("Invalid field assignment!")
+    end
+    newnode = FlowNode(ast.ast, SetPropertyNode, FlowNode[rel.node, rel1.node], makeNonConstVal(), makeJuType(tt))
+    InferResult(rel1.ctx, newnode)
+end
+
+# TODO : perform constant propagation for tuple type and pair here...
+# actually, we need a general way to perform constant and type propagation here
+# maybe some kind of dependent type ???
+function inferArrayRef(eng::Engine, ctx::Context, ast::ArrayRef)::InferResult
+    rels = Vector{InferResult}(undef, length(ast.i) + 1)
+    for i in 1:length(rels)
+        if i == 1
+            rels[i] = inferExpr(eng, ctx, ast.arr)
+        else
+            rels[i] = inferExpr(eng, rels[i-1].ctx, ast.i[i-1])
+        end
+    end
+    tts = Vector{FlowNode}(undef, length(rels))
+    for i in 1:length(rels)
+        tts[i] = rels[i].node
+    end
+    mm = getMethodMatches(Base.getindex, tts)
+    if length(mm) >= 2 || length(mm) == 0
+        reportErrorArrayRef(eng, ast.ast, tts, length(mm))
+    end
+    tt = extractUniqueMatch(mm)
+    newnode = FlowNode(ast.ast, ArrayRefNode, tts, makeNonConstVal(), tt)
+    InferResult(last(rels).ctx, newnode)
 end
 
 function inferArraySet(eng::Engine, ctx::Context, ast::ArraySet)::InferResult
-
-end
-
-function inferSetField(eng::Engine, ctx::Context, ast::SetProperty)::InferResult
-
+    rels = Vector{InferResult}(undef, length(ast.i) + 2)
+    for i in 1:length(rels)
+        if i == 1
+            rels[i] = inferExpr(eng, ctx, ast.arr)
+        elseif i == lastindex(rels)
+            rels[i] = inferExpr(eng, rels[i-1].ctx, ast.v)
+        else
+            rels[i] = inferExpr(eng, rels[i-1].ctx, ast.i[i-1])
+        end
+    end
+    tts = Vector{FlowNode}(undef, length(rels))
+    for i in 1:length(rels)
+        if i == 1
+            j = 1
+        elseif i == 2
+            j = lastindex(rels)
+        else
+            j = i - 1
+        end
+        tts[i] = rels[j].node
+    end
+    mm = getMethodMatches(Base.setindex!, tts)
+    # TODO : check the tts here
+    if length(mm) >= 2 || length(mm) == 0
+        reportErrorArraySet(eng, ast.ast, tts, length(mm))
+    end
+    # TODO make this type stable by using a Wrapper here
+    tt = extractUniqueMatch(mm)
+    newnode = FlowNode(ast.ast, ArraySetNode, tts, makeNonConstVal(), tt)
+    InferResult(last(rels).ctx, newnode)
 end
 
 function inferVar(eng::Engine, ctx::Context, ast::Var)::InferResult
+    # not a good idea, currently we treat them like function...
     if hasvar(ctx, ast.id)
         ctxval = lookup(ctx, ast.id)
         if ctxval.curtyp.nodeKind == ConditionalFlowNode
@@ -586,9 +240,18 @@ function inferVar(eng::Engine, ctx::Context, ast::Var)::InferResult
         end
         node = makeVarFlowNode(ast, ctxval.curtyp)
         return InferResult(ctx, node)
-    elseif isdefined(@__MODULE__, ast.id)
-        val_::Any = getproperty(@__MODULE__, ast.id)
+    elseif isdefined(eng.mod, ast.id)
+        val_ = getproperty(eng.mod, ast.id)
         val = makeConstVal(val_)
+        # fix this, using a module here
+        node = makeGlobalVarFlowNode(ast, val)
+        return InferResult(ctx, node)
+    elseif ast.id == :&& || ast.id == :||
+        if ast.id == :&&
+            val = makeConstVal(&)
+        else
+            val = makeConstVal(|)
+        end
         # fix this, using a module here
         node = makeGlobalVarFlowNode(ast, val)
         return InferResult(ctx, node)
@@ -596,23 +259,12 @@ function inferVar(eng::Engine, ctx::Context, ast::Var)::InferResult
         loc = ast.ast.span
         println(formatLocation(loc))
         code = loc.file.code[loc.span[1]:loc.span[2]]
-        println("  Variable $(ast.id) is undefined.")
+        println("In module $(eng.mod), variable $(ast.id) is undefined.")
         error()
     end
 end
 
-#=
-function inferIf(eng::Engine, ctx::Context, ast::IfStmt)::InferResult
 
-end
-=#
-#=
-function inferFor(eng::Engine, ctx::Context, ast::ForStmt)::InferResult
-    # TODO : when we infer for loop
-    # we firstly scan the loop to detect what variables are assigned in the loop body
-    # mark these variables as non-constant
-end
-=#
 function inferFunCall(eng::Engine, ctx::Context, ast::FunCall)::InferResult
     if length(ast.kwargs) != 0
         error()
@@ -620,37 +272,37 @@ function inferFunCall(eng::Engine, ctx::Context, ast::FunCall)::InferResult
         # infer from left to right
         ret = inferExpr(eng, ctx, ast.f)
         ctx = ret.ctx
-        nodes = FlowNode[ret.node]
+        tts = FlowNode[ret.node]
         for i in 1:length(ast.args)
             ret = inferExpr(eng, ctx, ast.args[i])
             ctx = ret.ctx
-            push!(nodes, ret.node)
+            push!(tts, ret.node)
         end
         argtyps = Any[]
-        for i in 1:length(nodes)
-            n = nodes[i]
+        imprecise = Int[]
+        for i in 1:length(tts)
+            n = tts[i]
             ttypval = n.typ.val
-            if isconcretetype(ttypval) || ttypval isa Type
+            if isconcretetype(ttypval) || ttypval <: Type
                 push!(argtyps, ttypval)
             else
-                println(ast)
-                error("Argument type $i-th $ttypval is not a concrete type or a singleton type")
+                push!(imprecise, i)
             end
         end
-        # TODO : perform constant propergation here
-        matches = Base.code_typed_by_type(Tuple{argtyps...})
-        if length(matches) > 1
-            printError(ast.ast)
-            println(argtyps)
-            error("Function call not unique")
-        elseif length(matches) == 0
-            printError(ast.ast)
-            println(argtyps)
-            error("No matched function call")
+        if length(imprecise) > 0
+            reportErrorFunCallArgs(eng, ast.ast, tts, imprecise)
         end
+        # TODO : perform constant propergation here
+        mm = getMethodMatches(tts)
+        # TODO : check the tts here
+        if length(mm) >= 2 || length(mm) == 0
+            reportErrorFunCall(eng, ast.ast, tts, length(mm))
+        end
+        # TODO make this type stable by using a Wrapper here
+        tt = extractUniqueMatch(mm)
         # TODO : we should add constant propagation for pure builtin function !!!
         # this is again a terminal node
-        node = makeFunCallFlowNode(ast, FlowNode[], makeNonConstVal(), makeJuType(matches[1][2]))
+        node = makeFunCallFlowNode(ast, FlowNode[], makeNonConstVal(), tt)
         return InferResult(ctx, node)
     end
 end
@@ -670,7 +322,8 @@ function inferCurlyCall(eng::Engine, ctx::Context, ast::CurlyCall)::InferResult
         n = nodes[i]
         tcurval::JuVal = n.val
         if !isConstVal(tcurval)
-            error("Apply type use a non-constant, which is disallowed")
+            println(ast.ast, "non constant apply type")
+            error()
         else
             push!(argtyps, tcurval.val)
         end
@@ -728,7 +381,7 @@ function inferReturn(eng::Engine, ctx::Context, ast::Return)::InferResult
     aste = ast.e
     engn = eng.retVal
     if aste isa Nothing
-        newnode = makeEmtpyReturnFlowNode(ast)
+        newnode = makeEmptyReturnFlowNode(ast)
         if engn isa Nothing
             eng.retVal = newnode
         else
@@ -788,7 +441,7 @@ function tryNarrowType(eng::Engine, ctx::Context, ast::JuExpr)::Tuple{InferResul
                         newctxval = ContextValue(ctxval.typ, pinode)
                         newctx = update(rel.ctx, x.id, newctxval)
                         # TODO : maybe we should use a cond type here
-                        condnode = FlowNode(e.ast, FunCallNode, [], makeNonConstVal(), makeJuType(Bool))
+                        condnode = FlowNode(e.ast, FunCallNode, FlowNode[], makeNonConstVal(), makeJuType(Bool))
                         newrel = InferResult(newctx, condnode)
                         if curt == Any
                             return newrel, rel.ctx
@@ -830,6 +483,24 @@ function inferIfStmt(eng::Engine, ctx::Context, ast::IfStmt)::InferResult
     else
         push!(rels, inferExpr(eng, ctx, el))
     end
+    #=
+    println("Debug If stmt")
+    if length(ast.branches) == 0
+        println(ast)
+        error()
+    end
+    for i in 1:length(ast.branches)
+        println("Context after $i-th branch")
+        displayResult(stdout, rels[i])
+    end
+    if el isa Nothing
+        println("Context fall through branch")
+        displayResult(stdout, last(rels))
+    else
+        println("Context after else branch")
+        displayResult(stdout, last(rels))
+    end
+    =#
     # then we need to join the result
     # TODO
     # we need to consider reacheable and unreachable here
@@ -870,19 +541,185 @@ function inferIfStmt(eng::Engine, ctx::Context, ast::IfStmt)::InferResult
     return InferResult(newctx, retnode)
 end
 
-function inferFor(eng::Engine, ctx::Context, ast::ForStmt)::InferResult
-    # TODO : when we infer for loop
-    # we firstly scan the loop to detect what variables are assigned in the loop body
-    # mark these variables as non-constant
+function decideScopeVariable!(rel::Set{Symbol}, mod::Set{Symbol}, shadow::Set{Symbol}, ctx::Context, ast::JuExpr)::Nothing
+    val = ast.val
+    if val isa Literal
+        return
+    elseif val isa Assign
+        id = val.lhs.id
+        if id in shadow
+            return
+        end
+        if hasvar(ctx, id)
+            # variable is modified
+            push!(mod, id)
+            return
+        else
+            # a new local variable is created
+            push!(rel, id)
+            return
+        end
+    elseif val isa FunCall
+        decideScopeVariable!(rel, mod, shadow, ctx, val.f)
+        for i in val.args
+            decideScopeVariable!(rel, mod, shadow, ctx, i)
+        end
+        for i in val.kwargs
+            decideScopeVariable!(rel, mod, shadow, ctx, i)
+        end
+        return
+    elseif val isa Block
+        for i in val.stmts
+            decideScopeVariable!(rel, mod, shadow, ctx, i)
+        end
+    elseif val isa Var
+        return
+    elseif val isa CurlyCall
+        decideScopeVariable!(rel, mod, ctx, val.f)
+        for i in f.args
+            decideScopeVariable!(rel, mod, shadow, ctx, i)
+        end
+        return
+    elseif val isa IfStmt
+        for i in val.branches
+            decideScopeVariable!(rel, mod, shadow, ctx, i[1])
+            decideScopeVariable!(rel, mod, shadow, ctx, i[2])
+        end
+        else_e = val.else_
+        if else_e isa Nothing
+            return
+        else
+            decideScopeVariable!(rel, mod, shadow, ctx, else_e)
+        end
+    elseif val isa Return
+        eval = val.e
+        if eval isa Nothing
+            return
+        else
+            decideScopeVariable!(rel, mod, shadow, ctx, eval)
+            return
+        end
+    elseif val isa ArrayRef
+        decideScopeVariable!(rel, mod, shadow, ctx, val.arr)
+        for i in val.i
+            decideScopeVariable!(rel, mod, shadow, ctx, i)
+        end
+        return
+    elseif val isa GetProperty
+        decideScopeVariable!(rel, mod, shadow, ctx, val.x)
+        return 
+    elseif val isa SetProperty
+    elseif val isa ArraySet
+        decideScopeVariable!(rel, mod, shadow, ctx, val.arr)
+        for i in val.i
+            decideScopeVariable!(rel, mod, shadow, ctx,i)
+        end
+        decideScopeVariable!(rel, mod, shadow, ctx, val.v)
+        return
+    elseif val isa TypedAssert
+        decideScopeVariable!(rel, mod, shadow, ctx, lhs)
+        decideScopeVariable!(rel, mod, shadow, ctx, rhs)
+        return
+    elseif val isa ForStmt
+        decideScopeVariable!(rel, mod, shadow, ctx, val.iter)
+        push!(mod, val.var.id)
+        # we prevent modification of rel
+        # because this is a subscope
+        decideScopeVariable!(Set{Symbol}(), mod, shadow, ctx, val.body)
+        pop!(mod)
+        return 
+    elseif val isa WhileStmt
+        decideScopeVariable!(rel, mod, shadow, ctx, val.cond)
+        # we prevent modification of rel
+        # because this is a subscope
+        decideScopeVariable!(Set{Symbol}(), mod, shadow, ctx, val.body)
+    else
+        error("Unimplemented $ast")
+    end
 end
 
+function decideScopeVariable(ctx::Context, ast::JuExpr)
+    rel = Set{Symbol}()
+    mod = Set{Symbol}()
+    shadow = Set{Symbol}()
+    decideScopeVariable!(rel, mod, shadow, ctx, ast)
+    return rel, mod
+end
 
-function testInfer(s::String)
-    eng = Engine(nothing)
-    ast = typedConvertAST(parseJuAST(s))
-    rel = inferExpr(eng, Context(), ast)
-    displayReturn(stdout, eng)
-    displayResult(stdout, rel)
+function iterateCheck(node::FlowNode)::FlowNode
+    # TODO : check Union here, all the input should be concrete type
+    matches = Base.code_typed_by_type(Tuple{typeof(Base.iterate), node.typ.val})
+    if length(matches) != 1
+        error("iterate fails to match")
+    end
+    # TODO check another part of iterate, iterate(iterator, val)
+    tt = matches[1][2]
+    if !(tt isa Union)
+        error("Not a union for iterator")
+    end
+    tt = splitUnion(tt, Nothing)
+    if tt <: Tuple
+        tt = tt.parameters[1]
+    else
+        error("Not a tuple for iterator")
+    end
+    return FlowNode(node.ast, ForVarNode, [node], makeNonConstVal(), makeJuType(tt))
+end
+
+function inferForStmt(eng::Engine, ctx::Context, ast::ForStmt)::InferResult
+    # we firstly scan the loop to detect what variables are assigned in the loop body
+    # mark these variables as non-constant
+    var = ast.var
+    rel = inferExpr(eng, ctx, ast.iter)
+    ctx = rel.ctx
+    varnode = iterateCheck(rel.node)
+    newvars, modvars = decideScopeVariable(ctx, ast.body)
+    newmapping = Dict{Symbol, ContextValue}()
+    newmapping[var.id] = ContextValue(varnode, varnode)
+    for tmp in ctx.mapping.data
+        k = tmp[1]
+        v = tmp[2]
+        if k in modvars && k != var.id
+            z = FlowNode(ast.ast, ForUpdateNode, [v.curtyp], makeNonConstVal(), v.curtyp.typ) 
+            newmapping[k] = ContextValue(v.typ, z)
+        elseif k in newvars || k == var.id
+            # k in newvars means k is shadowed, we skip them here
+            # new variable 
+            continue
+        else
+            # unchanged
+            newmapping[k] = v
+        end
+    end
+    newctx = Context(ImmutableDict(newmapping))
+    re2 = inferExpr(eng, newctx, ast.body)
+    newmapping2 = Dict{Symbol, ContextValue}()
+    # TODO : how we join the value here ? what's the scope rule here?
+    for tmp in ctx.mapping.data
+        k = tmp[1]
+        v = tmp[2]
+        if k in modvars && k != var.id
+            newmapping2[k] = ContextValue(newmapping[k].typ, tryMergeFlowNode(ast.ast, [lookup(ctx, k).curtyp, lookup(re2.ctx, k).curtyp], false))
+        else
+            # shadowed variable or unassigned
+            newmapping2[k] = v
+        end
+    end
+    #=
+    println("---Debug here---")
+    println("Context after iterate")
+    displayContext(stdout, ctx)
+    println("Context after body")
+    displayContext(stdout, re2.ctx)
+    println("Context after merge")
+    displayContext(stdout, Context(ImmutableDict(newmapping2)))
+    =#
+    retnode = FlowNode(ast.ast, ForEndNode, FlowNode[], makeConstVal(nothing), makeJuType(Nothing))
+    return InferResult(Context(ImmutableDict(newmapping2)), retnode)
+end
+
+function inferWhileStmt(eng::Engine, ctx::Context, ast::WhileStmt)::InferResult
+    error()
 end
 
 function displayResult(io::IO, rel::InferResult)
@@ -987,27 +824,71 @@ function testInferForFunction(ast::FunDef, f, tt)
         mapping[ast.args[i][1]] = ContextValue(node, node)
     end
     ctx = Context(ImmutableDict(merge(smapping, mapping)))
-    eng = Engine(nothing)
+    eng = Engine(typeof(f).name.module)
+    # Firstly, infer return type
+    astrt = ast.rt 
+    if astrt != nothing
+        # TODO : fix the flow node here
+        rel = inferExpr(eng, ctx, astrt)
+        # TODO : use a interface functon for val -> typ conversion
+        eng.retVal = FlowNode(ast.ast, ExpectedReturnNode, FlowNode[], makeNonConstVal(), makeJuType(rel.node.val.val))
+        ctx = rel.ctx
+    end
     rel = inferExpr(eng, ctx, ast.body)
-    displayReturn(stdout, eng)
-    displayResult(stdout, rel)
+    # we need to return the value here
+    engn = eng.retVal
+    if engn isa Nothing
+        eng.retVal = rel.node
+    else
+        tryMergeFlowNode(ast.ast, [engn, rel.node], true)
+    end
+    return InferReport(ast, tt, eng, rel)
 end
 
-function extractFunDef(ast::JuExpr)::Vector{FunDef}
+function displayReport(io::IO, r::InferReport)
+    println(io, '\u2500'^64)
+    println(io, "Inference Result for Function $(r.f.f)")
+    println(io, "  argtype : $(r.tt)")
+    displayReturn(stdout, r.eng)
+    displayResult(stdout, r.rel)
+    println(io, '\u2500'^64)
+    return
+end
+
+function extractFunDef!(d, curmod, rel::Vector{FunDef}, ast::JuExpr)
     e = ast.val
-    if e isa Block
-        res = Vector{FunDef}()
+    if e isa ModDef
+        push!(curmod, e.name)
+        rel = FunDef[]
+        extractFunDef!(d, curmod, rel, e.stmts)
+        d[copy(curmod)] = rel
+        pop!(curmod)
+    elseif e isa Block
         for i in e.stmts
-            append!(res, extractFunDef(i))
+            extractFunDef!(d, curmod, rel, i)
         end
-        return res
     elseif e isa FunDef
-        res = Vector{FunDef}()
-        push!(res, e)
-        return res
-    else
-        error("Not valid func def")
+        push!(rel, e)
     end
+    return
+end
+
+function decomposeModule(defmod::Core.Module)
+    rel = Symbol[nameof(defmod)]
+    while Base.parentmodule(defmod) != defmod
+        defmod = Base.parentmodule(defmod)
+        push!(Symbol[nameof(defmod)])
+    end
+    return rel
+end
+
+function extractFunDef(ast::JuExpr, defmod::Core.Module)
+    curmod = decomposeModule(defmod)
+    d = Dict{Vector{Symbol}, Vector{FunDef}}()
+    rel = FunDef[]
+    extractFunDef!(d, curmod, rel, ast)
+    d[copy(curmod)] = rel
+    return d
 end
 
 end

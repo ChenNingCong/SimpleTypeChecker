@@ -1,5 +1,6 @@
 
 module MyTest
+using JuliaSyntax
 include("interface.jl")
 banned_list = ["eval","include"]
 for i in names(Interface, all = true)
@@ -72,13 +73,16 @@ Interface.testInferForFunction(Interface.extractFunDef(ast)[1], Interface.inferA
 Interface.testInferForFunction(Interface.extractFunDef(ast)[2], Interface.extractFunDef, (Interface.JuExpr,))
 
 s2 = """
+y = 1
 for i in 1:19
+    z = 3
     println(i)
 end
+a = 3
 while i > 0
     println(i)
 end
 """
 ast = Interface.typedConvertAST(Interface.parseJuAST(s2))
-
+rel = Interface.decideScopeVariable(Interface.Context(), ast)
 end

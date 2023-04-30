@@ -27,18 +27,25 @@ end
     return false
 end
 
-@nocheck function tryMergeType(v1::JuType, v2::JuType, allowUnion::Bool)
+@nocheck function tryMergeReturnFlowNode(eng::Engine, v1::FlowNode, v2::FlowNode)::Nothing
+    if !(v2.typ.val <: v1.typ.val)
+        reportErrorReturnEnlargeType(eng, v1, v2)
+    end
+    return
+end
+
+@nocheck function tryMergeType(eng::Engine, v1::JuType, v2::JuType, allowUnion::Bool)
     @assert !isPoisonType(v1) && !isPoisonType(v2)
     newv = Union{v1.val, v2.val}
     if !allowUnion
         if newv != v1.val
-            error("if enlarge types")
+            reportErrorIfEnlargeType(eng, v1, v2)
         end
     end
     return makeJuType(newv)
 end
 
-function tryMergeFlowNode(ast::JuAST, v::Vector{FlowNode}, allowUnion::Bool)::FlowNode
+function tryMergeFlowNode(eng, ast::JuAST, v::Vector{FlowNode}, allowUnion::Bool)::FlowNode
     tmpval = v[1].val
     tmptyp = v[1].typ
     allConst = true
@@ -46,7 +53,15 @@ function tryMergeFlowNode(ast::JuAST, v::Vector{FlowNode}, allowUnion::Bool)::Fl
         if !tryMergeValue(tmpval, v[i].val)
             allConst = false
         end
-        tmptyp = tryMergeType(tmptyp, v[i].typ, allowUnion)
+        v1 = tmptyp
+        v2 = v[i].typ
+        newv = Union{v1.val, v2.val}
+        if !allowUnion
+            if newv != v1.val
+                reportErrorIfEnlargeType(eng, v[1], v[i])
+            end
+        end
+        tmptyp = makeJuType(newv)
     end
     if allConst
         return FlowNode(ast, IfFlowNode, v, tmpval, tmptyp)
@@ -106,7 +121,9 @@ function inferExpr(eng::Engine, ctx::Context, ast::JuExpr)::InferResult
     elseif val isa WhileStmt
         return inferWhileStmt(eng, ctx, val)
     else
-        error("Unimplemented $ast")
+        println("Unimplemented ast type")
+        println(ast)
+        error()
     end
 end
 
@@ -148,12 +165,16 @@ end
         newnode = evalGetField(ast.ast, rel.node, rel.node.val, ast.p)
         return InferResult(rel.ctx, newnode)
     else
-        if hasfield(rel.node.typ.val, ast.p)
-            tt = fieldtype(rel.node.typ.val, ast.p)
+        ft = rel.node.typ.val
+        if !(isconcretetype(ft) || ft <: Type)
+            reportErrorFieldType(eng, ast.ast, rel.node, true)
+        end
+        if hasfield(ft, ast.p)
+            tt = fieldtype(ft, ast.p)
             newnode = FlowNode(ast.ast, GetPropertyNode, FlowNode[rel.node], makeNonConstVal(), makeJuType(tt))
             return InferResult(rel.ctx, newnode)
         else
-            error("type $(rel.node.typ.val) has no property $(ast.p)")
+            reportErrorNoField(eng, ast.ast, rel.node, ast.p)
         end
     end
 end
@@ -162,12 +183,12 @@ end
     rel = inferExpr(eng, ctx, ast.x)
     # TODO : check property before
     if !hasfield(rel.node.typ.val, ast.p)
-        error("type $(rel.node.typ.val) has no property $(ast.p)")
+        reportErrorNoField(eng, ast.ast, rel.node, ast.p)
     end
     tt = fieldtype(rel.node.typ.val, ast.p)
-    rel1 = inferExpr(eng, rel.node, ast.v)
-    if !(el1.node.typ.val <: tt)
-        error("Invalid field assignment!")
+    rel1 = inferExpr(eng, rel.ctx, ast.v)
+    if !(rel1.node.typ.val <: tt)
+        reportErrorSetFieldTypeIncompatible(eng, ast.ast, rel.node, rel1.node, tt, ast.p)
     end
     newnode = FlowNode(ast.ast, SetPropertyNode, FlowNode[rel.node, rel1.node], makeNonConstVal(), makeJuType(tt))
     InferResult(rel1.ctx, newnode)
@@ -256,11 +277,7 @@ function inferVar(eng::Engine, ctx::Context, ast::Var)::InferResult
         node = makeGlobalVarFlowNode(ast, val)
         return InferResult(ctx, node)
     else
-        loc = ast.ast.span
-        println(formatLocation(loc))
-        code = loc.file.code[loc.span[1]:loc.span[2]]
-        println("In module $(eng.mod), variable $(ast.id) is undefined.")
-        error()
+        reportErrorUndefinedVar(eng, ast.ast, eng.mod, ast.id)
     end
 end
 
@@ -285,12 +302,19 @@ function inferFunCall(eng::Engine, ctx::Context, ast::FunCall)::InferResult
             ttypval = n.typ.val
             if isconcretetype(ttypval) || ttypval <: Type
                 push!(argtyps, ttypval)
+                if ttypval == Union{}
+                    reportWarningUnionAsValue(eng, ast.ast, i)
+                end
             else
                 push!(imprecise, i)
             end
         end
         if length(imprecise) > 0
             reportErrorFunCallArgs(eng, ast.ast, tts, imprecise)
+        end
+        checkConstructor::Bool = false
+        if argtyps[1] <: Type
+            checkConstructor = true
         end
         # TODO : perform constant propergation here
         mm = getMethodMatches(tts)
@@ -300,6 +324,9 @@ function inferFunCall(eng::Engine, ctx::Context, ast::FunCall)::InferResult
         end
         # TODO make this type stable by using a Wrapper here
         tt = extractUniqueMatch(mm)
+        if tt.val == Union{} && checkConstructor
+            reportErrorNoConstructor(eng, ast.ast, tts)
+        end
         # TODO : we should add constant propagation for pure builtin function !!!
         # this is again a terminal node
         node = makeFunCallFlowNode(ast, FlowNode[], makeNonConstVal(), tt)
@@ -338,12 +365,15 @@ function inferAssign(eng::Engine, ctx::Context, ast::Assign)::InferResult
     retctx = rel.ctx
     retnode = rel.node
     var = ast.lhs
+    if retnode.typ.val == Union{}
+        reportWarningAssignUnion(eng, ast.ast, ast.lhs.id)
+    end
     if hasvar(retctx, var.id)
         # this variable is already assigned before, we check type compatibility
         oldval = lookup(retctx, var.id)
         # storage type is unchanged, update current type 
         if !tryMergeFlowType(oldval.typ, retnode)
-            error("Incompatble type is assigned")
+            reportErrorAssignIncompatible(eng, oldval.typ, retnode)
         end
         newnode = makeAssignFlowNode(ast, retnode)
         # the primary assignment is unchanged
@@ -385,7 +415,7 @@ function inferReturn(eng::Engine, ctx::Context, ast::Return)::InferResult
         if engn isa Nothing
             eng.retVal = newnode
         else
-            tryMergeFlowNode(ast.ast, [engn, newnode], true)
+            tryMergeReturnFlowNode(eng, engn, newnode)
         end
         return ctx
     else
@@ -394,7 +424,7 @@ function inferReturn(eng::Engine, ctx::Context, ast::Return)::InferResult
         if engn isa Nothing
             eng.retVal = newnode
         else
-            tryMergeFlowNode(ast.ast, [engn, newnode], true)
+            tryMergeReturnFlowNode(eng, engn, newnode)
         end
         return rel
     end
@@ -452,16 +482,19 @@ function tryNarrowType(eng::Engine, ctx::Context, ast::JuExpr)::Tuple{InferResul
                             negctx = update(rel.ctx, x.id, newctxval)
                             return newrel, negctx
                         else
-                            error("Not here")
+                            reportErrorIsaLHSBadType(eng, e.ast, ctxval.curtyp)
                         end
                     else
-                        error("`isa` is not in a predicative form")
+                        reportErrorIsaBadForm(eng, e.ast, "`isa` is not in a predicative form")
                     end
                 end
             end
         end
     end
     rel = inferExpr(eng, ctx, ast)
+    if rel.node.typ.val != Bool
+        reportErrorCondNotBool(eng, rel.node)
+    end
     return rel, rel.ctx
 end
     
@@ -507,7 +540,7 @@ function inferIfStmt(eng::Engine, ctx::Context, ast::IfStmt)::InferResult
     # Case 1 : variable defined before if
     defined = Dict{Symbol, ContextValue}()
     for (name, ctxval) in prectx.mapping.data
-        value = tryMergeFlowNode(ast.ast, [lookup(rel.ctx, name).curtyp for rel in rels], true)
+        value = tryMergeFlowNode(eng, ast.ast, [lookup(rel.ctx, name).curtyp for rel in rels], true)
         defined[name] = ContextValue(ctxval.typ, value)
     end
     # Case 2 : variable defined in if, maybe conditionally
@@ -529,7 +562,7 @@ function inferIfStmt(eng::Engine, ctx::Context, ast::IfStmt)::InferResult
                 break
             end
         end
-        node = tryMergeFlowNode(ast.ast, [lookup(rel.ctx, name).curtyp for rel in rels if hasvar(rel.ctx, name)], false)
+        node = tryMergeFlowNode(eng, ast.ast, [lookup(rel.ctx, name).curtyp for rel in rels if hasvar(rel.ctx, name)], false)
         if condDef
             node = FlowNode(ast.ast, ConditionalFlowNode, FlowNode[node], node.val, node.typ)
         end
@@ -537,7 +570,7 @@ function inferIfStmt(eng::Engine, ctx::Context, ast::IfStmt)::InferResult
         non_defined[name] = value
     end
     newctx = Context(ImmutableDict(Dict{Symbol, ContextValue}(merge(defined, non_defined))))
-    retnode = tryMergeFlowNode(ast.ast, [i.node for i in rels], true)
+    retnode = tryMergeFlowNode(eng, ast.ast, [i.node for i in rels], true)
     return InferResult(newctx, retnode)
 end
 
@@ -575,8 +608,8 @@ function decideScopeVariable!(rel::Set{Symbol}, mod::Set{Symbol}, shadow::Set{Sy
     elseif val isa Var
         return
     elseif val isa CurlyCall
-        decideScopeVariable!(rel, mod, ctx, val.f)
-        for i in f.args
+        decideScopeVariable!(rel, mod, shadow, ctx, val.f)
+        for i in val.args
             decideScopeVariable!(rel, mod, shadow, ctx, i)
         end
         return
@@ -699,7 +732,7 @@ function inferForStmt(eng::Engine, ctx::Context, ast::ForStmt)::InferResult
         k = tmp[1]
         v = tmp[2]
         if k in modvars && k != var.id
-            newmapping2[k] = ContextValue(newmapping[k].typ, tryMergeFlowNode(ast.ast, [lookup(ctx, k).curtyp, lookup(re2.ctx, k).curtyp], false))
+            newmapping2[k] = ContextValue(newmapping[k].typ, tryMergeFlowNode(eng, ast.ast, [lookup(ctx, k).curtyp, lookup(re2.ctx, k).curtyp], false))
         else
             # shadowed variable or unassigned
             newmapping2[k] = v
@@ -840,7 +873,7 @@ function testInferForFunction(ast::FunDef, f, tt)
     if engn isa Nothing
         eng.retVal = rel.node
     else
-        tryMergeFlowNode(ast.ast, [engn, rel.node], true)
+        tryMergeReturnFlowNode(eng, engn, rel.node)
     end
     return InferReport(ast, tt, eng, rel)
 end

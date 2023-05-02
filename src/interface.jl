@@ -257,7 +257,7 @@ function inferVar(eng::Engine, ctx::Context, ast::Var)::InferResult
     if hasvar(ctx, ast.id)
         ctxval = lookup(ctx, ast.id)
         if ctxval.curtyp.nodeKind == ConditionalFlowNode
-            error("Variable is conditionally defined")
+            error("$(formatLocation(ast.ast.span))\n Variable $(ast.id) is conditionally defined")
         end
         node = makeVarFlowNode(ast, ctxval.curtyp)
         return InferResult(ctx, node)
@@ -922,6 +922,19 @@ function extractFunDef(ast::JuExpr, defmod::Core.Module)
     extractFunDef!(d, curmod, rel, ast)
     d[copy(curmod)] = rel
     return d
+end
+
+function fasteval(mod::Module, x::JuExpr)
+    v = x.val
+    if v isa Var
+        return getproperty(mod, v.id)
+    elseif v isa GetProperty
+        return getproperty(fasteval(mod, v.x), v.p)
+    elseif v isa CurlyCall
+        return Core.apply_type(fasteval(mod, v.f), fasteval.(Ref(mod), v.args)...)
+    else
+        error("Not suppoerted $(typeof(x))")
+    end
 end
 
 end

@@ -50,6 +50,8 @@ Note : we need to rely on Julia's builtin type inferencer, because we don't have
 Currently there are many limitations, like we don't support destruct assignment (`(x, v) = k`).
 Some of them are temporal and will be removed in the future, but at least the following limitations are permanent. They are critial parts of SimpleTypeChecker's design and can't be simply removed by clever engineer efforts.
 
+In summary, these limitations are the prices in exchange for a better error reporting.
+
 ---
 >Function calls with abstract parameters (including `Union{...}, Any, Integer, where`) are unconditionally disallowed, whether there is only one matching method, whether the function is a commonly used one (like `==(Any, Any)`), etc.
 

@@ -1,3 +1,5 @@
+module CaseTest
+
 const ExpectError = Dict{Any, Any}()
 # check literal type
 function f1()::Float64
@@ -272,4 +274,6 @@ function f31()
         x = 1
     end
     println(Array{Int, x})
+end
+
 end

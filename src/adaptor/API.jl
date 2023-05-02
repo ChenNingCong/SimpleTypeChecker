@@ -1,4 +1,5 @@
 import ..SimpleTypeChecker
+import ..SimpleTypeChecker.Utility.@nocheck
 const M = SimpleTypeChecker.Inference
 function evalMods(parent::Core.Module, s::Vector{Symbol})
     base = parent
@@ -44,6 +45,7 @@ function runtest(mod::Core.Module, filename::String)
         else
             error("$(def.f[]) is not defined in module $(mod)")
         end
+        println("Checking ", def.f[], ":")
         m = collectArgs(mod, ff, def.args)
         if !(m isa Method)
             println("Not a valid method $m")
@@ -60,7 +62,6 @@ function runtest(mod::Core.Module, filename::String)
             else
                 k = z.parameters[1].instance
             end
-            println("Checking ", def.f[], ":")
             rep = SimpleTypeChecker.Inference.testInferForFunction(globalctx, ex, mapping, k, tuple(z.parameters[2:end]...))
         catch e
             if e isa SimpleTypeChecker.Inference.InferenceError

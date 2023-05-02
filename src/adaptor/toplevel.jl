@@ -24,3 +24,4 @@ end
 module API
     include("API.jl")
 end
+include("precompile.jl")

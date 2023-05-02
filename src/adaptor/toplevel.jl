@@ -1,5 +1,3 @@
-module SimpleTypeChecker
-
 module Utility
     include("utility.jl")
     include("datastruct.jl")
@@ -23,4 +21,6 @@ module Inference
     include("JuExprValidator.jl")
 end
 
+module API
+    include("API.jl")
 end

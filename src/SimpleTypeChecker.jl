@@ -1,5 +1,5 @@
 module SimpleTypeChecker
 
-greet() = print("Hello World!")
+include("./adaptor/toplevel.jl")
 
 end # module SimpleTypeChecker

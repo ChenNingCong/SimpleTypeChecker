@@ -33,6 +33,16 @@ function collectArgs(mod, f, tts, params::Vector{Symbol})
     return Base.which(base)
 end
 
+function check(ctx::SimpleTypeChecker.Inference.GlobalContext, f, tt)
+    ci = Base.code_typed_by_type(z)[1].first
+    if ci isa Core.CodeInfo
+        mi = ci.parent
+        push!(ctx.queue, mi)
+        runCheck!(ctx)
+    end
+    return
+end
+
 
 function addFile!(ctx::SimpleTypeChecker.Inference.GlobalContext, mod::Core.Module, filename::String)
     if !isabspath(filename)

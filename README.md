@@ -11,7 +11,7 @@ ctx = SimpleTypeChecker.Inference.GlobalContext()
 SimpleTypeChecker.API.addFile!(ctx, mod, filepath)
 SimpleTypeChecker.API.runCheck!(ctx)
 SimpleTypeChecker.API.@nocheck fun
-SimpleTypeChecker.check(ctx, f, tt)
+SimpleTypeChecker.API.check(ctx, f, tt)
 ```
 SimpleTypeChecker provides several APIs to check all the functions in a file. To use this function, firstly import/include the module you want to check, then call `ctx = SimpleTypeChecker.Inference.GlobalContext()` to construct a context for type inference. Use `SimpleTypeChecker.API.addFile!(ctx, mod, filepath)` to add all the files you want to check into the context. Here `mod` is the module you just evaled and `filepath` is the filepath (*absolute path*) where the module is defined. Finally call `runCheck!` to check the context 
 

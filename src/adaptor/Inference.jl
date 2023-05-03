@@ -925,25 +925,38 @@ function inferIfStmt(eng::Engine, ctx::Context, ex::JuExpr, ifex::IfStmt)::Infer
     return InferResult(newctx, retnode)
 end
 
-
+function checkScopeVariable!(rel::Set{Symbol}, mod::Set{Symbol}, shadow::Set{Symbol}, ctx::Context, id::Symbol)::Nothing
+    if id in shadow
+        return
+    end
+    if hasvar(ctx, id)
+        # variable is modified
+        push!(mod, id)
+        return
+    else
+        # a new local variable is created
+        push!(rel, id)
+        return
+    end
+end
 function decideScopeVariable!(rel::Set{Symbol}, mod::Set{Symbol}, shadow::Set{Symbol}, ctx::Context, ast::JuExpr)::Nothing
     val = ast.val
     if val isa Literal
         return
+    elseif val isa TupleLiteral
+        for i in val.parameters
+            decideScopeVariable!(rel, mod, shadow, ctx, i)
+        end
+        return
+    elseif val isa TupleAssign
+        for i in val.lhss
+            checkScopeVariable!(rel, mod, shadow, ctx, i)
+        end
+        return
+    elseif val isa UpdateAssign
+        return checkScopeVariable!(rel, mod, shadow, ctx, val.lhs)
     elseif val isa Assign
-        id = val.lhs
-        if id in shadow
-            return
-        end
-        if hasvar(ctx, id)
-            # variable is modified
-            push!(mod, id)
-            return
-        else
-            # a new local variable is created
-            push!(rel, id)
-            return
-        end
+        return checkScopeVariable!(rel, mod, shadow, ctx, val.lhs)
     elseif val isa FunCall
         decideScopeVariable!(rel, mod, shadow, ctx, val.f)
         for i in val.args

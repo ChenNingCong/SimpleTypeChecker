@@ -316,5 +316,16 @@ function f38()
     end
 end
 
+function f39()
+    xref = Base.RefValue{Union{Float64, Int, Float32}}(1)
+    x = xref[]
+    if x isa Int
+        println(x)
+    elseif x isa Float32
+        println(x)
+    else
+        println(x)
+    end
+end
 
 end

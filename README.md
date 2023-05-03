@@ -7,14 +7,17 @@ pkg> add https://github.com/ChenNingCong/SimpleTypeChecker
 
 # Usage
 ```julia
-SimpleTypeChecker.API.runtest(mod::Core.Module, filename::String)
+ctx = SimpleTypeChecker.Inference.GlobalContext()
+SimpleTypeChecker.API.addFile!(ctx, mod, filepath)
+SimpleTypeChecker.API.runCheck!(ctx)
 SimpleTypeChecker.API.@nocheck fun
+SimpleTypeChecker.check(ctx, f, tt)
 ```
-SimpleTypeChecker provides a API to check all the functions in a file. To use this function, firstly import/include the module you want to check, then call `SimpleTypeChecker.API.runtest(mod, filename)`. Here `mod` is the module you just evaled and `filename` is the filepath (*absolute path*) where the module is defined.
+SimpleTypeChecker provides several APIs to check all the functions in a file. To use this function, firstly import/include the module you want to check, then call `ctx = SimpleTypeChecker.Inference.GlobalContext()` to construct a context for type inference. Use `SimpleTypeChecker.API.addFile!(ctx, mod, filepath)` to add all the files you want to check into the context. Here `mod` is the module you just evaled and `filepath` is the filepath (*absolute path*) where the module is defined. Finally call `runCheck!` to check the context 
 
-If you have a function that is highly dynamic or uses some features that SimpleTypeChecker doesn't support, and you are certain the function is type stable, then you can use `SimpleTypeChecker.API.@nocheck fun` to skip the checking of that function.
+If you have a function that is highly dynamic or uses some features that SimpleTypeChecker doesn't support, and you are certain the function is type stable, then you can use `SimpleTypeChecker.API.@nocheck fun` to skip the checking of that particular function.
 
-Currently, only functions with concrete type annotation can be checked. So function signatures like `sum(x::AbstractArray)` and `println(io::IO, x)` will create a lot of false positives, because the abstract types are used for type inference. In the future, we will support check of individual specializations of each method, with a interface similar to `precompile(f, tts)`.
+Currently, only functions with concrete type annotation can be checked. If you want to check individual specializations like `sum(x::AbstractArray)` and `println(io::IO, x)`, use `SimpleTypeChecker.check(ctx, f, tt)`. `SimpleTypeChecker.check` accepts parameters like `code_warntype` and `code_typed`, `SimpleTypeChecker.check(ctx, sin, (Float64,))`. If you find this too complicated, then you can create a `main` function and put all the specializations in that `main` function. `SimpleTypeChecker` will recur into the subprocedure calls automatically.
 
 # Demo
 1. SimpleTypeChecker is checked against itself, the following code checks almost all the codes of SimpleTypeChecker (some codes interact with Julia's compiler so they simply can't be statically-typed)
@@ -22,12 +25,14 @@ Currently, only functions with concrete type annotation can be checked. So funct
 import SimpleTypeChecker
 # firstly we get the package directory of SimpleTypeChecker
 const path = abspath(joinpath(splitdir(pathof(SimpleTypeChecker))[1], ".."))
-SimpleTypeChecker.API.runtest(SimpleTypeChecker.SyntaxDefinition, joinpath(path, "src/adaptor/SyntaxDefinition.jl"))
-SimpleTypeChecker.API.runtest(SimpleTypeChecker.SyntaxAdaptor, joinpath(path, "src/adaptor/SyntaxAdaptor.jl"))
-SimpleTypeChecker.API.runtest(SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/InferenceError.jl"))
-SimpleTypeChecker.API.runtest(SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/Inference.jl"))
-SimpleTypeChecker.API.runtest(SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/JuExprAdaptor.jl"))
-SimpleTypeChecker.API.runtest(SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/JuExprValidator.jl"))
+ctx = SimpleTypeChecker.Inference.GlobalContext()
+SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.SyntaxDefinition, joinpath(path, "src/adaptor/SyntaxDefinition.jl"))
+SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.SyntaxAdaptor, joinpath(path, "src/adaptor/SyntaxAdaptor.jl"))
+SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/InferenceError.jl"))
+SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/Inference.jl"))
+SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/JuExprAdaptor.jl"))
+SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/JuExprValidator.jl"))
+SimpleTypeChecker.API.runCheck!(ctx)
 ```
 2. You can check the `test/case.jl` of SimpleTypeChecker's test cases, which includes some common program errors.
 ```julia
@@ -36,7 +41,9 @@ import SimpleTypeChecker
 const path = abspath(joinpath(splitdir(pathof(SimpleTypeChecker))[1], ".."))
 const testpath = abspath(joinpath(path, "test/case.jl"))
 include(testpath)
-SimpleTypeChecker.API.runtest(CaseTest, testpath)
+ctx = SimpleTypeChecker.Inference.GlobalContext()
+SimpleTypeChecker.API.addFile!(ctx, CaseTest, joinpath(path, testpath))
+SimpleTypeChecker.API.runCheck!(ctx)
 ```
 
 # Internal

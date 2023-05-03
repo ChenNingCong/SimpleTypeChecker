@@ -34,7 +34,7 @@ function collectArgs(mod, f, tts, params::Vector{Symbol})
 end
 
 function check(ctx::SimpleTypeChecker.Inference.GlobalContext, f, tt)
-    ci = Base.code_typed_by_type(z)[1].first
+    ci = Base.code_typed(f,tt))[1].first
     if ci isa Core.CodeInfo
         mi = ci.parent
         push!(ctx.queue, mi)

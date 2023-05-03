@@ -225,6 +225,11 @@ function reportErrorAssignIncompatible(eng::Engine, old::FlowNode, new::FlowNode
     throwInferneceError()
 end
 
+function reportErrorAssignInitIncompatible(eng::Engine, ast::JuAST, ass::CompileType, init::CompileType)::Union{}
+    printErrorHead(eng, ast, "AssignError: initializer's type $(toString(init)) is incompatible with asserted type of $(toString(ass))")
+    println(eng.errio, "Note implicit conversion is disallowed for assignment.")
+    throwInferneceError()
+end
 function reportErrorPrematureUnreachable(eng::Engine, ast::JuAST)::Union{}
     printErrorHead(eng, ast, "UnreachableError: unreachable code exists after this expression")
     throwInferneceError()

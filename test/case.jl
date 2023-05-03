@@ -290,8 +290,17 @@ function f34(x::Int)
     x += 1.0
 end
 
-function f34(x::Float64)
+function f35(x::Float64)
     x += 1
 end
 
+function f36(z::Float64)
+    local x::Int = 1
+    y::Int = 3
+end
+
+# disallowed
+function f37(z::Float64)
+    local x::Int = 1.0
+end
 end

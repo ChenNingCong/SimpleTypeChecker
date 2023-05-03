@@ -289,10 +289,14 @@ function inferDeclaration(eng::Engine, ctx::Context, ex::JuExpr, d::Declaration)
             rel = inferExpr(eng, ctx, castJust(typ))
             ctx = rel.ctx
             # storage type
-            node1 = makeAssignFlowNode(ex, rel.node)
-            # current type
-            node2 = makeAssignFlowNode(ex, rhsnode)
-            ctx = update(ctx, var, ContextValue(node1, node2))
+            # we need to check conversion here
+            # no, I choose to disallow convertion
+            declaretyp = lift(rel.node.typ)
+            if !tryMergeCompileValue(declaretyp, rhsnode.typ)
+                reportErrorAssignInitIncompatible(eng, ast, declaretyp, rhsnode.typ)
+            end
+            node1 = FlowNode(ex, AssignFlowNode, FlowNode[rhsnode], declaretyp)
+            ctx = update(ctx, var, ContextValue(node1, node1))
             node = makeLiteralFlowNode(ex, makeType(Nothing))
         end
     else

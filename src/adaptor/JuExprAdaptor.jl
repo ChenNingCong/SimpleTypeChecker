@@ -282,16 +282,32 @@ function constructJuExprAssign!(result::ConstructJuExprResult, ast::JuAST)::JuEx
     elseif alhs.head == :(::)
         error("Not here")
     else
+        rhs = constructJuExpr!(result, ast.args[2])
         if alhs.head == :literal && isaJuASTVal(alhs.val, Symbol)
             sym = cast2Symbol(alhs.val)
-            rhs = constructJuExpr!(result, ast.args[2])
             k = Assign(sym, rhs)
             ex = JuExpr(k, ast)
             addSourceMapDerived!(result, alhs, DerivedExpr(DerivedExprAssignLHS(ex)))
             addSourceMap!(result, ast, ex)
             return ex
+        elseif alhs.head == :tuple
+            syms = Vector{Symbol}(undef, length(alhs.args))
+            ex = JuExpr(TupleAssign(syms, rhs), ast)
+            for i in eachindex(alhs.args)
+                symast = alhs.args[i]
+                if !(symast.head == :literal && isaJuASTVal(symast.val, Symbol))
+                    err = InvalidSyntaxError("Not a valid tuple destruct")
+                    reportError(result, err, ast)
+                    return ex
+                end
+                sym = cast2Symbol(symast.val)
+                syms[i] = sym
+                addSourceMapDerived!(result, symast, DerivedExpr(DerivedExprAssignLHS(ex)))
+            end
+            addSourceMap!(result, ast, ex)
+            return ex
         end
-        err = InvalidSyntaxError("Not a valid setproperty AST")
+        err = InvalidSyntaxError("Not a valid assignment AST")
         reportError(result, err, ast)
         return ex
     end
@@ -555,7 +571,30 @@ function constructJuExpr!(result::ConstructJuExprResult, ast::JuAST)::JuExpr
         ex = JuExpr(BreakStmt(), ast)
         addSourceMap!(result, ast, ex)
         return ex
+    elseif ast.head == :tuple
+        params = Vector{JuExpr}(undef, length(ast.args))
+        for i in eachindex(ast.args)
+            params[i] = constructJuExpr!(result, ast.args[i])
+        end
+        ex = JuExpr(TupleLiteral(params), ast)
+        addSourceMap!(result, ast, ex)
+        return ex
     else
+        x = string(ast.head)
+        if length(x) >= 1 && x[end] == '='
+            x_ = ast.args[1]
+            if x_.head == :literal && isaJuASTVal(x_.val, Symbol)
+                sym = cast2Symbol(x_.val)
+                ex = JuExpr(UpdateAssign(Symbol(x[1:end-1]), sym, constructJuExpr!(result, ast.args[2])), ast)
+                addSourceMapDerived!(result, x_, DerivedExpr(DerivedExprAssignLHS(ex)))
+                addSourceMap!(result, ast, ex)
+                return ex
+            else
+                err = InvalidSyntaxError("lhs is not a symbol")
+                reportError(result, err, ast)
+            end
+            return ex
+        end
         err = InvalidSyntaxError("Unsupported AST kind")
         reportError(result, err, ast)
         return ex

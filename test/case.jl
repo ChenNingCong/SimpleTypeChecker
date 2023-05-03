@@ -276,4 +276,22 @@ function f31()
     println(Array{Int, x})
 end
 
+
+function f32()
+    (x,y) = (1,2)
+    print((2,3))
+end
+
+function f33(x::Int)
+    x += 1
+end
+
+function f34(x::Int)
+    x += 1.0
+end
+
+function f34(x::Float64)
+    x += 1
+end
+
 end

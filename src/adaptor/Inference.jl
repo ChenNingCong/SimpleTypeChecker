@@ -105,9 +105,150 @@ function inferExpr(eng::Engine, ctx::Context, ex::JuExpr)::InferResult
         return inferBreakStmt(eng, ctx, ex, val)
     elseif val isa ContinueStmt
         return inferContinueStmt(eng, ctx, ex, val)
+    elseif val isa TupleAssign
+        return inferTupleAssign(eng, ctx, ex, val)
+    elseif val isa TupleLiteral
+        return inferTupleLiteral(eng, ctx, ex, val)
+    elseif val isa UpdateAssign
+        return inferUpdateAssign(eng, ctx, ex, val)
     else
         reportErrorUnimplementedAST(eng, ex.ast)
     end
+end
+
+@nocheck function makeTupleType(tt::Vector{FlowNode})::CompileType
+    makeType(Tuple{[i.typ.typ for i in tt]...})
+end
+
+function inferTupleLiteral(eng::Engine, ctx::Context, ex::JuExpr, tast::TupleLiteral)::InferResult
+    nodes = Vector{FlowNode}(undef, length(tast.parameters))
+    for i in eachindex(tast.parameters)
+        local iast = tast.parameters[i]
+        rel = inferExpr(eng, ctx, iast)
+        ctx = rel.ctx
+        if isBottomType(rel.node.typ)
+            reportErrorTupleBottom(eng, iast.ast, i)
+        end
+        nodes[i] = rel.node
+    end
+    node = FlowNode(ex, TupleLiteralFlowNode, nodes, makeTupleType(nodes))
+    addFlowMapping!(eng, ex, node)
+    return InferResult(ctx, node) 
+end
+
+@nocheck function tryDestructTuple(ex::JuExpr, node::FlowNode)::Union{Nothing, Vector{FlowNode}}
+    t = node.typ.typ
+    if (t <: Tuple && t isa DataType) || (t <: Pair && t isa DataType)
+        return FlowNode[FlowNode(ex, DestructFlowNode, FlowNode[node], makeType(i)) for i in t.parameters]
+    else
+        return nothing
+    end
+end
+
+function inferTupleAssign(eng::Engine, ctx::Context, ex::JuExpr, tast::TupleAssign)::InferResult
+    ast = ex.ast
+    rel = inferExpr(eng, ctx, tast.rhs)
+    ctx = rel.ctx
+    rhsnode = rel.node
+    tts = tryDestructTuple(ex, rhsnode)
+    if tts isa Nothing
+        reportErrorFailedToDestruct(eng, ast, "Failed to destruct rhs, not a pair or tuple")
+    end
+    if length(tts) != length(tast.lhss)
+        reportErrorFailedToDestruct(eng, ast, "Failed to destruct rhs, length mismatched")
+    end
+    for i in eachindex(tast.lhss)
+        local newnode::FlowNode
+        varid = tast.lhss[i]
+        node = tts[i]
+        if hasvar(ctx, varid)
+            # this variable is already assigned before, we check type compatibility
+            oldval = lookup(ctx, varid)
+            # storage type is unchanged, update current type 
+            if !tryMergeFlowType(oldval.typ, node)
+                reportErrorAssignIncompatible(eng, oldval.typ, node)
+            end
+            newnode = makeAssignFlowNode(ex, node)
+            # the primary assignment is unchanged
+            val = ContextValue(oldval.typ, newnode)
+        else
+            newnode = makeAssignFlowNode(ex, node)
+            val = ContextValue(newnode, newnode)
+        end
+        ctx = update(ctx, varid, val)
+    end
+    newnode = makeAssignFlowNode(ex, rhsnode)
+    addFlowMapping!(eng, ex, newnode)
+    return InferResult(ctx, newnode)
+end
+
+@nocheck function makeUpdateOp(op::Symbol)::CompileType
+    return makeConstVal(getproperty(Base, op))
+end
+
+#=
+function inferAssignHelper(ctx::Context, ids::Vector{Symbol}, nodes::Vector{FlowNode})::InferResult
+    for i in eachindex(ids)
+        varid = ids[i]
+        node = nodes[i]
+        if hasvar(ctx, varid)
+            # this variable is already assigned before, we check type compatibility
+            oldval = lookup(ctx, varid)
+            # storage type is unchanged, update current type 
+            if !tryMergeFlowType(oldval.typ, node)
+                reportErrorAssignIncompatible(eng, oldval.typ, node)
+            end
+            newnode = makeAssignFlowNode(ex, node)
+            # the primary assignment is unchanged
+            val = ContextValue(oldval.typ, newnode)
+        else
+            newnode = makeAssignFlowNode(ex, node)
+            val = ContextValue(newnode, newnode)
+        end
+        ctx = update(ctx, varid, val)
+        addFlowMapping!(eng, node.ex, newnode)
+    end
+end
+=#
+function inferUpdateAssign(eng::Engine, ctx::Context, ex::JuExpr, uast::UpdateAssign)::InferResult
+    # TODO : the ast is incorrect here...
+    # TODO : add flow mapping here?
+    ast = ex.ast
+    rel = inferExpr(eng, ctx, JuExpr(Var(uast.lhs), ast))
+    ctx = rel.ctx
+    lhsnode = rel.node
+    rel = inferExpr(eng, ctx, uast.rhs)
+    ctx = rel.ctx
+    rhsnode = rel.node
+    # todo : check the node here
+    argnodes = FlowNode[makeLiteralFlowNode(ex, makeUpdateOp(uast.op)), lhsnode, rhsnode]
+    mm = getMethodMatches(eng, argnodes)
+    if length(mm) >= 2 || length(mm) == 0
+        reportErrorFunCall(eng, ast, argnodes, length(mm))
+    end
+    tt = extractUniqueMatch(mm)
+    if isBottomType(tt)
+        reportErrorAssignBottom(eng, ast, uast.lhs)
+    end
+    node = makeFunCallFlowNode(ex, argnodes, tt)
+    varid = uast.lhs
+    if hasvar(ctx, varid)
+        # this variable is already assigned before, we check type compatibility
+        oldval = lookup(ctx, varid)
+        # storage type is unchanged, update current type 
+        if !tryMergeFlowType(oldval.typ, node)
+            reportErrorAssignIncompatible(eng, oldval.typ, node)
+        end
+        newnode = makeAssignFlowNode(ex, node)
+        # the primary assignment is unchanged
+        val = ContextValue(oldval.typ, newnode)
+    else
+        newnode = makeAssignFlowNode(ex, node)
+        val = ContextValue(newnode, newnode)
+    end
+    ctx = update(ctx, varid, val)
+    addFlowMapping!(eng, ex, newnode)
+    return InferResult(ctx, newnode)
 end
 
 function inferBreakStmt(eng::Engine, ctx::Context, ex::JuExpr, val::BreakStmt)::InferResult
@@ -359,10 +500,25 @@ function inferVar(eng::Engine, ctx::Context, ex::JuExpr, var::Var)::InferResult
         return InferResult(ctx, node)
     elseif id == :end
         # lastindex
-        error("Unimplemented")
+        # we only support one-dimentional array!!!
+        # this is incorrect
+        node = eng.arrayContext[end]
+        m = getMethodMatches(eng, Base.lastindex, FlowNode[node])
+        # TODO : check method !!!
+        tt = extractUniqueMatch(m)
+        node = FlowNode(ex, VarFlowNode, FlowNode[], tt)
+        addFlowMapping!(eng, ex, node)
+        return InferResult(ctx, node)
     elseif id == :begin
         # firstindex
-        error("Unimplemented") 
+        node = eng.arrayContext[end]
+        m = getMethodMatches(eng, Base.firstindex, FlowNode[node])
+        # TODO : check method !!!
+        tt = extractUniqueMatch(m)
+        # TODO : check node here
+        node = FlowNode(ex, VarFlowNode, FlowNode[], tt)
+        addFlowMapping!(eng, ex, node)
+        return InferResult(ctx, node)
     else
         reportErrorUndefinedVar(eng, ast, eng.mod, id)
     end

@@ -98,6 +98,24 @@ struct Assign <: TypedAST
     rhs::JuExpr
 end
 
+# x,y = z
+struct TupleAssign <: TypedAST
+    lhss::Vector{Symbol}
+    rhs::JuExpr
+end
+
+# (1,2,3)
+struct TupleLiteral <: TypedAST
+    parameters::Vector{JuExpr}
+end
+
+# x += 1
+struct UpdateAssign <: TypedAST
+    op::Symbol
+    lhs::Symbol
+    rhs::JuExpr
+end
+
 struct FunCall <: TypedAST
     f::JuExpr
     args::Vector{JuExpr}
@@ -224,7 +242,9 @@ end
     BreakStmtFlowNode
     ContinueStmtFlowNode
     UninitializedFlowNode
-
+    TupleLiteralFlowNode
+    DestructFlowNode
+    
     ControlFlowNodeBegin
     PhiFlowNode
     ForVarNode                 

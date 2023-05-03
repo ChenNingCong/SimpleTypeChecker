@@ -273,3 +273,13 @@ function reportErrorUnitializedVar(eng::Engine, ast::JuAST, id::Symbol)::Union{}
     printErrorHead(eng, ast, "UndefinedError: variable $id is potentially unitialized here")
     throwInferneceError()
 end
+
+function reportErrorTupleBottom(eng::Engine, ast::JuAST, id::Int)::Union{}
+    printErrorHead(eng, ast, "BottomError: $id-th parameter of the tuple is a bottom value")
+    throwInferneceError()
+end
+
+function reportErrorFailedToDestruct(eng::Engine, ast::JuAST, msg::String)::Union{}
+    printErrorHead(eng, ast, "AssignError: Failed to destruct rhs to lhs : $msg")
+    throwInferneceError()
+end

@@ -443,14 +443,17 @@ struct InferReport
     rel::InferResult
 end
 
-@nocheck function fasteval(mod::Module, x::JuExpr)
+@nocheck function fasteval(mod::Module, x::JuExpr, params::Dict{Symbol, TypeVar})
     v = x.val
     if v isa Var
+        if haskey(params, v.id)
+            return params[v.id]
+        end
         return getproperty(mod, v.id)
     elseif v isa GetProperty
-        return getproperty(fasteval(mod, v.x), v.p)
+        return getproperty(fasteval(mod, v.x, params), v.p)
     elseif v isa CurlyCall
-        return Core.apply_type(fasteval(mod, v.f), fasteval.(Ref(mod), v.args)...)
+        return Core.apply_type(fasteval(mod, v.f, params), fasteval.(Ref(mod), v.args, Ref(params))...)
     else
         error("Not suppoerted $(typeof(x))")
     end

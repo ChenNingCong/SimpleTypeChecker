@@ -11,17 +11,26 @@ function evalMods(parent::Core.Module, s::Vector{Symbol})
     return base
 end
 
-function collectArgs(mod, f, tts)
+function collectArgs(mod, f, tts, params::Vector{Symbol})
     result = Any[]
+    paramMap = Dict{Symbol, TypeVar}()
+    for i in params
+        paramMap[i] = TypeVar(i)
+    end
     for (name, tt) in tts
         if SimpleTypeChecker.Utility.isNone(tt)
             v = Any
         else
-            v = SimpleTypeChecker.Inference.fasteval(mod, SimpleTypeChecker.Utility.castJust(tt))
+            v = SimpleTypeChecker.Inference.fasteval(mod, SimpleTypeChecker.Utility.castJust(tt), paramMap)
         end
         push!(result, v)
     end
-    return which(f, tuple(result...))
+    # iterate in reverse order
+    base = Tuple{Core.Typeof(f), result...}
+    for i in reverse(params)
+        base = UnionAll(paramMap[i], base)
+    end
+    return Base.which(base)
 end
 
 
@@ -42,7 +51,7 @@ function addFile!(ctx::SimpleTypeChecker.Inference.GlobalContext, mod::Core.Modu
         else
             error("$(def.f[]) is not defined in module $(mod)")
         end
-        meth = collectArgs(mod, ff, def.args)
+        meth = collectArgs(mod, ff, def.args, def.params)
         if !(meth isa Method)
             println("Not a valid method $meth")
             continue

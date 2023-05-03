@@ -602,7 +602,7 @@ function constructJuExprFunDef!(result::ConstructJuExprResult, ast::JuAST)::JuEx
     fast = ast.args[1]
     if fast.head == :where
         # TODO : support subtyping contraint here...
-        for i in 1:length(params)
+        for i in 1:length(fast.args)-1
             child = fast.args[i + 1]
             if child.head == :literal && isaJuASTVal(child.val, Symbol)
                 sym = cast2Symbol(child.val)

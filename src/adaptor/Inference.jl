@@ -788,18 +788,18 @@ function inferIfStmt(eng::Engine, ctx::Context, ex::JuExpr, ifex::IfStmt)::Infer
     prectx = ctx
     for branch in ifex.branches
         tmp1 = tryNarrowType(eng, ctx, branch.first)
-        println("before split")
-        displayContext(stdout, ctx)
+        #println("before split")
+        #displayContext(stdout, ctx)
         rel1 = tmp1.first
         # ctx here is the ctx for negative branch
         ctx = tmp1.second
         rel2 = inferExpr(eng, rel1.ctx, branch.second)
         push!(rels, rel2)
-        println("after split")
-        println("positive branch")
-        displayContext(stdout, rel1.ctx)
-        println("negative branch")
-        displayContext(stdout, ctx)
+        #println("after split")
+        #println("positive branch")
+        #displayContext(stdout, rel1.ctx)
+        #println("negative branch")
+        #displayContext(stdout, ctx)
     end
     el = ifex.else_
     if isNone(el)

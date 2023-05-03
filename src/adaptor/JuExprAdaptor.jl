@@ -280,7 +280,19 @@ function constructJuExprAssign!(result::ConstructJuExprResult, ast::JuAST)::JuEx
         addSourceMap!(result, ast, ex)
         return ex
     elseif alhs.head == :(::)
-        error("Not here")
+        # add derived here???
+        rhs = constructJuExpr!(result, ast.args[2])
+        var = alhs.args[1]
+        if var.head == :literal && isaJuASTVal(var.val, Symbol)
+            sym = cast2Symbol(var.val)
+            ttyp = constructJuExpr!(result, alhs.args[2])
+            ex = JuExpr(DeclarationList(JuExpr[JuExpr(Declaration(sym, Just(ttyp), Just(rhs)), ast)]), ast)
+            addSourceMap!(result, ast, ex)
+            return ex
+        end
+        err = InvalidSyntaxError("Not a valid variable type definition, lhs can only be symbol")
+        reportError(result, err, ast)
+        return ex
     else
         rhs = constructJuExpr!(result, ast.args[2])
         if alhs.head == :literal && isaJuASTVal(alhs.val, Symbol)

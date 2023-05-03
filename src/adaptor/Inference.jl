@@ -1082,7 +1082,8 @@ end
     for i in 1:length(mi.sparam_vals)
         local tt = mi.sparam_vals[i]
         # TODO : change the definition here...
-        node = FlowNode(ex, SparamNode, FlowNode[], makeType(tt))
+        # not make type, but make constant value
+        node = FlowNode(ex, SparamNode, FlowNode[], makeConstVal(tt))
         smapping[funast.params[i]] = ContextValue(node, node)
     end
     mapping = Dict{Symbol, ContextValue}()

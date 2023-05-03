@@ -303,4 +303,18 @@ end
 function f37(z::Float64)
     local x::Int = 1.0
 end
+
+function f38()
+    xref = Base.RefValue{Union{Float64, Int, Float32}}(1)
+    x = xref[]
+    if x isa Int
+        println(x)
+    elseif x isa Float32
+        println(x)
+    else
+        println(x)
+    end
+end
+
+
 end

@@ -42,6 +42,9 @@ function cacheLookup(eng::Engine, sig)
         # we should use result from Julia's builtin compiler
         v = Base.code_typed_by_type(sig)
         if length(v) == 1
+            if v[1].first isa Core.CodeInfo
+                pushfirst!(ctx.queue, v[1].first.parent)
+            end
             ctx.cache[sig] = v
         end
         return v

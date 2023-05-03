@@ -379,11 +379,14 @@ end
 end
 
 mutable struct GlobalContext
+    queue::Vector{Core.MethodInstance}
+    hasChecked::Dict{Core.MethodInstance, Any}
+    methodDefs::Dict{Core.Method, Pair{JuExpr, SourceMapping}}
     cache::Dict{Any, Vector{Any}}
 end
 
 function GlobalContext()
-    GlobalContext(Dict{Any, Vector{Any}}())
+    GlobalContext(Core.MethodInstance[], Dict{Core.MethodInstance, Any}(), Dict{Core.Method, Pair{JuExpr, SourceMapping}}(), Dict{Any, Vector{Any}}())
 end
 
 mutable struct Engine
@@ -435,7 +438,7 @@ end
 
 struct InferReport
     f::JuExpr
-    tt::Any
+    mi::Core.MethodInstance
     eng::Engine
     rel::InferResult
 end

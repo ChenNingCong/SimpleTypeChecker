@@ -1069,24 +1069,18 @@ function displayReturn(io::ErrorLogger, eng::Engine)
     end
 end
 
-@nocheck function testInferForFunction(globalctx::GlobalContext, ex::JuExpr, sourceMapping::SourceMapping, f::Any, tt::Any)
+@nocheck function testInferForFunction(globalctx::GlobalContext, ex::JuExpr, sourceMapping::SourceMapping, mi::Core.MethodInstance)
     ast = ex.ast
     funast = ex.val
     if !(funast isa FunDef)
         error()
     end
-
-    mis = Core.Compiler.method_instances(f, tt)
-    if length(mis) != 1
-        error("Not unique match")
-    end
-    mi = mis[1]
     smapping = Dict{Symbol, ContextValue}()
     if length(mi.sparam_vals) != length(funast.params)
         error("mismatched param size")
     end
     for i in 1:length(mi.sparam_vals)
-        tt = mi.sparam_vals[i]
+        local tt = mi.sparam_vals[i]
         # TODO : change the definition here...
         node = FlowNode(ex, SparamNode, FlowNode[], makeType(tt))
         smapping[funast.params[i]] = ContextValue(node, node)
@@ -1099,13 +1093,13 @@ end
         error("mismatched argument size")
     end
     for i in 1:length(funast.args)
-        tt = argtts[i+1]
+        local tt = argtts[i+1]
         # TODO : change the definition here...
         node = FlowNode(ex, ParamNode, FlowNode[], makeType(tt))
         mapping[funast.args[i].first] = ContextValue(node, node)
     end
     ctx = Context(ImmutableDict(merge(smapping, mapping)))
-    eng = Engine(globalctx, mi, typeof(f).name.module, sourceMapping)
+    eng = Engine(globalctx, mi, mi.def.module, sourceMapping)
     # Firstly, infer return type
     astrt = funast.rt 
     if !isNone(astrt)
@@ -1126,7 +1120,7 @@ end
             reportErrorReturnEnlargeType(eng, castJust(engn), newnode)
         end
     end
-    return InferReport(ex, tt, eng, rel)
+    return InferReport(ex, mi, eng, rel)
 end
 
 @nocheck function displayReport(io::ErrorLogger, r::InferReport)
@@ -1134,8 +1128,7 @@ end
     ex = r.f
     val = ex.val
     if val isa FunDef
-        println(io, "Inference Result for Function $(val.f[])")
-        println(io, "  argtype : $(r.tt)")
+        println(io, "Inference Result for Method $(r.mi)")
         displayReturn(io, r.eng)
         displayResult(io, r.rel)
         println(io, '\u2500'^64)
@@ -1144,41 +1137,3 @@ end
     end
     return
 end
-
-#=
-function extractFunDef!(d, curmod, rel::Vector{FunDef}, ast::JuExpr)
-    e = ast.val
-    if e isa ModDef
-        push!(curmod, e.name)
-        rel = FunDef[]
-        extractFunDef!(d, curmod, rel, e.stmts)
-        d[copy(curmod)] = rel
-        pop!(curmod)
-    elseif e isa Block
-        for i in e.stmts
-            extractFunDef!(d, curmod, rel, i)
-        end
-    elseif e isa FunDef
-        push!(rel, e)
-    end
-    return
-end
-
-function decomposeModule(defmod::Core.Module)
-    rel = Symbol[nameof(defmod)]
-    while Base.parentmodule(defmod) != defmod
-        defmod = Base.parentmodule(defmod)
-        push!(Symbol[nameof(defmod)])
-    end
-    return rel
-end
-
-function extractFunDef(ast::JuExpr, defmod::Core.Module)
-    curmod = decomposeModule(defmod)
-    d = Dict{Vector{Symbol}, Vector{FunDef}}()
-    rel = FunDef[]
-    extractFunDef!(d, curmod, rel, ast)
-    d[copy(curmod)] = rel
-    return d
-end
-=#

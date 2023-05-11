@@ -155,7 +155,7 @@ end
 function constructLiteral!(result::ConstructJuExprResult, ast::JuAST)::JuExpr
     lval = ast.val
     if isaJuASTVal(lval, Symbol)
-        ex = JuExpr(Var(cast2Symbol(lval)), ast)
+        error("Internal error : symbol should be a identifier")
     else
          # an abstract function calling here
         if lval.isconst
@@ -212,7 +212,7 @@ function constructJuExprArgs!(result::ConstructJuExprResult, f::JuAST)::JuExpr
                 if kw.head == :(=)
                     # Expr(:kw, ...) 
                     name = kw.args[1]
-                    if name.head == :literal && isaJuASTVal(name.val, Symbol)
+                    if name.head == :identifier
                         sym = cast2Symbol(name.val)
                         push!(kwargs, sym => constructJuExpr!(result, kw.args[2]))
                         dkw = DerivedExprKwArg(ex, sym)
@@ -222,7 +222,7 @@ function constructJuExprArgs!(result::ConstructJuExprResult, f::JuAST)::JuExpr
                         err = InvalidSyntaxError("Invalid keyword argument definition")
                         reportError(result, err, name)
                     end
-                elseif kw.head == :literal && isaJuASTVal(kw.val, Symbol)
+                elseif kw.head == :identifier
                     # keyword syntax
                     # f(x;x) =>f(x;x = x)
                     sym = cast2Symbol(kw.val)
@@ -253,7 +253,7 @@ function constructJuExprAssign!(result::ConstructJuExprResult, ast::JuAST)::JuEx
         p = alhs.args[2]
         if p.head == :quote
             x_ = p.args[1]
-            if x_.head == :literal && isaJuASTVal(x_.val, Symbol)
+            if x_.head == :identifier
                 sym = cast2Symbol(x_.val)
                 rhs = constructJuExpr!(result, ast.args[2])
                 ex = JuExpr(SetProperty(dlhs, sym, rhs), ast)
@@ -283,7 +283,7 @@ function constructJuExprAssign!(result::ConstructJuExprResult, ast::JuAST)::JuEx
         # add derived here???
         rhs = constructJuExpr!(result, ast.args[2])
         var = alhs.args[1]
-        if var.head == :literal && isaJuASTVal(var.val, Symbol)
+        if var.head == :identifier
             sym = cast2Symbol(var.val)
             ttyp = constructJuExpr!(result, alhs.args[2])
             ex = JuExpr(DeclarationList(JuExpr[JuExpr(Declaration(sym, Just(ttyp), Just(rhs)), ast)]), ast)
@@ -295,7 +295,7 @@ function constructJuExprAssign!(result::ConstructJuExprResult, ast::JuAST)::JuEx
         return ex
     else
         rhs = constructJuExpr!(result, ast.args[2])
-        if alhs.head == :literal && isaJuASTVal(alhs.val, Symbol)
+        if alhs.head == :identifier
             sym = cast2Symbol(alhs.val)
             k = Assign(sym, rhs)
             ex = JuExpr(k, ast)
@@ -307,7 +307,7 @@ function constructJuExprAssign!(result::ConstructJuExprResult, ast::JuAST)::JuEx
             ex = JuExpr(TupleAssign(syms, rhs), ast)
             for i in eachindex(alhs.args)
                 symast = alhs.args[i]
-                if !(symast.head == :literal && isaJuASTVal(symast.val, Symbol))
+                if !(symast.head == :identifier)
                     err = InvalidSyntaxError("Not a valid tuple destruct")
                     reportError(result, err, ast)
                     return ex
@@ -364,7 +364,7 @@ function constructJuExpr!(result::ConstructJuExprResult, ast::JuAST)::JuExpr
         addSourceMap!(result, ast, ex)
         return ex
     elseif ast.head == :quote
-        if length(ast.args) == 1 && ast.args[1].head == :literal && isaJuASTVal(ast.args[1].val, Symbol)
+        if length(ast.args) == 1 && ast.args[1].head == :identifier
             ex = JuExpr(Literal(makeConstVal(cast2Symbol(ast.args[1].val))), ast)
             addSourceMap!(result, ast, ex)
         else
@@ -384,7 +384,7 @@ function constructJuExpr!(result::ConstructJuExprResult, ast::JuAST)::JuExpr
             reportError(result, err, ast)
             return ex
         end
-        if nameast.head == :literal && isaJuASTVal(nameast.val, Symbol)
+        if nameast.head == :identifier
             sym = cast2Symbol(nameast.val)
             stmts = Vector{JuExpr}()
             modex = JuExpr(ModDef(sym, stmts), ast)
@@ -459,7 +459,7 @@ function constructJuExpr!(result::ConstructJuExprResult, ast::JuAST)::JuExpr
         rhs_ = ast.args[2]
         if rhs_.head == :quote
             x_ = rhs_.args[1]
-            if x_.head == :literal && isaJuASTVal(x_.val, Symbol)
+            if x_.head == :identifier
                 sym = cast2Symbol(x_.val)
                 ex = JuExpr(GetProperty(lhs, sym), ast)
                 addSourceMapDerived!(result, rhs_, DerivedExpr(DerivedExprField(ex)))
@@ -506,7 +506,7 @@ function constructJuExpr!(result::ConstructJuExprResult, ast::JuAST)::JuExpr
         end
         var = cond.args[1]
         iter = cond.args[2]
-        if var.head == :literal && isaJuASTVal(var.val, Symbol)
+        if var.head == :identifier
             sym = cast2Symbol(var.val)
             iterex = constructJuExpr!(result, iter)
             bodyex = constructJuExpr!(result, body)
@@ -562,7 +562,7 @@ function constructJuExpr!(result::ConstructJuExprResult, ast::JuAST)::JuExpr
                 typ = Just(constructJuExpr!(result, i.args[2]))
                 i = i.args[1]
             end
-            if i.head == :literal && isaJuASTVal(i.val, Symbol)
+            if i.head == :identifier
                 sym = cast2Symbol(i.val)
                 ex = JuExpr(Declaration(sym, typ, rhs), whole)
                 addSourceMapDerived!(result, i, DerivedExpr(DerivedExprAssignLHS(ex)))
@@ -591,11 +591,15 @@ function constructJuExpr!(result::ConstructJuExprResult, ast::JuAST)::JuExpr
         ex = JuExpr(TupleLiteral(params), ast)
         addSourceMap!(result, ast, ex)
         return ex
+    elseif ast.head == :identifier
+        ex = JuExpr(Var(cast2Symbol(ast.val)), ast)
+        addSourceMap!(result, ast, ex)
+        return ex
     else
         x = string(ast.head)
         if length(x) >= 1 && x[end] == '='
             x_ = ast.args[1]
-            if x_.head == :literal && isaJuASTVal(x_.val, Symbol)
+            if x_.head == :identifier
                 sym = cast2Symbol(x_.val)
                 ex = JuExpr(UpdateAssign(Symbol(x[1:end-1]), sym, constructJuExpr!(result, ast.args[2])), ast)
                 addSourceMapDerived!(result, x_, DerivedExpr(DerivedExprAssignLHS(ex)))
@@ -655,7 +659,7 @@ function constructJuExprFunDef!(result::ConstructJuExprResult, ast::JuAST)::JuEx
         # TODO : support subtyping contraint here...
         for i in 1:length(fast.args)-1
             child = fast.args[i + 1]
-            if child.head == :literal && isaJuASTVal(child.val, Symbol)
+            if child.head == :identifier
                 sym = cast2Symbol(child.val)
                 addSourceMapDerived!(result, child, DerivedExpr(DerivedExprFunParam(ex, sym)))
                 push!(params, sym)
@@ -674,7 +678,7 @@ function constructJuExprFunDef!(result::ConstructJuExprResult, ast::JuAST)::JuEx
     
     if fast.head == :call
         fname = fast.args[1]
-        if fname.head == :literal && isaJuASTVal(fname.val, Symbol)
+        if fname.head == :identifier
             sym = cast2Symbol(fname.val)
             exf.f[] = sym
             addSourceMapDerived!(result, fname, DerivedExpr(DerivedExprFunName(ex)))
@@ -687,7 +691,7 @@ function constructJuExprFunDef!(result::ConstructJuExprResult, ast::JuAST)::JuEx
                     addSourceMapDerived!(result, param, DerivedExpr(DerivedExprFunDefArgPos(ex, i)))
                     param = param.args[1]
                 end
-                if param.head == :literal && isaJuASTVal(param.val, Symbol)
+                if param.head == :identifier
                     ss = cast2Symbol(param.val)
                     push!(args, ss => atyp)
                     addSourceMapDerived!(result, param, DerivedExpr(DerivedExprFunDefArg(ex, ss)))

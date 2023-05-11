@@ -83,10 +83,15 @@ function convert2JuAST!(tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData},
     if nchild_ isa Nothing
         # this is a literal, like number, symbol or string
         v = getNodeVal(tree)
-        ast = JuAST(:literal, JuAST[], v, loc, parent, tree)
+        # if the value is a symbol, then we represent it by an identifier instead of a symbol
+        vv = v.val 
+        if vv isa Symbol
+            ast = JuAST(:identifier, JuAST[], v, loc, parent, tree)
+        else
+            ast = JuAST(:literal, JuAST[], v, loc, parent, tree)
+        end
         return ast
     end
-    # TODO : fix this once we introduce unreachable inference in our type inferencer
     nchild = getChildren(tree)
     head = data.raw.head
     kind = Int64(reinterpret(Int16, head.kind))

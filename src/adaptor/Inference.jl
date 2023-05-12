@@ -696,8 +696,9 @@ function inferReturn(eng::Engine, ctx::Context, ex::JuExpr, rast::Return)::Infer
         if !tryMergeReturnFlowNode(castJust(engn), rettnode)
             reportErrorReturnEnlargeType(eng, castJust(engn), rettnode)
         end
+    else
+        eng.retVal = Just(rettnode)
     end
-    eng.retVal = Just(rettnode)
     addFlowMapping!(eng, ex, newnode)
     # after this expression, all declaration is cleared
     return InferResult(Context(), newnode)

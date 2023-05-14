@@ -95,6 +95,7 @@ function addFile!(ctx::SimpleTypeChecker.Inference.GlobalContext, mod::Core.Modu
 end
 
 function runCheck!(ctx::SimpleTypeChecker.Inference.GlobalContext)
+    first = true
     while !isempty(ctx.queue)
         mi = popfirst!(ctx.queue)
         # this specialization is checked
@@ -106,7 +107,6 @@ function runCheck!(ctx::SimpleTypeChecker.Inference.GlobalContext)
             continue
         end
         ex, mapping = ctx.methodDefs[meth]
-        println("Checking $mi")
         tts = mi.specTypes
         # mark the specialization in check
         ctx.hasChecked[mi] = nothing
@@ -114,6 +114,12 @@ function runCheck!(ctx::SimpleTypeChecker.Inference.GlobalContext)
             SimpleTypeChecker.Inference.testInferForFunction(ctx, ex, mapping, mi)
         catch e
             if e isa SimpleTypeChecker.Inference.InferenceError
+                if first
+                    println("────────────────────────────────────────────────────────────────")
+                    first = false
+                end
+                println("Checking $mi")
+                print(String(take!(ctx.errio.io)))
                 println("────────────────────────────────────────────────────────────────")
                 ctx.hasChecked[mi] = e
             else

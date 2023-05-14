@@ -391,14 +391,15 @@ struct Context
 end
 
 struct ErrorLogger <: IO
-    io::IO
+    io::IOBuffer
 end
 
-@nocheck function Base.write(log::ErrorLogger, x::UInt8)
+function Base.write(log::ErrorLogger, x::UInt8)
     write(log.io, x)
 end
 
 mutable struct GlobalContext
+    errio::ErrorLogger
     queue::Vector{Core.MethodInstance}
     hasChecked::Dict{Core.MethodInstance, Any}
     methodDefs::Dict{Core.Method, Pair{JuExpr, SourceMapping}}
@@ -406,7 +407,7 @@ mutable struct GlobalContext
 end
 
 function GlobalContext()
-    GlobalContext(Core.MethodInstance[], Dict{Core.MethodInstance, Any}(), Dict{Core.Method, Pair{JuExpr, SourceMapping}}(), Dict{Any, Vector{Any}}())
+    GlobalContext(ErrorLogger(IOBuffer()), Core.MethodInstance[], Dict{Core.MethodInstance, Any}(), Dict{Core.Method, Pair{JuExpr, SourceMapping}}(), Dict{Any, Vector{Any}}())
 end
 
 mutable struct Engine
@@ -431,7 +432,7 @@ function addFlowMapping!(eng::Engine, ex::JuExpr, node::FlowNode)::Nothing
 end
 
 function Engine(ctx::GlobalContext, mi::Core.MethodInstance, mod::Core.Module, sourceMapping::SourceMapping)
-    return Engine(ctx, mi, mod, ErrorLogger(stdout), sourceMapping, FlowMapping(), FlowNode[], None(FlowNode))
+    return Engine(ctx, mi, mod, ctx.errio, sourceMapping, FlowMapping(), FlowNode[], None(FlowNode))
 end
 
 function Context()

@@ -15,14 +15,11 @@ end
 
 module Inference
     include("InferenceDefinition.jl")
-    #include("DerivedExpr.jl")
-    #include("JuExprAdaptor.jl")
     include("ScopeChecking.jl")
     include("InferenceErrorUtility.jl")
     include("InferenceError.jl")
     include("UtilityUnType.jl")
     include("Inference.jl")
-    #include("JuExprValidator.jl")
 end
 
 module Server

@@ -1,6 +1,6 @@
 module MyTest
 
-include("../src/SimpleTypeChecker.jl")
+include("../../src/SimpleTypeChecker.jl")
 include("case.jl")
 testpath = abspath(joinpath(@__DIR__, "case.jl"))
 ctx = SimpleTypeChecker.Inference.GlobalContext()

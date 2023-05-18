@@ -328,4 +328,18 @@ function f39()
     end
 end
 
+function f40(::Type{Vector{Int}})
+    return 1
+end
+
+function f41(y::Int)
+    local x::Union{Int, Nothing}
+    if y > 0
+        x = 1
+    else
+        x = nothing
+    end
+    return x === nothing
+end
+
 end

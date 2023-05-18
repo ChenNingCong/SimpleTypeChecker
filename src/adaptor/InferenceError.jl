@@ -445,6 +445,8 @@ end
 @nocheck function isBuiltinEqual(tt::CompileType)::Bool
     if tt.val === (Core.:(===))
         return true
+    elseif tt.val ===(Base.:(!==))
+        return true
     else
         return false
     end
@@ -472,7 +474,7 @@ function displayErrorFunCallArgs(err::InferenceErrorFunCallArgs)::Nothing
         println(eng.errio, "  keyword argument $(name) is of abstract type $(explainAbstractType(node.typ))")
     end
     if isBuiltinEqual(ms.fargs[1].typ)
-        println(eng.errio, "  Don't use === to compare values of different types, use (<var> isa Nothing) to split type of a variable explicitly")
+        println(eng.errio, "  Don't use ===/!== to compare values of different types, use (<var> isa Nothing) to split type of a variable explicitly")
     end
 end
 

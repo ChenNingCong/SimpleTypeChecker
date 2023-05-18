@@ -9,13 +9,13 @@ pkg> add https://github.com/ChenNingCong/SimpleTypeChecker
 ```julia
 ctx = SimpleTypeChecker.Inference.GlobalContext()
 SimpleTypeChecker.API.addFile!(ctx, mod, filepath)
-SimpleTypeChecker.API.runCheck!(ctx)
+SimpleTypeChecker.API.runCheck!(ctx;checkSyntax=true)
 SimpleTypeChecker.API.@nocheck fun
 SimpleTypeChecker.API.check(ctx, f, tt)
 ```
-SimpleTypeChecker provides several APIs to check all the functions in a file. To use this function, firstly import/include the module you want to check, then call `ctx = SimpleTypeChecker.Inference.GlobalContext()` to construct a context for type inference. Use `SimpleTypeChecker.API.addFile!(ctx, mod, filepath)` to add all the files you want to check into the context. Here `mod` is the module you just evaled and `filepath` is the filepath (*absolute path*) where the module is defined. Finally call `runCheck!` to check the context 
+SimpleTypeChecker provides several APIs to check all the functions in a file. To use this function, firstly import/include the module you want to check, then call `ctx = SimpleTypeChecker.Inference.GlobalContext()` to construct a context for type inference. Use `SimpleTypeChecker.API.addFile!(ctx, mod, filepath)` to add all the files you want to check into the context. Here `mod` is the module you just evaled and `filepath` is the filepath (*absolute path*) where the module is defined. Finally call `runCheck!` to check the context. By default we will check unsupported syntax. If you want to ignore unsupported sytnax error, use `checkSyntax = false`.
 
-If you have a function that is highly dynamic or uses some features that SimpleTypeChecker doesn't support, and you are certain the function is type stable, then you can use `SimpleTypeChecker.API.@nocheck fun` to skip the checking of that particular function.
+If you have a function that is highly dynamic or uses some features that SimpleTypeChecker doesn't support, and you are certain the function is type stable, then you can use `SimpleTypeChecker.API.@nocheck fun` to skip the checking of that particular function. If you don't want to import SimpleTypeChecker, then using any macro (`@inline`, `@inbounds`) is sufficient, because currently we skip checking of any macro. 
 
 Currently, only functions with concrete type annotation can be checked. If you want to check individual specializations like `sum(x::AbstractArray)` and `println(io::IO, x)`, use `SimpleTypeChecker.check(ctx, f, tt)`. `SimpleTypeChecker.check` accepts parameters like `code_warntype` and `code_typed`, `SimpleTypeChecker.check(ctx, sin, (Float64,))`. If you find this too complicated, then you can create a `main` function and put all the specializations in that `main` function. `SimpleTypeChecker` will recur into the subprocedure calls automatically.
 
@@ -26,12 +26,13 @@ import SimpleTypeChecker
 # firstly we get the package directory of SimpleTypeChecker
 const path = abspath(joinpath(splitdir(pathof(SimpleTypeChecker))[1], ".."))
 ctx = SimpleTypeChecker.Inference.GlobalContext()
-SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.SyntaxDefinition, joinpath(path, "src/adaptor/SyntaxDefinition.jl"))
-SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.SyntaxAdaptor, joinpath(path, "src/adaptor/SyntaxAdaptor.jl"))
-SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/InferenceError.jl"))
+SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.SyntaxAdaptor, joinpath(path, "src/adaptor/TreeQuery.jl"))
+SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/InferenceDefinition.jl"))
 SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/Inference.jl"))
-SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/JuExprAdaptor.jl"))
-SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/JuExprValidator.jl"))
+SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/InferenceErrorUtility.jl"))
+SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/InferenceError.jl"))
+SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/ScopeChecking.jl"))
+SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Server, joinpath(path, "src/server/SimpleHTTPServer.jl"))
 SimpleTypeChecker.API.runCheck!(ctx)
 ```
 2. You can check the `test/case.jl` of SimpleTypeChecker's test cases, which includes some common program errors.

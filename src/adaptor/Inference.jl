@@ -2001,7 +2001,7 @@ end
     return
 end
 
-function addFile!(ctx::GlobalContext, mod::Core.Module, filename::String)
+@nocheck function addFile!(ctx::GlobalContext, mod::Core.Module, filename::String)
     if !isabspath(filename)
         error("$filename is not a absolute path")
     end

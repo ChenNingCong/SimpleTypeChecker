@@ -1,10 +1,13 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.8.4"
+julia_version = "1.9.0"
 manifest_format = "2.0"
-project_hash = "09e597dcd07498b7a5945b486e454a85a50693dc"
+project_hash = "8d783163a0faf6265254228e69332d612e1b82df"
 
 [[deps.JuliaSyntax]]
 git-tree-sha1 = "db2bdeda30e452485863799be4515f6305431a46"
 uuid = "70703baa-626e-46a2-a12c-08ffd08c73b4"
 version = "0.3.2"
+
+[[deps.Sockets]]
+uuid = "6462fe0b-24de-5631-8697-dd941f90decc"

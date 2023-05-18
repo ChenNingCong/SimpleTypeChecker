@@ -1746,6 +1746,11 @@ function constructParam(ctx::GlobalContext, ast::JuAST)::Argument
         ast = ast.args[1]
     end
     if ast.head == :(::)
+        if length(ast.args) == 1
+            typ = Just(ast.args[1])
+            # empty argument
+            return Argument(Symbol("_"), typ, initializer)
+        end
         typ = Just(ast.args[2])
         ast = ast.args[1]
     end
@@ -1842,7 +1847,10 @@ function checkToplevelFunction(eng::Engine, fundef::FunDef, mi::Core.MethodInsta
         # TODO : the ast is incorrect here...
         # add mapping here!
         node = makeParamFlowNode(ast, makeArgCompileType(mi, i+1))
-        mapping[fundef.args[i].name] = ContextValue(node, node)
+        arg = fundef.args[i]
+        if arg.name !== Symbol("_")
+            mapping[arg.name] = ContextValue(node, node)
+        end
     end
     ctx = Context(ImmutableDict(merge(smapping, mapping)))
     # Firstly, infer return type

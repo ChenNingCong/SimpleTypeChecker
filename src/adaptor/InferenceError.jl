@@ -442,6 +442,14 @@ end
     return base
 end
 
+@nocheck function isBuiltinEqual(tt::CompileType)::Bool
+    if tt.val === (Core.:(===))
+        return true
+    else
+        return false
+    end
+end
+
 function displayErrorFunCallArgs(err::InferenceErrorFunCallArgs)::Nothing
     eng = err.eng
     ast = err.ast
@@ -462,6 +470,9 @@ function displayErrorFunCallArgs(err::InferenceErrorFunCallArgs)::Nothing
     for ii in kwi
         name, node = kwargs[ii]
         println(eng.errio, "  keyword argument $(name) is of abstract type $(explainAbstractType(node.typ))")
+    end
+    if isBuiltinEqual(ms.fargs[1].typ)
+        println(eng.errio, "  Don't use === to compare values of different types, use (<var> isa Nothing) to split type of a variable explicitly")
     end
 end
 

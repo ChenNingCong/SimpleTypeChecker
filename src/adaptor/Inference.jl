@@ -926,6 +926,9 @@ function inferAssign(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     if length(ast.args) != 2
         reportASTError(eng, ast, "Assignment expression should only have 2 children, $(length(ast.args)) found")
     end
+    if ast.args[1].head == :call
+        reportASTError(eng, ast, "Shorthand function definition not supported")
+    end
     rel = inferExpr(eng, ctx, ast.args[2])
     ctx = rel.ctx
     rhsnode = rel.node

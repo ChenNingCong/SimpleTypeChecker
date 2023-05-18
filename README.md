@@ -1,4 +1,5 @@
 SimpleTypeChecker is an experimental Julia package designed to enforce C-style programming in Julia language. Note : it won't save you if your codes already contain a lot of messy dynamic dispatch. It's more appropriate for developing new codes from scratch.
+See demo below for an example usage.
 
 # Installation
 ```julia

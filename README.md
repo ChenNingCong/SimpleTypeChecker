@@ -35,16 +35,42 @@ SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, 
 SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Server, joinpath(path, "src/server/SimpleHTTPServer.jl"))
 SimpleTypeChecker.API.runCheck!(ctx)
 ```
-2. You can check the `test/case.jl` of SimpleTypeChecker's test cases, which includes some common program errors.
+2. You can check the `test/case/case.jl` of SimpleTypeChecker's test cases, which includes some common program errors.
 ```julia
 import SimpleTypeChecker
 # firstly we get the package directory of SimpleTypeChecker
 const path = abspath(joinpath(splitdir(pathof(SimpleTypeChecker))[1], ".."))
-const testpath = abspath(joinpath(path, "test/case.jl"))
+const testpath = abspath(joinpath(path, "test/case/case.jl"))
 include(testpath)
 ctx = SimpleTypeChecker.Inference.GlobalContext()
 SimpleTypeChecker.API.addFile!(ctx, CaseTest, joinpath(path, testpath))
 SimpleTypeChecker.API.runCheck!(ctx)
+```
+
+For example, if you check `test/case/case.jl`, you will get a long list of error message:
+```
+────────────────────────────────────────────────────────────────
+Checking MethodInstance for Main.CaseTest.f26()
+
+/home/chenningcong/.julia/packages/SimpleTypeChecker/tu1RO/test/case/case.jl:225:11
+ UndefinedError: variable y is potentially unitialized here
+    y
+
+────────────────────────────────────────────────────────────────
+Checking MethodInstance for Main.CaseTest.f27()
+
+/home/chenningcong/.julia/packages/SimpleTypeChecker/tu1RO/test/case/case.jl:235:15
+ UndefinedError: variable z is potentially unitialized here
+    z
+
+────────────────────────────────────────────────────────────────
+Checking MethodInstance for Main.CaseTest.f30()
+
+/home/chenningcong/.julia/packages/SimpleTypeChecker/tu1RO/test/case/case.jl:267:13
+ TypeError: 2-th paramter of type application (a.k.a parameterized type) is not a constant
+    Vector{Int, x}
+
+────────────────────────────────────────────────────────────────
 ```
 
 # Internal

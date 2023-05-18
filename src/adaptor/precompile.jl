@@ -1,3 +1,6 @@
 precompile(SimpleTypeChecker.SyntaxAdaptor.parseJuAST, (String, String))
 precompile(SimpleTypeChecker.Inference.inferExpr, (SimpleTypeChecker.Inference.Engine, SimpleTypeChecker.Inference.Context, SimpleTypeChecker.Inference.JuAST))
 precompile(SimpleTypeChecker.Inference.runCheck!, (SimpleTypeChecker.Inference.GlobalContext,))
+precompile(SimpleTypeChecker.Inference.addFile!, (SimpleTypeChecker.Inference.GlobalContext, Core.Module, String))
+precompile(SimpleTypeChecker.Inference.analyzeScopeVariable, (SimpleTypeChecker.Inference.GlobalContext, SimpleTypeChecker.Inference.FunDef))
+precompile(SimpleTypeChecker.Inference.checkToplevelFunction, (SimpleTypeChecker.Inference.Engine, SimpleTypeChecker.Inference.FunDef, Core.MethodInstance))

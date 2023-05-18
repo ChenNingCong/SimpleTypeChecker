@@ -6,6 +6,7 @@ export parseJuAST
 import JuliaSyntax
 # Maybe is used only in this module, we don't expose it to other modules
 using ..SyntaxDefinition
+import ..SyntaxDefinition.formatLocation
 using ..Utility
 
 function attachNodeToJuAST(ast::JuAST, node::MutableGreenNode)::Nothing
@@ -102,9 +103,11 @@ function convert2JuAST!(tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData},
         flag != JuliaSyntax.INFIX_FLAG && 
         flag != 1<<5 && # MUTABLE_FLAG
         flag != 1<<7 && # assignment
-        flag != 1<<4) # ! call
+        flag != 1<<4 &&
+        # string macro
+        flag != 0x0040) # ! call
         println(tree, head)
-        error("Bad flag $(head.kind) : $flag $(untokenize(head))")
+        error("Bad flag : $(formatLocation(loc)) $(head.kind) : $flag $(untokenize(head))")
     end
     # TODO : we need to handle more strange syntax here...
     shead = Symbol(JuliaSyntax._kind_names[Int(kind)+1])
@@ -188,7 +191,9 @@ function matchGreenNode(ast::JuAST, nodes::Vector{MutableGreenNode})::MutableGre
         if length(candidate) == 1
             return candidate[1]
         elseif length(candidate) == 0
-            error()
+            # TODO : this is possible for try-catch without finally branch, where a literal false is generated and has no back pointer
+            @warn "No extract mapping"
+            return nodes[1]
         else
             num = 0
             index = -1
@@ -231,6 +236,10 @@ end
 end
 
 function validatePointer(ast::JuAST)::Bool
+    span = ast.loc.span # some value is invalid, there is no need to map them
+    if span.second < span.first
+        return true
+    end
     if !checkField(ast, :node)
         return false
     end

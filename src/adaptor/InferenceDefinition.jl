@@ -1,6 +1,8 @@
 using ..SyntaxDefinition
 using ..Utility
 import ..Utility
+import JuliaSyntax
+
 struct CompileType
     isConst::Bool
     val::Any
@@ -11,7 +13,7 @@ function makeBottomType()
     CompileType(true, nothing, Union{})
 end
 
-function isBottomType(t::CompileType)::Bool
+@nocheck function isBottomType(t::CompileType)::Bool
     return t.typ == Union{}
 end
 
@@ -19,7 +21,7 @@ function makeConstVal(val::Any)
     CompileType(true, val, Core.Typeof(val))
 end
 
-function makeType(val::Any)
+@nocheck function makeType(val::Any)
     if Base.issingletontype(val)
         CompileType(true, val.instance, val)
     elseif val isa Type && val <: Type && val != Union{} && val isa DataType
@@ -34,7 +36,15 @@ function isConstVal(typ::CompileType)
     return typ.isConst
 end
 
-function lift(v::CompileType)
+@nocheck function removeConst(typ::CompileType)
+    if typ.isConst
+        makeType(typ.typ)
+    else
+        return typ
+    end
+end
+
+@nocheck function lift(v::CompileType)
     if isConstVal(v)
         return makeType(v.val)
     else
@@ -42,175 +52,11 @@ function lift(v::CompileType)
     end
 end
 
-#=
-
-All the difficulties are caused by the fact that we need to maintain bimapping between data structure
-GreenNode <-> JuAST
-specialized JuExpr <-> FlowNode 
-
-Due to specialization, a JuAST can associated with multiple JuExprs
-=#
-# A wrapper for any Julia value
-mutable struct JuExpr
-    const val::Any
-    const ast::JuAST
-    # this constructor is dangerous
-    JuExpr() = new(nothing)
-    JuExpr(val::Any, ast::JuAST) = new(val, ast)
-end
-
-function isValidJuExpr(ex::JuExpr)::Bool
-    val = ex.val
-    if val isa Nothing
-        return true
-    else
-        return false
-    end
-end
-
-# AST construction
-abstract type TypedAST end
-struct Var <: TypedAST 
-    id::Symbol
+@nocheck function convert2ConstVal(val::JuASTVal)::CompileType
+    makeConstVal(val.val)
 end
 
 #=
-    local x
-    local x::Int
-    local x::Int = 1
-    x::Int = 1
-    all lower to this struct
-=#
-struct Declaration <: TypedAST
-    id::Symbol
-    typ::Maybe{JuExpr}
-    rhs::Maybe{JuExpr}
-end
-
-struct DeclarationList <: TypedAST
-    # vector of Declaration actually
-    declares::Vector{JuExpr}
-end
-
-
-struct Assign <: TypedAST
-    lhs::Symbol
-    rhs::JuExpr
-end
-
-# x,y = z
-struct TupleAssign <: TypedAST
-    lhss::Vector{Symbol}
-    rhs::JuExpr
-end
-
-# (1,2,3)
-struct TupleLiteral <: TypedAST
-    parameters::Vector{JuExpr}
-end
-
-# x += 1
-struct UpdateAssign <: TypedAST
-    op::Symbol
-    lhs::Symbol
-    rhs::JuExpr
-end
-
-struct FunCall <: TypedAST
-    f::JuExpr
-    args::Vector{JuExpr}
-    kwargs::Vector{Pair{Symbol, JuExpr}}
-end
-
-struct CurlyCall <: TypedAST
-    f::JuExpr
-    args::Vector{JuExpr}
-end
-
-struct Literal <: TypedAST
-    val::CompileType
-end
-
-struct Block <: TypedAST
-    stmts::Vector{JuExpr}
-end
-
-struct LetStmt <: TypedAST
-    declares::Vector{Pair{Symbol, Maybe{JuExpr}}}
-    body::JuExpr
-end
-
-struct IfStmt <: TypedAST
-    branches::Vector{Pair{JuExpr, JuExpr}}
-    else_::Maybe{JuExpr}
-end
-
-struct WhileStmt <: TypedAST
-    cond::JuExpr
-    body::JuExpr
-end
-
-struct ForStmt <: TypedAST
-    var::Symbol
-    iter::JuExpr
-    body::JuExpr
-end
-
-struct Return <: TypedAST
-    e::Maybe{JuExpr}
-end
-
-struct GetProperty <: TypedAST
-    x::JuExpr
-    p::Symbol
-end
-
-struct SetProperty <: TypedAST
-    x::JuExpr
-    p::Symbol
-    v::JuExpr
-end
-
-struct ArrayRef <: TypedAST
-    arr::JuExpr
-    i::Vector{JuExpr}
-end
-
-struct ArraySet <: TypedAST
-    arr::JuExpr
-    i::Vector{JuExpr}
-    v::JuExpr
-end
-
-struct TypedAssert <: TypedAST
-    lhs::JuExpr
-    rhs::JuExpr
-end
-
-struct ContinueStmt <: TypedAST end
-struct BreakStmt <: TypedAST end
-
-struct FunDef <: TypedAST
-    f::Base.RefValue{Symbol}
-    args::Vector{Pair{Symbol, Maybe{JuExpr}}}
-    optargs::Vector{Pair{Symbol, Pair{Maybe{JuExpr}, JuExpr}}}
-    kwargs::Vector{Pair{Symbol, Pair{Maybe{JuExpr}, JuExpr}}}
-    params::Vector{Symbol}
-    rt::Maybe{JuExpr}
-    body::JuExpr
-end
-
-struct ModDef <: TypedAST
-    name::Symbol
-    stmts::Vector{JuExpr}
-end
-
-# End of AST construction 
-
-# Flow node
-# There are two types of flow node : value flow nodea and control flow node
-# Value flow nodes store the evaluation result of a JuExpr (one-to-one mapping with JuExpr)
-# Control flow nodes originate from some control flow facts (phi-node, pi-node), it has no corresponding JuExpr
 @enum FlowNodeKind begin
     ValueFlowNodeBegin
 
@@ -253,91 +99,305 @@ end
     PiNode                   # pi projection of a variable
     NegPiNode                # pi projection of a variable on a negative condition branch
 end
+=#
 
 mutable struct FlowNode
-    const ex::JuExpr
-    const nodeKind::FlowNodeKind
+    # field (ast shared by all flow node)
+    const ast::JuAST
     const source::Vector{FlowNode}
     const typ::CompileType
-    # record the bottom source of the node
-    # can have multiple sources
-    const isInitialized::Bool
-    function FlowNode(ex::JuExpr, nodeKind::FlowNodeKind, source::Vector{FlowNode}, typ::CompileType, isInitialized = true)
-        return new(ex, nodeKind, source, typ, isInitialized)
+    const kind::Any # value depends on different flow kind
+end
+
+struct LiteralFlowNode end
+
+struct UpdateOp
+    isUpdate::Bool
+    ast::JuAST # ast of the whole assignment, update operator has no mapping ast
+    op::Symbol
+    function UpdateOp(ast::JuAST, op::Symbol)
+        new(true, ast, op)
+    end
+    function UpdateOp()
+        new(false)
     end
 end
 
-function makeLiteralFlowNode(ex::JuExpr, typ::CompileType)
-    FlowNode(ex, LiteralFlowNode, FlowNode[], typ)
+struct PiFlowNode end
+# represent all kind of assignment flow node
+# we can add additional fields here, to easy compiler analysis
+struct AssignLHSVarFlowNode 
+    isInitialized::Bool
+    updateOp::UpdateOp
+end
+struct ConditionalFlowNode end
+struct ForUpdateFlowNode end
+struct DeclarationFlowNode end
+struct AssignLHSArrayRefFlowNode end
+
+struct LetFlowNode end
+struct WhileStmtFlowNode end
+#=
+There are many kinds of flow nodes that reprensent an assignment action (can appear in ContextValue)
+Lowered from                  FlowNode
+PiFlowNode                    type narrowing of a variable, must be initialized
+PhiNode                       merge of definitions in each branch (for or if-else), must be initialized 
+AssignLHSVarFlowNode             assignment with storage type (`local x::Int` or `x = 1` ), potentially uninitialized
+ConditionalFlowNode           merge of definitions in each branch (for or if-else), inferred as uninitialized
+ForUpdateFlowNode             change of constantness for varables in for-loop, must be initialized
+DeclarationFlowNode           assignment without storage type (`local x`), must be uninitialized
+
+Note : x[1] = 1 and x.x = 1 is not treated as variable assignment
+
+AssignLHSTupleDestructFlowNode     definition (assignment with initializer), must be initialized, can't not used in `local`
+
+Lattice
+Must Unitialized <: Potentially Unitialized <: Must Initialized
+DeclarationFlowNode AssignLHSVarFlowNode，ConditionalFlowNode， other FlowNode
+
+=#
+function mustInitialized(node::FlowNode)::Bool
+    val = node.kind
+    if val isa PiFlowNode
+        return true
+    elseif val isa AssignLHSVarFlowNode
+        return val.isInitialized
+    elseif val isa ConditionalFlowNode
+        return false
+    elseif val isa PhiFlowNode
+        return true
+    elseif val isa ForUpdateFlowNode
+        return true
+    elseif val isa DeclarationFlowNode
+        return false
+    # TODO : add other kinds of FlowNode here!!!!
+    elseif val isa SparamFlowNode
+        return true
+    elseif val isa ParamFlowNode
+        return true
+    else
+        throw(InternalError(""))
+        unreachable()
+    end
 end
 
-function makeReturnFlowNode(ex::JuExpr, e::FlowNode)
-    FlowNode(ex, ReturnNode, FlowNode[e], makeBottomType())
+function mustUnInitialized(node::FlowNode)::Bool
+    val = node.kind
+    if val isa DeclarationFlowNode
+        return true
+    elseif val isa AssignLHSVarFlowNode
+        return !val.isInitialized
+    else
+        return false
+    end
 end
 
-function makeEmptyReturnFlowNode(ex::JuExpr)
-    FlowNode(ex, EmptyReturnNode, FlowNode[], makeBottomType())
+function isDeclarationFlowNode(node::FlowNode)::Bool
+    val = node.kind
+    if val isa DeclarationFlowNode
+        return true
+    else
+        return false
+    end
+end
+
+struct AssignExprFlowNode end
+struct VarFlowNode end
+struct GlobalVarFlowNode end
+
+struct MethodCallStruct
+    fargs::Vector{FlowNode}
+    kwargs::Vector{Pair{Symbol, FlowNode}}
+    function MethodCallStruct(fargs::Vector{FlowNode}, kwargs::Vector{Pair{Symbol, FlowNode}})
+        new(fargs, kwargs)
+    end
+end
+
+function MethodCallStruct(fargs::Vector{FlowNode})::MethodCallStruct
+    MethodCallStruct(fargs, Pair{Symbol, FlowNode}[])
+end
+
+function MethodCallStruct(f::FlowNode, args::Vector{FlowNode})::MethodCallStruct
+    MethodCallStruct(vcat(f, args))
+end
+
+struct FunCallFlowNode 
+    ms::MethodCallStruct
+end
+struct BlockFlowNode end
+struct TupleFlowNode end
+struct LiteralExprFlowNode end
+struct MacroCallFlowNode end
+struct CurlyCallFlowNode end
+struct ReturnFlowNode end
+struct BreakStmtFlowNode end
+struct ContinueStmtFlowNode end
+struct ArrayRefFlowNode end
+struct GetPropertyFlowNode end
+struct IfStmtFlowNode end
+struct PhiFlowNode end
+struct AssignLHSTupleDestructFlowNode end
+struct SparamFlowNode end
+struct ParamFlowNode end
+struct ExpectedReturnFlowNode end
+struct SetPropertyFlowNode end
+# special node for Expr, Expr is a mutable that is local to the function body
+# we treat the value as a non-constant, because it's mutable
+function makeLiteralFlowNode(ast::JuAST, val::JuASTVal)
+    FlowNode(ast, FlowNode[], convert2ConstVal(val), LiteralFlowNode())
+end
+
+function makeLiteralExprFlowNode(ast::JuAST)
+    FlowNode(ast, FlowNode[], makeType(Expr), LiteralExprFlowNode())
+end
+function makeMacroCallFlowNode(ast::JuAST)
+    FlowNode(ast, FlowNode[], makeType(Nothing), MacroCallFlowNode())
+end
+
+function makeAssignLHSVarFlowNode(ast::JuAST, rhs::FlowNode, updateOp::UpdateOp)
+    FlowNode(ast, FlowNode[rhs], rhs.typ, AssignLHSVarFlowNode(true, updateOp))
+end
+
+function makeAssignLHSLocalVarFlowNode(ast::JuAST)
+    FlowNode(ast, FlowNode[], makeBottomType(), DeclarationFlowNode())
+end
+
+function makeAssignLHSVarAssertFlowNode(ast::JuAST, typ::FlowNode, styp::CompileType, isInitialized::Bool)
+    FlowNode(ast, FlowNode[typ], styp, AssignLHSVarFlowNode(isInitialized, UpdateOp()))
+end
+
+function makeLetFlowNode(ast::JuAST, typ::FlowNode)
+    FlowNode(ast, FlowNode[typ], typ.typ, LetFlowNode())
+end
+
+function makeForUpdateFlowNode(ast::JuAST, node::FlowNode)
+    if mustInitialized(node) && isConstVal(node.typ)
+        return FlowNode(ast, FlowNode[node], removeConst(node.typ), ForUpdateFlowNode())
+    else
+        return node
+    end
+end
+
+function makeIterateFlowNode(ast::JuAST, tt::CompileType)
+    FlowNode(ast, FlowNode[], tt, nothing)
+end
+
+#=
+function makeForVarFlowNode(ast::JuAST, rhs::FlowNode, tt::CompileType)
+    FlowNode(ast, FlowNode[rhs], tt, AssignLHSVarFlowNode(true, UpdateOp(), rhs))
+end
+=#
+function makeAssignExprFlowNode(ast::JuAST, rhs::FlowNode)
+    FlowNode(ast, FlowNode[rhs], rhs.typ, AssignExprFlowNode())
+end
+
+function makeVarFlowNode(ast::JuAST, ref::FlowNode)
+    FlowNode(ast, FlowNode[ref], ref.typ, VarFlowNode())
+end
+
+function makeGlobalVarFlowNode(ast::JuAST, typ::CompileType)
+    FlowNode(ast, FlowNode[], typ, GlobalVarFlowNode())
+end
+
+function makeFunCallFlowNode(ast::JuAST, ms::MethodCallStruct, typ::CompileType)
+    FlowNode(ast, FlowNode[], typ, FunCallFlowNode(ms))
+end
+
+function makeEmptyBlockFlowNode(ast::JuAST)
+    FlowNode(ast, FlowNode[], makeConstVal(nothing), BlockFlowNode())
+end
+
+function makeBlockFlowNode(ast::JuAST, last::FlowNode)
+    FlowNode(ast, FlowNode[last], last.typ, BlockFlowNode())
+end
+
+function makeTupleFlowNode(ast::JuAST, args::Vector{FlowNode}, tt::CompileType)
+    FlowNode(ast, args, tt, TupleFlowNode())
+end
+
+function makeCurlyCallFlowNode(ast::JuAST, args::Vector{FlowNode}, typ::CompileType)
+    FlowNode(ast, args, typ, CurlyCallFlowNode())
+end
+
+function makeEmptyReturnFlowNode(ast::JuAST)
+    FlowNode(ast, FlowNode[], makeBottomType(), ReturnFlowNode())
+end
+
+function makeReturnFlowNode(ast::JuAST, e::FlowNode)
+    FlowNode(ast, FlowNode[e], makeBottomType(), ReturnFlowNode())
+end
+
+function makeBreakStmtNode(ast::JuAST)
+    FlowNode(ast, FlowNode[], makeBottomType(), BreakStmtFlowNode())
+end
+
+function makeContinueStmtNode(ast::JuAST)
+    FlowNode(ast, FlowNode[], makeBottomType(), ContinueStmtFlowNode())
+end
+
+function makeArrayRefFlowNode(ast::JuAST, ms::MethodCallStruct, typ::CompileType)
+    FlowNode(ast, ms.fargs, typ, ArrayRefFlowNode())
+end
+
+function makeGetPropertyFlowNode(ast::JuAST, node::FlowNode, typ::CompileType)
+    FlowNode(ast, FlowNode[node], typ, GetPropertyFlowNode())
+end
+
+function makeEmptyElseFlowNode(ast::JuAST)
+    FlowNode(ast, FlowNode[], makeConstVal(nothing), IfStmtFlowNode())
+end
+
+function makeIfStmtFlowNode(ast::JuAST, typ::CompileType)
+    FlowNode(ast, FlowNode[], typ, IfStmtFlowNode())
+end
+
+function makePiFlowNode(ast::JuAST, condnode::FlowNode, typ::CompileType)
+    FlowNode(ast, FlowNode[condnode], typ, PiFlowNode())
+end
+
+function makeNegPiFlowNode(ast::JuAST, condnode::FlowNode, typ::CompileType)
+    FlowNode(ast, FlowNode[condnode], typ, PiFlowNode())
+end
+
+function makeConditionalFlowNode(ast::JuAST)
+    FlowNode(ast, FlowNode[], makeBottomType(), ConditionalFlowNode())
+end
+
+function makePhiFlowNode(ast::JuAST, nodes::Vector{FlowNode}, v::CompileType)
+    FlowNode(ast, nodes, v, PhiFlowNode())
+end
+
+function makeAssignLHSTupleDestructFlowNode(ast::JuAST, node::FlowNode, v::CompileType)
+    FlowNode(ast, FlowNode[node], v, AssignLHSTupleDestructFlowNode())
+end
+
+function makeAssignLHSArrayRefFlowNode(ast::JuAST, ms::MethodCallStruct, v::CompileType)
+    FlowNode(ast, ms.fargs, v, AssignLHSArrayRefFlowNode())
+end
+
+function makeSparamFlowNode(ast::JuAST, v::CompileType)
+    FlowNode(ast, FlowNode[], v, SparamFlowNode())
+end
+
+function makeParamFlowNode(ast::JuAST, v::CompileType)
+    FlowNode(ast, FlowNode[], v, ParamFlowNode())
+end
+
+function makeExpectedReturnFlowNode(ast::JuAST, v::CompileType)
+    FlowNode(ast, FlowNode[], v, ExpectedReturnFlowNode())
 end
 
 
+function makeSetPropertyFlowNode(ast::JuAST, xnode::FlowNode, rhsnode::FlowNode, typ::CompileType)
+    FlowNode(ast, FlowNode[xnode, rhsnode], typ, SetPropertyFlowNode())
+end
+
+function makeWhileStmtFlowNode(ast::JuAST)
+    FlowNode(ast, FlowNode[], makeType(Nothing), WhileStmtFlowNode())
+end
+
+#=
 #=========begin here =======#
-
-function makeGetPropertyFlowNode(ex::JuExpr, node::FlowNode, typ::CompileType)
-    FlowNode(ex, GetPropertyNode, FlowNode[node], typ)
-end
-
-function makeSetPropertyFlowNode(ex::JuExpr, xnode::FlowNode, vnode::FlowNode, typ::CompileType)
-    FlowNode(ex, SetPropertyNode, FlowNode[xnode, vnode], typ)
-end
-
-function makeArrayRefNode(ex::JuExpr, args::Vector{FlowNode}, typ::CompileType)
-    FlowNode(ex, ArrayRefNode, args, typ)
-end
-
-function makeArraySetNode(ex::JuExpr, args::Vector{FlowNode}, typ::CompileType)
-    FlowNode(ex, ArraySetNode, args, typ)
-end
-
-function makeVarFlowNode(ex::JuExpr, ref::FlowNode)
-    FlowNode(ex, VarFlowNode, FlowNode[ref], ref.typ)
-end
-
-function makeGlobalVarFlowNode(ex::JuExpr, typ::CompileType)
-    FlowNode(ex, GlobalVarFlowNode, FlowNode[], typ)
-end
-
-function makeFunCallFlowNode(ex::JuExpr, args::Vector{FlowNode}, typ::CompileType)
-    FlowNode(ex, FunCallNode, args, typ)
-end
-
-function makeCurlyCallFlowNode(ex::JuExpr, args::Vector{FlowNode}, typ::CompileType)
-    FlowNode(ex, CurlyCallNode, args, typ)
-end
-
-function makeAssignFlowNode(ex::JuExpr, rhs::FlowNode)
-    FlowNode(ex, AssignFlowNode, FlowNode[rhs], rhs.typ, #=isInitialized=#true)
-end
-
-function makeEmptyBlockFlowNode(ex::JuExpr)
-    FlowNode(ex, EmptyBlockFlowNode, FlowNode[], makeConstVal(nothing))
-end
-
-function makeBlockFlowNode(ex::JuExpr, last::FlowNode)
-    FlowNode(ex, BlockFlowNode, FlowNode[], last.typ)
-end
-
-function makePiNode(ex::JuExpr, condnode::FlowNode, typ::CompileType)
-    FlowNode(ex, PiNode, FlowNode[condnode], typ)
-end
-
-function makeNegPiNode(ex::JuExpr, condnode::FlowNode, typ::CompileType)
-    FlowNode(ex, NegPiNode, FlowNode[condnode], typ)
-end
-
-function makeEmptyElseFlowNode(ex::JuExpr)
-    FlowNode(ex, EmptyElseFlowNode, FlowNode[], makeConstVal(nothing))
-end
-
 function makeDeclarationListNode(ex::JuExpr)
     FlowNode(ex, DeclarationListFlowNode, FlowNode[], makeConstVal(nothing))
 end
@@ -346,100 +406,160 @@ function makePhiFlowNode(ex::JuExpr, v::Vector{FlowNode}, typ::CompileType)
     FlowNode(ex, PhiFlowNode, v, typ)
 end
 
-function makeBreakStmtNode(ex::JuExpr)
-    FlowNode(ex, BreakStmtFlowNode, FlowNode[], makeBottomType())
-end
-
-function makeContinueStmtNode(ex::JuExpr)
-    FlowNode(ex, ContinueStmtFlowNode, FlowNode[], makeBottomType())
-end
-
-struct DerivedExpr
-    val::Any
-end
-
-# We have only one SourceMapping for each method definition
-# JuAST and JuExpr is shared between multiple specialized instances of a function
-struct SourceMapping
-    ast2exMapping::Dict{JuAST, DerivedExpr}
-    # for debug only
-    ex2astMapping::Dict{JuExpr, JuAST}
-end
-
-function SourceMapping()
-    return SourceMapping(Dict{JuAST, DerivedExpr}(), Dict{JuExpr, JuAST}())
-end
-
-# We have one FlowMapping for each method specialization
-struct FlowMapping
-    ex2flowMapping::Dict{JuExpr, FlowNode}
-    # we have no flow2astMapping here, because that mapping is stored in FlowNode
-end
-
-function FlowMapping()
-    FlowMapping(Dict{JuExpr, FlowNode}())
-end
-
-struct ContextValue
-    typ::FlowNode               # primary type of this context variable
-    curtyp::FlowNode            # inferred type on this path
-end
-
-# Context for variable binding and other useful things, immutable
-struct Context
-    mapping::ImmutableDict{Symbol, ContextValue}
-end
+=#
 
 struct ErrorLogger <: IO
-    io::IO
+    io::IOBuffer
 end
 
 @nocheck function Base.write(log::ErrorLogger, x::UInt8)
     write(log.io, x)
 end
 
+struct Argument
+    name::Symbol
+    typ::Maybe{JuAST}
+    initializer::Maybe{JuAST}
+end
+
+struct FunDef
+    ast::JuAST
+    # type params and bound
+    sparams::Vector{Pair{Symbol, Maybe{JuAST}}}
+    rt::Maybe{JuAST}
+
+    # we disallow destruct syntax in all kinds of parameters
+    # we disallow short hand function syntax
+    # we only support qualified name
+
+    # (::f)(...) functor is not supported yet
+    fname::Vector{Symbol}
+    args::Vector{Argument}
+    optargs::Vector{Argument}
+    kwargs::Vector{Argument}
+    body::JuAST
+end
+
 mutable struct GlobalContext
+    errio::ErrorLogger
+    # each source file has an individual JuAST
+    fileMapping::Dict{JuliaSyntax.SourceFile, JuAST}
+    # each method has an individual JuAST
+    methodDefs::Dict{Core.Method, FunDef}
+
     queue::Vector{Core.MethodInstance}
     hasChecked::Dict{Core.MethodInstance, Any}
-    methodDefs::Dict{Core.Method, Pair{JuExpr, SourceMapping}}
     cache::Dict{Any, Vector{Any}}
 end
 
 function GlobalContext()
-    GlobalContext(Core.MethodInstance[], Dict{Core.MethodInstance, Any}(), Dict{Core.Method, Pair{JuExpr, SourceMapping}}(), Dict{Any, Vector{Any}}())
-end
-
-mutable struct Engine
-    const globalCtx::GlobalContext
-    const mi::Core.MethodInstance
-    const mod::Core.Module
-    const errio::ErrorLogger
-    const sourceMapping::SourceMapping
-    const flowMapping::FlowMapping
-    # perform necessary end and begin
-    const arrayContext::Vector{FlowNode}
-    retVal::Maybe{FlowNode}
+    GlobalContext(ErrorLogger(IOBuffer()),
+                  Dict{JuliaSyntax.SourceFile, JuAST}(),
+                  Dict{Core.Method, FunDef}(),
+                  Core.MethodInstance[], 
+                  Dict{Core.MethodInstance, Any}(), 
+                  Dict{Any, Vector{Any}}())
 end
 
 
-function addFlowMapping!(eng::Engine, ex::JuExpr, node::FlowNode)::Nothing
-    if haskey(eng.flowMapping.ex2flowMapping, node)
-        error("Internal error : FlowNode already exists")
+#=
+Our check is still incorrectly implemented
+
+We need to walk AST for three times
+First time : collect explicitly declarated variable
+Second time : collect implicitly declarated variable (variable defined with assign)
+Third time : validate variable declaration
+=#
+struct ScopeInfo
+    parent::JuAST
+    # variable that is declared explicitly with local or for/let/function params, collected in first round
+    locals::Dict{Symbol, JuAST} 
+    # variable that we have meet in second turn
+    curlocals::Set{Symbol} 
+    # variable that is declared explicitly with global, collected in first round
+    globals::Dict{Symbol, JuAST}
+    # variable that we have meet in second turn
+    curglobals::Set{Symbol}
+    # variable that is local to this scope, but defined through an assignment
+    implicitlocals::Dict{Symbol, JuAST} 
+    curimplicitlocals::Set{Symbol}
+
+    modified::Dict{Symbol, JuAST} # variable that is not in this scope and modified in this scope
+    # relationship 
+    # locals + implicitlocals = alllocals
+    # curlocals <: alllocals
+    # intersect(locals, implicitlocals) = empty
+    # intersect(modifies, alllocals) = empty
+end
+
+function prettySymbols(s)
+    str = join(s, ", ")
+    if length(str) == 0
+        return "(Empty)"
     end
-    eng.flowMapping.ex2flowMapping[ex] = node
-    return 
+    return str
 end
 
-function Engine(ctx::GlobalContext, mi::Core.MethodInstance, mod::Core.Module, sourceMapping::SourceMapping)
-    return Engine(ctx, mi, mod, ErrorLogger(stdout), sourceMapping, FlowMapping(), FlowNode[], None(FlowNode))
+@nocheck function Base.show(io::IO, info::ScopeInfo)
+    println(io, "At $(formatLocation(info.parent.loc))")
+    println(io, "Locals : ", prettySymbols(keys(info.locals)))
+    println(io, "Globals : ", prettySymbols(keys(info.globals)))
+    println(io, "Implicit locals : ", prettySymbols(keys(info.implicitlocals)))
+    println(io, "Modified : ", prettySymbols(keys(info.modified)))
+    return
+end
+
+function ScopeInfo(parent::JuAST)
+    ScopeInfo(parent,
+              Dict{Symbol, JuAST}(),
+              Set{Symbol}(),
+              Dict{Symbol, JuAST}(),
+              Set{Symbol}(),
+              Dict{Symbol, JuAST}(),
+              Set{Symbol}(),
+              Dict{Symbol, JuAST}())
+end
+
+const ScopeInfos = Dict{JuAST, ScopeInfo}
+
+mutable struct ScopeInfoContext
+    const ctx::GlobalContext
+    const infos::ScopeInfos
+    chains::Vector{ScopeInfo}
+    walkTurn::Int
+end
+
+function addInfo!(ctx::ScopeInfoContext, ast::JuAST, info::ScopeInfo)::Nothing
+    if haskey(ctx.infos, ast)
+        error("Repetive attach scope")
+    end
+    ctx.infos[ast] = info
+    return
+end
+
+function ScopeInfoContext(ctx::GlobalContext)
+    ScopeInfoContext(ctx,
+                     ScopeInfos(),
+                     ScopeInfo[],
+                     1)
+end
+
+
+struct ContextValue
+    typ::FlowNode               # primary type of this context variable
+    curtyp::FlowNode            # inferred type on this path
+end
+
+struct Context
+    mapping::ImmutableDict{Symbol, ContextValue}
 end
 
 function Context()
     return Context(ImmutableDict{Symbol, ContextValue}())
 end
 
-function hasvar(ctx::Context, var::Symbol)::Bool
-    return exist(ctx.mapping, var)
+function hasVar(ctx::Context, var::Symbol)::Bool
+    return Utility.exist(ctx.mapping, var)
 end
 
 function lookup(ctx::Context, var::Symbol)::ContextValue
@@ -450,31 +570,137 @@ function update(ctx::Context, var::Symbol, val::ContextValue)::Context
     return Context(Utility.update(ctx.mapping, var, val))
 end
 
-# Inference result for one AST
+function getAllVars(ctx::Context)
+    return keys(ctx.mapping.data)
+end
+
+mutable struct Engine
+    const globalCtx::GlobalContext
+    const mi::Core.MethodInstance
+    const mod::Core.Module
+    const errio::ErrorLogger
+    # a JuAST can have multiple mapping
+    const flowMapping::Dict{JuAST, Vector{FlowNode}}
+    const scopeInfos::ScopeInfos
+    # perform necessary end and begin
+    const arrayContext::Vector{FlowNode}
+    const loopContext::Vector{Vector{Context}}
+    retVal::Maybe{FlowNode}
+end
+
+function enterLoop(eng::Engine)
+    push!(eng.loopContext, FlowNode[])
+end
+
+function leaveLoop(eng::Engine)
+    pop!(eng.loopContext)
+end
+
+function getGlobalCtx(eng::Engine)
+    return eng.globalCtx
+end
+
+function getMod(mi::Core.MethodInstance)::Core.Module
+    v = mi.def
+    if v isa Module
+        return v
+    else
+        return v.module
+    end
+end
+
+function Engine(ctx::GlobalContext, mi::Core.MethodInstance, scopeInfos::ScopeInfos)
+    # stdout is abstract
+    return Engine(ctx, mi, getMod(mi), ctx.errio, Dict{JuAST, Vector{FlowNode}}(), scopeInfos, FlowNode[], Vector{Vector{Context}}(), None(FlowNode))
+end
+
+function addFlowMapping!(eng::Engine, ast::JuAST, node::FlowNode)::Nothing
+    map = eng.flowMapping
+    if !haskey(map, ast)
+        map[ast] = FlowNode[]
+    end
+    push!(map[ast], node)
+    return
+end
+
 struct InferResult
     ctx::Context
     node::FlowNode
 end
 
 struct InferReport
-    f::JuExpr
+    ast::JuAST
     mi::Core.MethodInstance
     eng::Engine
     rel::InferResult
 end
 
-@nocheck function fasteval(mod::Module, x::JuExpr, params::Dict{Symbol, TypeVar})
-    v = x.val
-    if v isa Var
-        if haskey(params, v.id)
-            return params[v.id]
+function displayResult(io::IO, rel::InferResult)
+    displayContext(io, rel.ctx)
+end
+
+@nocheck function displayContext(io::IO, ctx::Context)
+    all = sort(collect(ctx.mapping.data), by = x->x[1])
+    cons_v = [i for i in all if isConstVal(i[2].curtyp.typ)]
+    # TODO : how should we deal with variout assignment node?
+    other_v = [i for i in all if !isConstVal(i[2].curtyp.typ)]
+    #other_v_cond = [i for i in all if !isConstVal(i[2].curtyp.typ) && i[2].curtyp.nodeKind == ConditionalFlowNode]
+    if !isempty(cons_v)
+        println(io, "Constant :")
+        for (k,v) in cons_v
+            println(io, "  $k : $(repr(v.curtyp.typ.val))")
         end
-        return getproperty(mod, v.id)
-    elseif v isa GetProperty
-        return getproperty(fasteval(mod, v.x, params), v.p)
-    elseif v isa CurlyCall
-        return Core.apply_type(fasteval(mod, v.f, params), fasteval.(Ref(mod), v.args, Ref(params))...)
-    else
-        error("Not suppoerted $(typeof(x))")
     end
+    if !isempty(other_v)
+        println(io, "Variable : (Slot type and Current type)")
+        for (k,v) in other_v
+            a = v.typ.typ.typ
+            b = v.curtyp.typ.typ
+            if (a == b)
+                println(io, "  $k::$a")
+            else
+                println(io, "  $k::$a | $b")
+            end
+        end
+    end
+    #=
+    if !isempty(other_v_cond)
+        println(io, "Conditionally Defined Variable : (Slot type and Current type)")
+        for (k,v) in other_v_cond
+            a = v.typ.typ.typ
+            b = v.curtyp.typ.typ
+            if (a == b)
+                println(io, "  $k::$a")
+            else
+                println(io, "  $k::$a | $b")
+            end
+        end
+    end
+    =#
+    if isempty(all)
+        println(io, "(Empty Context)")
+    end
+    displayReturn
+end
+
+function displayReturn(io::ErrorLogger, eng::Engine)
+    val = eng.retVal
+    if !isNone(val)
+        println(io, "Return Type : $(toString(castJust(val).typ))")
+    end
+end
+
+@nocheck function displayReport(io::ErrorLogger, r::InferReport)
+    println(io, '\u2500'^64)
+    ex = r.f
+    val = ex.val
+    if val isa FunDef
+        println(io, "Inference Result for Method $(r.mi)")
+        displayReturn(io, r.eng)
+        displayResult(io, r.rel)
+        println(io, '\u2500'^64)
+    else
+        error("Internal Error")
+    end
+    return
 end

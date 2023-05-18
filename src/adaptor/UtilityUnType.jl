@@ -51,6 +51,21 @@ function cacheLookup(eng::Engine, sig)
     end
 end
 
+@nocheck function makeNameTupleType(args::Vector{Pair{Symbol, CompileType}})::CompileType
+    return makeType(NamedTuple{tuple([i.first for i in args]...), Tuple{[i.second.typ for i in args]...}})
+end
+
+function getMethodMatches(eng::Engine, ms::MethodCallStruct)
+    args = ms.fargs
+    kwargs = ms.kwargs
+    sig = Tuple{[i.typ.typ for i in args]...}
+    if length(kwargs) > 0
+        tup = NamedTuple{tuple([i.first for i in kwargs]...), Tuple{[i.second.typ.typ for i in kwargs]...}}
+        sig = Tuple{typeof(Core.kwcall), tup, sig.parameters...}
+    end
+    cacheLookup(eng, sig)
+end
+#=
 function getMethodMatches(eng::Engine, f::Function, tts::Vector{FlowNode})
     sig = Tuple{typeof(f), [i.typ.typ for i in tts]...}
     cacheLookup(eng, sig)
@@ -60,6 +75,7 @@ function getMethodMatches(eng::Engine, tts::Vector{FlowNode})
     sig = Tuple{[i.typ.typ for i in tts]...}
     cacheLookup(eng, sig)
 end
+=#
 
 function extractUniqueMatch(v::Vector{Any})::CompileType
     makeType(v[1][2])
@@ -150,8 +166,8 @@ function tryMergeConstVal(v1::CompileType, v2::CompileType)::Bool
         return false
     end
 end
-
-function tryMergeFlowNode(eng::Engine, ex::JuExpr, v::Vector{FlowNode}, allowUnion::Bool)::FlowNode
+#=
+function tryMergeVarDefFlowNode(eng::Engine, ast::JuAST, v::Vector{FlowNode}, allowUnion::Bool)::FlowNode
     # println("join node $([i.typ for i in v])")
     tmptyp = v[1].typ
     for i in v
@@ -162,7 +178,7 @@ function tryMergeFlowNode(eng::Engine, ex::JuExpr, v::Vector{FlowNode}, allowUni
     end
     if isBottomType(tmptyp)
         # TODO : shouldn't be here
-        return makePhiFlowNode(ex, v, makeBottomType())
+        return makePhiFlowNode(ast, v, makeBottomType())
     end
     allConst = true
     for i in 1:length(v)
@@ -187,5 +203,49 @@ function tryMergeFlowNode(eng::Engine, ex::JuExpr, v::Vector{FlowNode}, allowUni
             tmptyp = makeType(Union{v1, v2})
         end
     end
-    return makePhiFlowNode(ex, v, tmptyp)
+    return makePhiFlowNode(ast, v, tmptyp)
+end
+=#
+
+function tryMergeFlowNode(eng::Engine, ast::JuAST, v::Vector{FlowNode}, allowUnion::Bool)::FlowNode
+    # println("join node $([i.typ for i in v])")
+    tmptyp = v[1].typ
+    for i in v
+        if !isBottomType(i.typ)
+            tmptyp = i.typ
+            break
+        end
+    end
+    if isBottomType(tmptyp)
+        # TODO : shouldn't be here
+        return makePhiFlowNode(ast, v, makeBottomType())
+    end
+    allConst = true
+    for i in 1:length(v)
+        # skip all bottom value
+        if isBottomType(v[i].typ)
+            continue
+        end
+        v1 = tmptyp.typ
+        v2 = v[i].typ.typ
+        if !allowUnion
+            if v1 != v2
+                reportErrorIfEnlargeType(eng, v[1], v[i])
+            end
+        end
+        # Note, if we allow union, then type may not equal
+        if allConst && isConstVal(tmptyp) && isConstVal(v[i].typ)
+            allConst = tryMergeConstVal(tmptyp, v[i].typ)
+        else
+            allConst = false
+        end
+        if !allConst
+            tmptyp = makeType(Union{v1, v2})
+        end
+    end
+    return makePhiFlowNode(ast, v, tmptyp)
+end
+
+@nocheck function makeTupleType(tt::Vector{FlowNode})::CompileType
+    makeType(Tuple{[i.typ.typ for i in tt]...})
 end

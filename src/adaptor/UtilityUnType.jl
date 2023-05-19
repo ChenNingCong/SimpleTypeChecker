@@ -33,20 +33,71 @@ function isModuleDefined(mod::Core.Module, p::Symbol)::Bool
     return isdefined(mod, p)::Bool
 end
 
-function cacheLookup(eng::Engine, sig)
+
+
+function getReturnType(ctx::GlobalContext, sig)
+    if sig.parameters[1] <: Type
+        getReturnType(ctx, sig, sig.parameters[1].parameters[1], Base.to_tuple_type(sig.parameters[2:end]))
+    else
+        getReturnType(ctx, sig, sig.parameters[1].instance, Base.to_tuple_type(sig.parameters[2:end]))
+    end
+end
+
+function getReturnType(ctx::GlobalContext, f, tt)
+    getReturnType(ctx, Tuple{Core.Typeof(f), tt...}, f, tt)
+end
+
+function getReturnType(ctx::GlobalContext, sig, f, types;world = Core.Compiler.get_world_counter())::Vector{CompileType}
+    interp = Core.Compiler.NativeInterpreter(world; inf_params = Core.Compiler.InferenceParams())
+    if ccall(:jl_is_in_pure_context, Bool, ())
+        error("code reflection cannot be used from generated functions")
+    end
+    if isa(f, Core.OpaqueClosure)
+        error("InternalError : OpaqueClosure is unsupported")
+    end
+    if isa(f, Core.Builtin)
+        argtypes = Any[Base.to_tuple_type(types).parameters...]
+        rt = Core.Compiler.builtin_tfunction(interp, f, argtypes, nothing)
+        rt = Core.Compiler.ignorelimited(rt)
+        if rt isa Core.Compiler.Const
+            return CompileType[makeConstVal(rt.val)]
+        else
+            return CompileType[makeType(Core.Compiler.widenconst(rt))]
+        end
+    end
+    rts = CompileType[]
+    for match in Base._methods_by_ftype(sig, -1, world)::Vector
+        match = match::Core.MethodMatch
+        method = Base.func_for_method_checked(match.method, types, match.sparams)
+        mi = Core.Compiler.specialize_method(method, match.spec_types, match.sparams)::Core.Compiler.MethodInstance
+        result = Core.Compiler.InferenceResult(mi)
+        Core.Compiler.typeinf(interp, result, :global)
+        if result.result isa Core.Compiler.InferenceState
+            push!(rts, makeType(Any))
+        else
+            ty = Core.Compiler.ignorelimited(result.result)
+            if ty isa Core.Compiler.Const
+                push!(rts, makeConstVal(ty.val))
+            else
+                push!(rts, makeType(Core.Compiler.widenconst(ty)))
+            end
+        end
+    end
+    for i in interp.cache
+        push!(ctx.queue, i.linfo)
+    end
+    return rts
+end
+
+function cacheLookup(eng::Engine, sig)::Vector{CompileType}
     ctx = eng.globalCtx
     if haskey(ctx.cache, sig)
         return ctx.cache[sig]
     else
         # TODO : the major slowdown source
         # we should use result from Julia's builtin compiler
-        v = Base.code_typed_by_type(sig)
-        if length(v) == 1
-            if v[1].first isa Core.CodeInfo
-                pushfirst!(ctx.queue, v[1].first.parent)
-            end
-            ctx.cache[sig] = v
-        end
+        v = getReturnType(eng.globalCtx, sig)
+        ctx.cache[sig] = v
         return v
     end
 end
@@ -65,20 +116,9 @@ function getMethodMatches(eng::Engine, ms::MethodCallStruct)
     end
     cacheLookup(eng, sig)
 end
-#=
-function getMethodMatches(eng::Engine, f::Function, tts::Vector{FlowNode})
-    sig = Tuple{typeof(f), [i.typ.typ for i in tts]...}
-    cacheLookup(eng, sig)
-end
 
-function getMethodMatches(eng::Engine, tts::Vector{FlowNode})
-    sig = Tuple{[i.typ.typ for i in tts]...}
-    cacheLookup(eng, sig)
-end
-=#
-
-function extractUniqueMatch(v::Vector{Any})::CompileType
-    makeType(v[1][2])
+function extractUniqueMatch(v)::CompileType
+    v[1]
 end
 
 function checkFieldCompatibility(dest::CompileType, src::CompileType)::Bool

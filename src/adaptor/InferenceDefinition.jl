@@ -177,7 +177,6 @@ function mustInitialized(node::FlowNode)::Bool
         return true
     else
         throw(InternalError(""))
-        unreachable()
     end
 end
 
@@ -449,7 +448,7 @@ mutable struct GlobalContext
 
     queue::Vector{Core.MethodInstance}
     hasChecked::Dict{Core.MethodInstance, Any}
-    cache::Dict{Any, Vector{Any}}
+    cache::Dict{Any, Vector{CompileType}}
 end
 
 function GlobalContext()

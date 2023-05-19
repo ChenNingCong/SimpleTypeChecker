@@ -19,26 +19,20 @@ end
 
 function reportASTError(eng::Engine, ast::JuAST, msg::String)::Union{}
     Base.throw(SyntaxError(ast, msg))
-    unreachable()
+    
 end
 
 function reportASTError(ctx::GlobalContext, ast::JuAST, msg::String)::Union{}
     Base.throw(SyntaxError(ast, msg))
-    unreachable()
+    
 end
 
 
 function reportUnimplementedASTError(eng::Engine, ast::JuAST, msg::String)::Union{}
     Base.throw(SyntaxError(ast, msg))
-    unreachable()
+    
 end
 
-# Currently SimpleTypeChecker can't handle builtin function's return type correctly
-# For example, throw is inferred as return any
-# we use unreachable to circumvent this problem
-function unreachable()::Union{}
-    error()
-end
 #=
 Some utility functions to handle AST
 =#
@@ -52,7 +46,7 @@ function cast2Symbol(val::JuASTVal)::Symbol
         return valval
     else
         throw(InternalError(("Failed to cast value : not a symbol")))
-        unreachable()
+        
     end
 end
 
@@ -581,7 +575,7 @@ function inferAssignUpdateHelper(eng::Engine, ctx::Context, ast::JuAST, lhsnode:
         return rhsnode
     else
         throw(InternalError("All the update assignment operators should be defined in module $(eng.mod)"))
-        unreachable()
+        
     end
 end
 

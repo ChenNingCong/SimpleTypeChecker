@@ -3,7 +3,6 @@ using ..SyntaxDefinition
 import ..Utility: @nocheck
 import ..Inference: FlowNode
 # TODO : remove this in the future
-unreachable() = error()
 # a really simple HTTP server
 # no TLS, and only support HTTP 1.0
 using Sockets
@@ -16,13 +15,11 @@ function parseHTTPBody(s::String)
     m = findfirst("\r\n", s)
     if m isa Nothing
         Base.throw(ParseError("Failed to parse method from HTTP request"))
-        unreachable()
     end
     method = s[1:first(m)-1]
     body = findfirst("\r\n\r\n", s)
     if body isa Nothing
         Base.throw(ParseError("Failed to parse HTTP body from HTTP request"))
-        unreachable()
     end
     bodystr = s[last(body)+1:end]
     return method => bodystr

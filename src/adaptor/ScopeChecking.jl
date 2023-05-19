@@ -70,14 +70,14 @@ function updateVar(ctx::ScopeInfoContext, sym::Symbol, ast::JuAST)::Nothing
                     elseif haskey(info.implicitlocals, sym)
                         declareast = info.implicitlocals[sym]
                     else
-                        unreachable()
+                        throw(InternalError("error"))
                     end
                     reportErrorASTAssignmentBeforeDeclaration(ctx, sym, ast, declareast)
                 end
             end
         end
     end
-    unreachable()
+    throw(InternalError("error"))
 end
 
 function analyzeScopeVariableAssignLHS(ctx::ScopeInfoContext, lhs::JuAST, isLocalDeclare::Bool, isGlobalDeclare::Bool)::ScopeInfoContext

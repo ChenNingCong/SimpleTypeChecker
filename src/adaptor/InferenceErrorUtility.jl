@@ -2,7 +2,6 @@
 abstract type InferenceError end
 function throwInferenceError(err::InferenceError)::Union{}
     Base.throw(err)
-    error()
 end
 
 @nocheck function toString(typ::CompileType)::String

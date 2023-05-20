@@ -389,6 +389,8 @@ function inferExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         reportUnimplementedASTError(eng, ast, "type assertion is unsupported")
     elseif ast.head == :function || ast.head == :(->)
         reportUnimplementedASTError(eng, ast, "Nested function is unsupported")
+    elseif ast.head == :comparison
+        return inferComparison(eng, ctx, ast)
     else
         str = String(ast.head)
         if last(str) == '='
@@ -1223,6 +1225,25 @@ function inferGetField(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     end
 end
 
+function inferComparison(eng::Engine, ctx::Context, ast::JuAST)::InferResult
+    # TODO : the logic is incorrect somehow
+    #=
+    assertASTKind(ast, :comparison)
+    args = ast.args
+    if length(args) % 2 != 0
+        reportASTError(eng, ast, "Chained comparison is invalid")
+    end
+    ops = FlowNode[]
+    for i in 1:div(length(args) + 1, 2)
+        rel = inferExpr(eng, ctx, args[2*i - 1])
+        ctx = rel.ctx
+        push!(ops, rel.node)
+    end
+    =#
+    ms = MethodCallStruct(FlowNode[])
+    return InferResult(ctx, makeFunCallFlowNode(ast, ms, makeType(Bool)))
+end
+
 function tryNarrowType(eng::Engine, ctx::Context, ast::JuAST)::Pair{InferResult, Context}
     if ast.head == :call
         args = ast.args
@@ -1690,8 +1711,14 @@ function checkForStmt(eng::Engine, ast::JuAST)::Nothing
         end
     elseif ast.head == :identifier
         return
+    elseif ast.head == :(=)
+        checkForStmt(eng, ast.args[1])
+    elseif ast.head == :block
+        for i in ast.args
+            checkForStmt(eng, i)
+        end
     else
-        reportASTError(eng, ast, "In lhs of for, only variable or tuple destruct are allowed, multiple for interate is disallowed")
+        reportASTError(eng, ast, "In lhs of for, only variable or tuple destruct are allowed")
     end
 end
 
@@ -1699,20 +1726,25 @@ function inferForStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     assertASTKind(ast, :for)
     # we firstly scan the loop to detect what variables are assigned in the loop body
     # mark these variables as non-constant
-    assign = ast.args[1]
-    if assign.head != :(=)
-        reportASTError(eng, ast, "Currently we support only one assignment in for loop, for i in 1:10, y in 1:10 is disallowed")
-    end
-    vars = assign.args[1]
-    iter = assign.args[2]
-    body = ast.args[2]
+    vars = ast.args[1]
+    checkForStmt(eng, vars)
 
+    # step one : check outmost iterator
+    if vars.head == :block
+        firstvar = vars.args[1].args[1]
+        iter = vars.args[1].args[2]
+    else
+        firstvar = vars.args[1]
+        iter = vars.args[2]
+    end
     rel = inferExpr(eng, ctx, iter)
     ctx = rel.ctx
     varnode = iterateCheck(eng, rel.node)
+
+    # step two : remove shadowed variable
     newmapping = Dict{Symbol, ContextValue}()
     scopeinfo = eng.scopeInfos[ast]
-    checkForStmt(eng, vars)
+ 
     for tmp in ctx.mapping.data
         k = tmp.first
         v = tmp.second
@@ -1728,12 +1760,20 @@ function inferForStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         end
     end
     newctx = Context(ImmutableDict(newmapping))
-    # populate all variables in for list
-    #=
-        for i in 1:10, j in 1:i
+    newctx = inferAssignLHS(eng, newctx, firstvar, varnode, UpdateOp()).ctx
+    # step three : add other variables
+    if vars.head == :block
+        for i in 2:length(vars.args)
+            p = vars.args[i]
+            firstvar = p.args[1]
+            iter = p.args[2]
+            rel = inferExpr(eng, newctx, iter)
+            varnode = iterateCheck(eng, rel.node)
+            newctx = inferAssignLHS(eng, newctx, firstvar, varnode, UpdateOp()).ctx
         end
-    =#
-    newctx = inferAssignLHS(eng, newctx, vars, varnode, UpdateOp()).ctx
+    end
+
+    body = ast.args[2]
 
     enterLoop(eng)
 
@@ -1810,6 +1850,8 @@ end
             return params[var]
         end
         return getproperty(mod, var)
+    elseif x.head == :literal
+        return x.val.val
     elseif x.head == :(.)
         return getproperty(fasteval(mod, x.args[1], params, implicit), cast2Symbol(x.args[2].args[1].val))
     elseif x.head == :curly
@@ -2108,6 +2150,16 @@ end
     elseif ast.head == :toplevel
         for i in ast.args
             collectToplevelFunction!(ctx, rel, mod, i)
+        end
+    elseif ast.head == :macrocall 
+        if length(ast.args) == 3
+            n1 = ast.args[1]
+            if n1.head == :identifier
+                sym = cast2Symbol(n1.val)
+                if sym == Symbol("core_@doc")
+                    collectToplevelFunction!(ctx, rel, mod, ast.args[3])
+                end
+            end
         end
     end
     if isFunc

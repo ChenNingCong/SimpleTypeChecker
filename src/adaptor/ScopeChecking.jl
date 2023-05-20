@@ -160,6 +160,13 @@ function analyzeScopeVariableAssignLHS(ctx::ScopeInfoContext, lhs::JuAST, isLoca
 end
 
 function enterScope(ctx::ScopeInfoContext, parent::JuAST, body::JuAST)
+    if parent.head == :for 
+        iter = parent.args[1]
+        if iter.head == :block
+            iter = iter.args[1]
+        end
+        analyzeScopeVariable(ctx, iter.args[2])
+    end
     if ctx.walkTurn == 1
         info = ScopeInfo(parent)
         addInfo!(ctx, parent, info)
@@ -169,13 +176,13 @@ function enterScope(ctx::ScopeInfoContext, parent::JuAST, body::JuAST)
     push!(ctx.chains, info)
     if parent.head == :for
         iter = parent.args[1]
-        lhs = iter.args[1]
         # multiple binding
-        if lhs.head == :block
-            for i in lhs.args
-                analyzeScopeVariableAssignLHS(ctx, i, true, false)
+        if iter.head == :block
+            for i in iter.args
+                analyzeScopeVariableAssignLHS(ctx, i.args[1], true, false)
             end
         else
+            lhs = iter.args[1]
             analyzeScopeVariableAssignLHS(ctx, lhs, true, false)
         end
     elseif parent.head == :let
@@ -246,7 +253,9 @@ function analyzeScopeVariable(ctx::ScopeInfoContext, ast::JuAST)::ScopeInfoConte
            ast.head == :(.) || 
            ast.head == :ref ||
            ast.head == :string ||
-           ast.head == :comprehension)
+           ast.head == :comprehension ||
+           ast.head == :comparison||
+           ast.head == :dotcall)
         for i in ast.args
             analyzeScopeVariable(ctx, i)
         end
@@ -276,10 +285,7 @@ function analyzeScopeVariable(ctx::ScopeInfoContext, ast::JuAST)::ScopeInfoConte
     elseif ast.head == :let
         enterScope(ctx, ast, ast.args[2])
     elseif ast.head == :for
-        iter = ast.args[1]
-        body = ast.args[2]
-        analyzeScopeVariable(ctx, iter.args[2])
-        enterScope(ctx, ast, body)
+        enterScope(ctx, ast, ast.args[2])
     elseif ast.head == :while
         cond = ast.args[1]
         body = ast.args[2]

@@ -1817,7 +1817,7 @@ function prepareToplevelFunction(ctx::GlobalContext, ast::JuAST)::FunDef
 end
 
 @nocheck function makeSparamCompileType(mi::Core.MethodInstance, i::Int)::CompileType
-    return makeType(mi.sparam_vals[i])
+    return makeConstVal(mi.sparam_vals[i])
 end
 
 @nocheck function makeArgCompileType(mi::Core.MethodInstance, i::Int)::CompileType

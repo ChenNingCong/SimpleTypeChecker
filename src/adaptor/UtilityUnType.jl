@@ -35,15 +35,16 @@ end
 
 
 
-function getReturnType(ctx::GlobalContext, sig)
-    if sig.parameters[1] <: Type
-        getReturnType(ctx, sig, sig.parameters[1].parameters[1], Base.to_tuple_type(sig.parameters[2:end]))
+function getReturnType(ctx::GlobalContext, sig)::Vector{CompileType}
+    param1 = sig.parameters[1]
+    if param1 <: Type
+        getReturnType(ctx, sig, param1.parameters[1], Base.to_tuple_type(sig.parameters[2:end]))
     else
-        getReturnType(ctx, sig, sig.parameters[1].instance, Base.to_tuple_type(sig.parameters[2:end]))
+        getReturnType(ctx, sig, param1.instance, Base.to_tuple_type(sig.parameters[2:end]))
     end
 end
 
-function getReturnType(ctx::GlobalContext, f, tt)
+function getReturnType(ctx::GlobalContext, f, tt)::Vector{CompileType}
     getReturnType(ctx, Tuple{Core.Typeof(f), tt...}, f, tt)
 end
 

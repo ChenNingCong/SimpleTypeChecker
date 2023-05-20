@@ -99,15 +99,15 @@ function convert2JuAST!(tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData},
     flag = head.flags
     # TODO : we need to check the meaning of these flags here
     # Currently it works pretty fine for simple cases
-    if (flag != JuliaSyntax.EMPTY_FLAGS && 
-        flag != JuliaSyntax.INFIX_FLAG && 
-        flag != 1<<5 && # MUTABLE_FLAG
-        flag != 1<<7 && # assignment
-        flag != 1<<6 && # string unescaped (unimportant for type inference)
-        flag != 1<<4 &&
+    if (flag & ~JuliaSyntax.EMPTY_FLAGS &
+               ~JuliaSyntax.INFIX_FLAG  &
+               ~(1<<5) & # MUTABLE_FLAG
+               ~(1<<7) & # assignment
+        ~(1<<6) & # string unescaped (unimportant for type inference)
+        ~(1<<4) &
         # string macro
-        flag != JuliaSyntax.DOTOP_FLAG && # dotted op
-        flag != 0x0040) # ! call
+        ~JuliaSyntax.DOTOP_FLAG & # dotted op
+        ~0x0040) != 0 # ! call
         println(tree, head)
         error("Bad flag : $(formatLocation(loc)) $(head.kind) : $flag $(untokenize(head))")
     end

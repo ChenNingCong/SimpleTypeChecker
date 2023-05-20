@@ -152,7 +152,7 @@ function analyzeScopeVariableAssignLHS(ctx::ScopeInfoContext, lhs::JuAST, isLoca
         # not an assignment
     elseif lhs.head == :tuple
         for i in lhs.args
-            analyzeScopeVariable(ctx, i)
+            analyzeScopeVariableAssignLHS(ctx, i, isLocalDeclare, isGlobalDeclare)
         end
     end
     # refuse to analyze in other cases

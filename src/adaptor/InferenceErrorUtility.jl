@@ -8,13 +8,17 @@ end
     return string(typ.typ)
 end
 
-function printErrorHead(eng::Engine, ast::JuAST, errkind::String)
+@nocheck function printErrorHead(eng::Engine, ast::JuAST, errkind::String)
     loc = ast.loc
     println(eng.errio, formatLocation(loc))
     print(eng.errio, " ")
     println(eng.errio, errkind)
-    code = loc.file.code[loc.span[1]:loc.span[2]]
-    println(eng.errio, ' '^4, code)
+    try
+        code = loc.file.code[loc.span[1]:loc.span[2]]
+        println(eng.errio, ' '^4, code)
+    catch e
+        println(eng.errio, ' '^4, "(Failed to extract code)")
+    end
 end
 
 @nocheck function printSignature(io::IOBuffer, f::CompileType, typ::Vector{CompileType}, kwtyp::Vector{Pair{Symbol, CompileType}})

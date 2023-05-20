@@ -101,10 +101,11 @@ struct InferenceErrorFunCall <: InferenceError
     ast::JuAST
     ms::MethodCallStruct
     num::Int
+    isDotcall::Bool
 end
 
-function reportErrorFunCall(eng::Engine, ast::JuAST, ms::MethodCallStruct, num::Int)::Union{}
-    throwInferenceError(InferenceErrorFunCall(eng, ast, ms, num))
+@nocheck function reportErrorFunCall(eng::Engine, ast::JuAST, ms::MethodCallStruct, num::Int, isDotcall::Bool = false)::Union{}
+    throwInferenceError(InferenceErrorFunCall(eng, ast, ms, num, isDotcall))
 end
 
 function displayErrorFunCall(err::InferenceErrorFunCall)::Nothing
@@ -112,11 +113,17 @@ function displayErrorFunCall(err::InferenceErrorFunCall)::Nothing
     ast = err.ast
     ms = err.ms
     num = err.num
+    isDotcall = err.isDotcall
     str = getSignature(ms)
+    if isDotcall
+        m = "broadcast call"
+    else
+        m = "method"
+    end
     if num >= 2
-        printErrorHead(eng, ast, "MethodError: more than one matching method for $(str)")
+        printErrorHead(eng, ast, "MethodError: more than one matching $m for $(str)")
     elseif num == 0
-        printErrorHead(eng, ast, "MethodError: no matching method for $(str)")
+        printErrorHead(eng, ast, "MethodError: no matching $m for $(str)")
     end
 end
 
@@ -308,7 +315,7 @@ function reportErrorStringConstructor(eng::Engine, ast::JuAST, ms::MethodCallStr
 end
 
 function displayErrorStringConstructor(err::InferenceErrorStringConstructor)::Nothing
-    displayErrorFunCall(InferenceErrorFunCall(err.eng, err.ast, err.ms, err.num))
+    displayErrorFunCall(InferenceErrorFunCall(err.eng, err.ast, err.ms, err.num, false))
 end
 
 struct InferenceErrorStringReturnBottom <: InferenceError
@@ -339,7 +346,7 @@ function reportErrorArrayRef(eng::Engine, ast::JuAST, ms::MethodCallStruct, num:
 end
 
 function displayErrorArrayRef(err::InferenceErrorArrayRef)::Nothing
-    displayErrorFunCall(InferenceErrorFunCall(err.eng, err.ast, err.ms, err.num))
+    displayErrorFunCall(InferenceErrorFunCall(err.eng, err.ast, err.ms, err.num, false))
 end
 
 struct InferenceErrorArraySet <: InferenceError
@@ -354,7 +361,7 @@ function reportErrorArraySet(eng::Engine, ast::JuAST, ms::MethodCallStruct, num:
 end
 
 function displayErrorArraySet(err::InferenceErrorArraySet)::Nothing
-    displayErrorFunCall(InferenceErrorFunCall(err.eng, err.ast, err.ms, err.num))
+    displayErrorFunCall(InferenceErrorFunCall(err.eng, err.ast, err.ms, err.num, false))
 end
 
 struct InferenceErrorIndexReturnBottom <: InferenceError
@@ -421,13 +428,15 @@ struct InferenceErrorFunCallArgs <: InferenceError
     kwi::Vector{Int}
     fargs::Vector{FlowNode}
     kwargs::Vector{Pair{Symbol, FlowNode}}
+    isDotcall::Bool
 end
 
 function reportErrorFunCallArgs(eng::Engine, ast::JuAST, ms::MethodCallStruct, i::Vector{Int}, 
                                 kwi::Vector{Int}, 
                                 fargs::Vector{FlowNode}, 
-                                kwargs::Vector{Pair{Symbol, FlowNode}})::Union{}
-    throwInferenceError(InferenceErrorFunCallArgs(eng, ast, ms, i, kwi, fargs, kwargs))
+                                kwargs::Vector{Pair{Symbol, FlowNode}},
+                                isDotcall::Bool)::Union{}
+    throwInferenceError(InferenceErrorFunCallArgs(eng, ast, ms, i, kwi, fargs, kwargs, isDotcall))
 end
 
 @nocheck function explainAbstractType(typ::CompileType)::String
@@ -460,8 +469,13 @@ function displayErrorFunCallArgs(err::InferenceErrorFunCallArgs)::Nothing
     kwi = err.kwi
     fargs = err.fargs
     kwargs = err.kwargs
+    isDotcall = err.isDotcall
     str = getSignature(ms)
-    printErrorHead(eng, ast, "ArgumentError: Function argument is of abstract type")
+    if isDotcall
+        printErrorHead(eng, ast, "ArgumentError: broadcast call argument is of abstract type")
+    else
+        printErrorHead(eng, ast, "ArgumentError: Function argument is of abstract type")
+    end
     for ii in i
         if ii != 1
             println(eng.errio, "  $(ii-1)-th argument is of abstract type $(explainAbstractType(fargs[ii].typ))")
@@ -494,6 +508,24 @@ function displayErrorNoConstructor(err::InferenceErrorNoConstructor)::Nothing
     ms = err.ms
     str = getSignature(ms)
     printErrorHead(eng, ast, "ConstructorError : constructor $str returns Union{}")
+end
+
+struct InferenceErrorBroadcastBottom <: InferenceError
+    eng::Engine
+    ast::JuAST
+    ms::MethodCallStruct
+end
+
+function reportErrorBroadcastBottom(eng::Engine, ast::JuAST, ms::MethodCallStruct)::Union{}
+    throwInferenceError(InferenceErrorBroadcastBottom(eng, ast, ms))
+end
+
+function displayErrorBroadcastBottom(err::InferenceErrorBroadcastBottom)::Nothing
+    eng = err.eng
+    ast = err.ast
+    ms = err.ms
+    str = getSignature(ms)
+    printErrorHead(eng, ast, "BroadcastError : broadcast $str returns Union{}")
 end
 
 struct InferenceErrorApplyTypeFailure <: InferenceError

@@ -113,13 +113,17 @@ struct LiteralFlowNode end
 
 struct UpdateOp
     isUpdate::Bool
+    isDotcall::Bool
     ast::JuAST # ast of the whole assignment, update operator has no mapping ast
     op::Symbol
-    function UpdateOp(ast::JuAST, op::Symbol)
-        new(true, ast, op)
+    function UpdateOp(ast::JuAST, op::Symbol, isDotcall::Bool)
+        new(true, isDotcall, ast, op)
+    end
+    function UpdateOp(ast::JuAST, isDotcall::Bool)
+        new(false, isDotcall)
     end
     function UpdateOp()
-        new(false)
+        new(false, false)
     end
 end
 

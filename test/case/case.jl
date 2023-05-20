@@ -342,4 +342,37 @@ function f41(y::Int)
     return x === nothing
 end
 
+function f42(y::Vector{Int})
+    return y.+1
+end
+
+function f43(y::Vector{Int})
+    y .+= 3
+    y .= y.+y
+    println(y[1])
+end
+
+struct A
+    x::Vector{Int}
+end
+
+function f44(y::Vector{Int})
+    y .+= 3
+    y .= y.+y
+    println(y[1])
+end
+
+function f45(y::Vector{Int})
+    y .+= 3
+    
+    y .= y
+    y .= 1
+    y[1:3] .= 1
+end
+
+function f45(y::Vector{Vector{Int}})
+    y[1] .= y[2]
+    
+end
+
 end

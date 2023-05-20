@@ -166,7 +166,12 @@ function inferCurlyCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     return InferResult(ctx, node)
 end
 
-function inferFunCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
+function inferDotCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
+    assertASTKind(ast, :dotcall)
+    return inferFunCall(eng, ctx, ast, true)
+end
+
+function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::InferResult
     # This function doesn't handle function definition
     args = ast.args
     fargs = FlowNode[]
@@ -223,6 +228,9 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
             reportASTError(eng, iast, "Use semi-colon to seperate keyword arguments instead of comma. Write f(x;y=1) instead f(x, y=1)")
         end
     end
+    if isDotcall && length(kwargs) > 0
+        reportASTError(eng, ast, "Unsupported dotted call with keyword arguments")
+    end
     imprecise = Int[]
     kwimprecise = Int[]
     # we only support Julia 1.9, because Julia handles keyword arguments differently across versions
@@ -253,16 +261,43 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     end
     ms = MethodCallStruct(fargs, kwargs)
     if length(imprecise) > 0 || length(kwimprecise) > 0
-        reportErrorFunCallArgs(eng, ast, ms, imprecise, kwimprecise, fargs, kwargs)
+        reportErrorFunCallArgs(eng, ast, ms, imprecise, kwimprecise, fargs, kwargs, isDotcall)
     end
-    mm = getMethodMatches(eng, ms)
-    if length(mm) >= 2 || length(mm) == 0
-        # TODO : report mismatched method table here
-        reportErrorFunCall(eng, ast, ms, length(mm))
-    end
-    tt = extractUniqueMatch(mm)
-    if isBottomType(tt) && checkConstructor
-        reportErrorNoConstructor(eng, ast, ms)
+    if isDotcall
+        # kwargs is empty here
+        fargs = vcat(makeLiteralFlowNode(ast, makeConstJuASTVal(Base.broadcasted)), fargs)
+        ms = MethodCallStruct(fargs, kwargs)
+        mm = getMethodMatches(eng, ms)
+        if length(mm) >= 2 || length(mm) == 0
+            # TODO : report mismatched method table here
+            reportErrorFunCall(eng, ast, ms, length(mm), false)
+        end
+        tt = extractUniqueMatch(mm)
+        if isBottomType(tt)
+            reportErrorBroadcastBottom(eng, ast, ms)
+        end
+        bnode = makeFunCallFlowNode(ast, ms, tt)
+        fargs = FlowNode[makeLiteralFlowNode(ast, makeConstJuASTVal(Base.materialize)), bnode]
+        ms = MethodCallStruct(fargs, kwargs)
+        mm = getMethodMatches(eng, ms)
+        if length(mm) >= 2 || length(mm) == 0
+            # TODO : report mismatched method table here
+            reportErrorFunCall(eng, ast, ms, length(mm), false)
+        end
+        tt = extractUniqueMatch(mm)
+        if isBottomType(tt)
+            reportErrorBroadcastBottom(eng, ast, ms)
+        end
+    else
+        mm = getMethodMatches(eng, ms)
+        if length(mm) >= 2 || length(mm) == 0
+            # TODO : report mismatched method table here
+            reportErrorFunCall(eng, ast, ms, length(mm), isDotcall)
+        end
+        tt = extractUniqueMatch(mm)
+        if isBottomType(tt) && checkConstructor
+            reportErrorNoConstructor(eng, ast, ms)
+        end
     end
     # TODO : we should add constant propagation for pure builtin function !!!
     # this is again a terminal node
@@ -319,7 +354,9 @@ function inferExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     elseif ast.head == :curly
         return inferCurlyCall(eng, ctx, ast)
     elseif ast.head == :call
-        return inferFunCall(eng, ctx, ast)
+        return inferFunCall(eng, ctx, ast, false)
+    elseif ast.head == :dotcall
+        return inferFunCall(eng, ctx, ast, true)
     elseif ast.head == :return
         return inferReturn(eng, ctx, ast)
     elseif ast.head == :break
@@ -579,8 +616,65 @@ function inferAssignUpdateHelper(eng::Engine, ctx::Context, ast::JuAST, lhsnode:
     end
 end
 
+function inferAssignLHSVarBroadcast(eng::Engine, ctx::Context, ast::JuAST, rhsnode::FlowNode, op::UpdateOp)::InferResult
+    # x .+= 1
+    rel = inferVar(eng, ctx, ast)
+    ctx = rel.ctx
+    lhsnode = rel.node
+    # lhsnode shouldn't be a bottom
+    if isBottomType(lhsnode.typ)
+        throw(InternalError("Variable should never be inferred as bottom type!"))
+    end
+    return inferAssignLHSBroadcastHelper(eng, ctx, ast, lhsnode, rhsnode, op)
+end
+
+function inferAssignLHSBroadcastHelper(eng::Engine, ctx::Context, ast::JuAST, lhsnode::FlowNode, rhsnode::FlowNode, op::UpdateOp)::InferResult
+    if op.isUpdate
+        if isModuleDefined(eng.mod, op.op)
+            opval = getFromModule(eng.mod, op.op)
+            # fix this, using a module here
+            opnode = makeGlobalVarFlowNode(op.ast, opval)
+            addFlowMapping!(eng, op.ast, opnode)
+            fargs = FlowNode[makeLiteralFlowNode(ast, makeConstJuASTVal(Base.broadcasted)), opnode, lhsnode, rhsnode]
+        else
+            throw(InternalError("All the update assignment operators should be defined in module $(eng.mod)"))
+        end
+    else
+        opnode = makeGlobalVarFlowNode(ast, makeConstVal(Base.identity))
+        fargs = FlowNode[makeLiteralFlowNode(ast, makeConstJuASTVal(Base.broadcasted)), opnode, rhsnode]
+    end
+    ms = MethodCallStruct(fargs)
+    mm = getMethodMatches(eng, ms)
+    if length(mm) >= 2 || length(mm) == 0
+        # TODO : report mismatched method table here
+        reportErrorFunCall(eng, ast, ms, length(mm), false)
+    end
+    tt = extractUniqueMatch(mm)
+    if isBottomType(tt)
+        reportErrorBroadcastBottom(eng, ast, ms)
+    end
+    bnode = makeFunCallFlowNode(ast, ms, tt)
+    fargs = FlowNode[makeLiteralFlowNode(ast, makeConstJuASTVal(Base.materialize!)), lhsnode, bnode]
+    ms = MethodCallStruct(fargs)
+    mm = getMethodMatches(eng, ms)
+    if length(mm) >= 2 || length(mm) == 0
+        # TODO : report mismatched method table here
+        reportErrorFunCall(eng, ast, ms, length(mm), false)
+    end
+    tt = extractUniqueMatch(mm)
+    if isBottomType(tt)
+        reportErrorBroadcastBottom(eng, ast, ms)
+    end
+    node = makeFunCallFlowNode(ast, ms, tt)
+    addFlowMapping!(eng, ast, node)
+    return InferResult(ctx, node)
+end
+
 function inferAssignLHSVar(eng::Engine, ctx::Context, ast::JuAST, rhsnode::FlowNode, op::UpdateOp)::InferResult
     assertASTKind(ast, :identifier)
+    if op.isDotcall
+        return inferAssignLHSVarBroadcast(eng, ctx, ast, rhsnode, op)
+    end
     varid = cast2Symbol(ast.val)
     # rhsnode is not a bottom, ensured by caller of inferLHSSingpleVar
     if op.isUpdate
@@ -679,28 +773,6 @@ function inferGenerator(eng::Engine, ctx::Context, ast::JuAST)::InferResult
 end
 =#
 
-#=
-function inferLHSArraySet(eng::Engine, ctx::Context, ast::JuAST, isUpdate::Bool, op::UpdateOp)::InferResult
-    assertASTKind(ast, :ref)
-end
-
-function inferLHSPropertySet(eng::Engine, ctx::Context, ast::JuAST, isUpdate::Bool, op::UpdateOp)::InferResult
-    assertASTKind(ast, :(.))
-end
-
-function inferLHSTupleDestruct(eng::Engine, ctx::Context, ast::JuAST)::InferResult
-    assertASTKind(ast, :tuple)
-end
-
-function inferUpdateAssign(eng::Engine, ctx::Context, ast::JuAST)::InferResult
-    # we disallowed tuple destruct in update assignment
-end
-=#
-#=
-function inferAssignTypedAssert(eng::Engine, ctx::Context, ast::JuAST, rhsnode::FlowNode, op::UpdateOp)::InferResult
-end
-=#
-
 function inferAssignLHSSetField(eng::Engine, ctx::Context, ast::JuAST, rhsnode::FlowNode, op::UpdateOp)::InferResult
     # TODO : getproperty and setproperty on module...
     assertASTKind(ast, :(.))
@@ -721,35 +793,51 @@ function inferAssignLHSSetField(eng::Engine, ctx::Context, ast::JuAST, rhsnode::
     if isBottomType(xnode.typ)
         reportErrorSetFieldOfBottom(eng, ast)
     end
+    if !isConcreteType(xnode.typ)
+        reportErrorFieldType(eng, ast, xnode, false)
+    end
     if !hasField(xnode.typ, p)
         reportErrorNoField(eng, ast, xnode, p)
     end
+    
+    # here, it should be dotgetproperty for broadcast call
+    # or getproperty for other non-broadcast call
     ft = getFieldType(xnode.typ, p)
+    if !isConcreteType(ft)
+        if !(op.isDotcall || op.isUpdate)
+            reportErrorFieldType(eng, ast, xnode, false)
+        end
+    end
+    lhsnode = makeGetPropertyFlowNode(refast, xnode, ft)
+    
+    if op.isDotcall
+        return inferAssignLHSBroadcastHelper(eng, ctx, ast, lhsnode, rhsnode, op)
+    end
+
     if op.isUpdate
         if isModuleDefined(eng.mod, op.op)
             # TODO : add correct arguments here!!!
-            ms = MethodCallStruct(FlowNode[])
-            lhsnode = makeArrayRefFlowNode(refast, ms, ft)
             opval = getFromModule(eng.mod, op.op)
             # fix this, using a module here
             opnode = makeGlobalVarFlowNode(op.ast, opval)
             addFlowMapping!(eng, op.ast, opnode)
-            argnodes = FlowNode[opnode, lhsnode, rhsnode]
-            ms = MethodCallStruct(argnodes)
-            mm = getMethodMatches(eng, ms)
-            if length(mm) != 1
-                reportErrorFunCall(eng, ast, ms, length(mm))
-            end
-            rt = extractUniqueMatch(mm)
-            if isBottomType(rt)
-                reportErrorUpdateAssignReturnBottom(eng, ast)
-            end
-            rhsnode = makeFunCallFlowNode(ast, ms, rt)
-            addFlowMapping!(eng, op.ast, rhsnode)
         else
             throw(InternalError("All the update assignment operators should be defined in module $(eng.mod)"))
         end
+        argnodes = FlowNode[opnode, lhsnode, rhsnode]
+        ms = MethodCallStruct(argnodes)
+        mm = getMethodMatches(eng, ms)
+        if length(mm) != 1
+            reportErrorFunCall(eng, ast, ms, length(mm))
+        end
+        rt = extractUniqueMatch(mm)
+        if isBottomType(rt)
+            reportErrorUpdateAssignReturnBottom(eng, ast)
+        end
+        rhsnode = makeFunCallFlowNode(ast, ms, rt)
+        addFlowMapping!(eng, op.ast, rhsnode)
     end
+    
     opnode = makeLiteralFlowNode(ast, makeConstJuASTVal(Base.setproperty!))
     # TODO : this is incorrect...
     # ms should be setproperty!(x, v, i)
@@ -802,6 +890,8 @@ function inferAssignLHS(eng::Engine, ctx::Context, ast::JuAST, rhsnode::FlowNode
     if ast.head == :tuple
         if op.isUpdate
             reportASTError(eng, ast, "update assignment can't be used while lhs is a tuple destruct")
+        elseif op.isDotcall
+            reportASTError(eng, ast, "Don't use broadcast to assign a tuple on lhs")
         end
         return inferAssignLHSTupleDestruct(eng, ctx, ast, rhsnode)
     elseif ast.head == :identifier
@@ -813,6 +903,8 @@ function inferAssignLHS(eng::Engine, ctx::Context, ast::JuAST, rhsnode::FlowNode
     elseif ast.head == :(::)
         if op.isUpdate
             reportASTError(eng, ast, "update assignment can't be used while lhs is a typed assert")
+        elseif op.isDotcall
+            reportASTError(eng, ast, "Don't use broadcast to assign a variable with tyed assert")
         end
         return inferAssignLHSTypedAssert(eng, ctx, ast, Just(rhsnode))
     else
@@ -857,9 +949,13 @@ function inferAssignLHSArrayRef(eng::Engine, ctx::Context, ast::JuAST, rhsnode::
             pop!(eng.arrayContext)
         end
     end
-    if op.isUpdate
+    if op.isUpdate || op.isDotcall
         # TODO : extract this to a helper function
-        opnode = makeLiteralFlowNode(ast, makeConstJuASTVal(Base.getindex))
+        if op.isDotcall
+            opnode = makeLiteralFlowNode(ast, makeConstJuASTVal(Base.dotview))
+        else
+            opnode = makeLiteralFlowNode(ast, makeConstJuASTVal(Base.getindex))
+        end
         ms = MethodCallStruct(opnode, args)
         # TODO : report imprecise method here
         mm = getMethodMatches(eng, ms)
@@ -872,7 +968,11 @@ function inferAssignLHSArrayRef(eng::Engine, ctx::Context, ast::JuAST, rhsnode::
         end
         lhsnode = makeArrayRefFlowNode(ast, ms, tt)
         addFlowMapping!(eng, ast, lhsnode)
-        rhsnode = inferAssignUpdateHelper(eng, ctx, ast, lhsnode, rhsnode, op)
+        if op.isDotcall
+            return inferAssignLHSBroadcastHelper(eng, ctx, ast, lhsnode, rhsnode, op)
+        else
+            rhsnode = inferAssignUpdateHelper(eng, ctx, ast, lhsnode, rhsnode, op)
+        end
     end
     insert!(args, 2, rhsnode)
     opnode = makeLiteralFlowNode(ast, makeConstJuASTVal(Base.setindex!))
@@ -904,13 +1004,16 @@ end
 function inferAssign(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     opstr = String(ast.head)
     isValid = false
-    op = UpdateOp()
+    isDotcall = (ast.flag & 0x0002) != 0
+    op = UpdateOp(ast, isDotcall)
+    # JuliaSyntax.DOTOP_FLAG == 0x0002
+    isUpdate = false
     if length(opstr) >= 1
         opchar = opstr[end]
         if opchar == '='
             isValid = true
             if length(opstr) > 1
-                op = UpdateOp(ast, Symbol(opstr[1:end-1]))
+                op = UpdateOp(ast, Symbol(opstr[1:end-1]), isDotcall)
             end
         end
     end
@@ -933,10 +1036,11 @@ function inferAssign(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     # logic to dispatch lhs
     lhs = ast.args[1]
     rel = inferAssignLHS(eng, ctx, lhs, rhsnode, op)
-    if !op.isUpdate
+    if !op.isUpdate && !op.isDotcall
         # the value of the whole assignment expression is the value of RHS
         anode = makeAssignExprFlowNode(ast, rhsnode)
         addFlowMapping!(eng, ast, anode)
+        return InferResult(rel.ctx, anode)
     end
     return rel
 end

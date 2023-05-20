@@ -120,7 +120,7 @@ function convert2JuAST!(tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData},
     end
     # TODO : we need to handle some other cases there
     # basically we need to convert the order to Expr
-    if flag == JuliaSyntax.INFIX_FLAG && shead == :call 
+    if (flag & JuliaSyntax.INFIX_FLAG !=0) && (shead == :call || shead == :dotcall)
         # swap the ordering of first children
         tmp = children[1]
         children[1] = children[2]

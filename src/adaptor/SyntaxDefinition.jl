@@ -50,7 +50,11 @@ end
 # JuAST is similiar to Julia's Expr, except that it's associated with location information additionally
 # we use parameterized type to get rid of recursive type definition
 mutable struct JuAST
+    # we should use JuliaSyntax.SyntaxHead here
+    # unfortunately, that also requires us to use string macro K"=" for comparison
+    # we instead use the old fashion symbol comparsion
     const head::Symbol
+    const flag::UInt16
     const args::Vector{JuAST}
     const val::JuASTVal
 
@@ -60,8 +64,8 @@ mutable struct JuAST
     const tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData}
     # this field is uninitialized and assigned later
     node::MutableGreenNodeInternal{JuAST}
-    function JuAST(head::Symbol, args::Vector{JuAST}, val::JuASTVal, loc::Location, mparent::Maybe{JuAST}, tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData})
-        return new(head, args, val, loc, mparent.val, tree)
+    function JuAST(head::Symbol, flags::UInt16, args::Vector{JuAST}, val::JuASTVal, loc::Location, mparent::Maybe{JuAST}, tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData})
+        return new(head, flags, args, val, loc, mparent.val, tree)
     end
 end
 

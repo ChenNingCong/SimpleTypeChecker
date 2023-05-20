@@ -87,9 +87,9 @@ function convert2JuAST!(tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData},
         # if the value is a symbol, then we represent it by an identifier instead of a symbol
         vv = v.val 
         if vv isa Symbol
-            ast = JuAST(:identifier, JuAST[], v, loc, parent, tree)
+            ast = JuAST(:identifier, UInt16(0), JuAST[], v, loc, parent, tree)
         else
-            ast = JuAST(:literal, JuAST[], v, loc, parent, tree)
+            ast = JuAST(:literal, UInt16(0), JuAST[], v, loc, parent, tree)
         end
         return ast
     end
@@ -103,8 +103,10 @@ function convert2JuAST!(tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData},
         flag != JuliaSyntax.INFIX_FLAG && 
         flag != 1<<5 && # MUTABLE_FLAG
         flag != 1<<7 && # assignment
+        flag != 1<<6 && # string unescaped (unimportant for type inference)
         flag != 1<<4 &&
         # string macro
+        flag != JuliaSyntax.DOTOP_FLAG && # dotted op
         flag != 0x0040) # ! call
         println(tree, head)
         error("Bad flag : $(formatLocation(loc)) $(head.kind) : $flag $(untokenize(head))")
@@ -112,7 +114,7 @@ function convert2JuAST!(tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData},
     # TODO : we need to handle more strange syntax here...
     shead = Symbol(JuliaSyntax._kind_names[Int(kind)+1])
     children = Vector{JuAST}(undef, length(nchild))
-    ast = JuAST(shead, children, makeEmptyJuASTVal(), loc, parent, tree)
+    ast = JuAST(shead, flag, children, makeEmptyJuASTVal(), loc, parent, tree)
     for i in 1:length(nchild)
         children[i] =  convert2JuAST!(nchild[i], Maybe{JuAST}(ast))
     end

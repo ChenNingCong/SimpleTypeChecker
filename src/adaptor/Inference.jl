@@ -1799,7 +1799,11 @@ function inferForStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     return InferResult(Context(ImmutableDict(newmapping2)), retnode)
 end
 
-@nocheck function fasteval(mod::Module, x::JuAST, params::Dict{Symbol, TypeVar})
+function fasteval(mod::Module, x::JuAST, params::Dict{Symbol, TypeVar})
+    return fasteval(mod, x, params, Vector{TypeVar}())
+end
+
+@nocheck function fasteval(mod::Module, x::JuAST, params::Dict{Symbol, TypeVar}, implicit::Vector{TypeVar})
     if x.head == :identifier
         var = cast2Symbol(x.val)
         if haskey(params, var)
@@ -1807,9 +1811,23 @@ end
         end
         return getproperty(mod, var)
     elseif x.head == :(.)
-        return getproperty(fasteval(mod, x.args[1], params), cast2Symbol(x.args[2].args[1].val))
+        return getproperty(fasteval(mod, x.args[1], params, implicit), cast2Symbol(x.args[2].args[1].val))
     elseif x.head == :curly
-        return Core.apply_type(fasteval(mod, x.args[1], params), fasteval.(Ref(mod), x.args[2:end], Ref(params))...)
+        newimplicit = Vector{TypeVar}()
+        ty = fasteval(mod, x.args[1], params, implicit)
+        args = Any[]
+        for i in 2:length(x.args)
+            push!(args, fasteval(mod, x.args[i], params, newimplicit))
+        end
+        ty = Core.apply_type(ty, args...)
+        for i in implicit
+            ty = UnionAll(ty, i)
+        end
+        return ty
+    elseif x.head == :(<:) && length(x.args) == 1
+        var = TypeVar(gensym(), fasteval(mod, x.args[1], params, implicit))
+        push!(implicit, var)
+        return var
     else
         # dangerous, complicated type application is dangerous
         error("Not supported $(typeof(x)), type too complicated for analysis $(x)")

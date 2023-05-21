@@ -19,18 +19,15 @@ end
 
 function reportASTError(eng::Engine, ast::JuAST, msg::String)::Union{}
     Base.throw(SyntaxError(ast, msg))
-    
 end
 
 function reportASTError(ctx::GlobalContext, ast::JuAST, msg::String)::Union{}
-    Base.throw(SyntaxError(ast, msg))
-    
+    Base.throw(SyntaxError(ast, msg)) 
 end
 
 
 function reportUnimplementedASTError(eng::Engine, ast::JuAST, msg::String)::Union{}
     Base.throw(SyntaxError(ast, msg))
-    
 end
 
 #=
@@ -917,9 +914,13 @@ end
 @nocheck function tryDestructTuple(eng::Engine, ctx::Context, ast::JuAST, node::FlowNode)::Union{Nothing, Vector{FlowNode}}
     t = node.typ.typ
     if t isa DataType 
-        if length(t.parameters) == length(ast.args)
+        if length(t.parameters) >= length(ast.args)
             if ((t <: Tuple) || (t <: Pair))
-                nodes = FlowNode[makeAssignLHSTupleDestructFlowNode(ast.args[i], node, makeType(t.parameters[i])) for i in 1:length(t.parameters)]
+                nodes = FlowNode[makeAssignLHSTupleDestructFlowNode(ast.args[i], node, makeType(t.parameters[i])) for i in 1:length(ast.args)]
+                if length(t.parameters) > length(ast.args)
+                    # TODO : add warning here to disallow such behaviour!!!
+                end
+                return nodes
             else
                 reportErrorFailedToDestruct(eng, ast, "Failed to destruct rhs, not a pair or tuple. Got a $(toString(node.typ))")
             end
@@ -1744,7 +1745,7 @@ function inferForStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     # step two : remove shadowed variable
     newmapping = Dict{Symbol, ContextValue}()
     scopeinfo = eng.scopeInfos[ast]
- 
+
     for tmp in ctx.mapping.data
         k = tmp.first
         v = tmp.second
@@ -1753,6 +1754,7 @@ function inferForStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
             z = makeForUpdateFlowNode(ast, v.curtyp)
             newmapping[k] = ContextValue(v.typ, z)
         elseif hasVar(scopeinfo, k)
+            println(k)
             # this variable is shadowed in this scope
         else
             # unchanged
@@ -1772,7 +1774,6 @@ function inferForStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
             newctx = inferAssignLHS(eng, newctx, firstvar, varnode, UpdateOp()).ctx
         end
     end
-
     body = ast.args[2]
 
     enterLoop(eng)

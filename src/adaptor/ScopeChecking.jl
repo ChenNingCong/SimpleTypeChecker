@@ -317,6 +317,14 @@ function analyzeScopeVariable(globalctx::GlobalContext, parent::FunDef)::ScopeIn
         info.locals[i.name] = ast
         push!(info.curlocals, i.name)
     end
+    for i in parent.kwargs
+        info.locals[i.name] = ast
+        push!(info.curlocals, i.name)
+    end
+    for i in parent.optargs
+        info.locals[i.name] = ast
+        push!(info.curlocals, i.name)
+    end
     # TODO : analyze optional argument here...!!!
     for i in 1:3
         ctx.walkTurn = i

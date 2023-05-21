@@ -244,6 +244,7 @@ struct SparamFlowNode end
 struct ParamFlowNode end
 struct ExpectedReturnFlowNode end
 struct SetPropertyFlowNode end
+struct KeyParamFlowNode end
 # special node for Expr, Expr is a mutable that is local to the function body
 # we treat the value as a non-constant, because it's mutable
 function makeLiteralFlowNode(ast::JuAST, val::JuASTVal)
@@ -384,6 +385,10 @@ end
 
 function makeParamFlowNode(ast::JuAST, v::CompileType)
     FlowNode(ast, FlowNode[], v, ParamFlowNode())
+end
+
+function makeKeyParamFlowNode(ast::JuAST, v::CompileType)
+    FlowNode(ast, FlowNode[], v, KeyParamFlowNode())
 end
 
 function makeExpectedReturnFlowNode(ast::JuAST, v::CompileType)

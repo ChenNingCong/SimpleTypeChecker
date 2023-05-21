@@ -806,7 +806,7 @@ function inferAssignLHSSetField(eng::Engine, ctx::Context, ast::JuAST, rhsnode::
     # or getproperty for other non-broadcast call
     ft = getFieldType(xnode.typ, p)
     if !isConcreteType(ft)
-        if !(op.isDotcall || op.isUpdate)
+        if op.isDotcall || op.isUpdate
             reportErrorFieldType(eng, ast, xnode, false)
         end
     end
@@ -1988,6 +1988,11 @@ end
     return makeType(mi.specTypes.parameters[i])
 end
 
+function makeKwargType(arg::Argument)::CompileType
+    # hack ...
+    makeType(Int)
+end
+
 function checkToplevelFunction(eng::Engine, fundef::FunDef, mi::Core.MethodInstance)::InferReport
     ast = fundef.ast
     smapping = Dict{Symbol, ContextValue}()
@@ -2009,6 +2014,11 @@ function checkToplevelFunction(eng::Engine, fundef::FunDef, mi::Core.MethodInsta
         if arg.name !== Symbol("_")
             mapping[arg.name] = ContextValue(node, node)
         end
+    end
+    for i in 1:length(fundef.kwargs)
+        arg = fundef.kwargs[i]
+        node = makeParamFlowNode(ast, makeKwargType(arg))
+        mapping[arg.name] = ContextValue(node, node)
     end
     ctx = Context(ImmutableDict(merge(smapping, mapping)))
     # Firstly, infer return type

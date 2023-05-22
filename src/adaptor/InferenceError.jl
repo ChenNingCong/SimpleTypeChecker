@@ -800,3 +800,39 @@ function displayErrorkeywordNotDefined(err::InferenceErrorkeywordNotDefined)::No
     sym = err.sym
     printErrorHead(eng, ast, "UndefinedError : keyword $sym is required but not inputed")
 end
+
+struct InferenceErrorElementNonSameType <: InferenceError
+    eng::Engine
+    ast::JuAST
+    t1::FlowNode
+    t2::FlowNode
+    typed::Bool
+end
+
+function reportErrorElementNonSameType(eng::Engine, ast::JuAST, t1::FlowNode, t2::FlowNode, typed::Bool)::Union{}
+    throwInferenceError(InferenceErrorElementNonSameType(eng, ast, t1, t2, typed))
+end
+
+function displayErrorElementNonSameType(err::InferenceErrorElementNonSameType)::Nothing
+    eng = err.eng
+    ast = err.ast
+    t1 = err.t1
+    t2 = err.t2
+    printErrorHead(eng, ast, "Array element must have the same type")
+end
+
+
+struct InferenceErrorEmptyAnyArray <: InferenceError
+    eng::Engine
+    ast::JuAST
+end
+
+function reportErrorEmptyAnyArray(eng::Engine, ast::JuAST)::Union{}
+    throwInferenceError(InferenceErrorEmptyAnyArray(eng, ast))
+end
+
+function displayErrorEmptyAnyArray(err::InferenceErrorEmptyAnyArray)::Nothing
+    eng = err.eng
+    ast = err.ast
+    printErrorHead(eng, ast, "Use `Any[]` instead of `[]` to construct Any array")
+end

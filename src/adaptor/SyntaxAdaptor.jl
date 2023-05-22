@@ -194,7 +194,7 @@ function matchGreenNode(ast::JuAST, nodes::Vector{MutableGreenNode})::MutableGre
             return candidate[1]
         elseif length(candidate) == 0
             # TODO : this is possible for try-catch without finally branch, where a literal false is generated and has no back pointer
-            @warn "No extract mapping"
+            @debug "No extract mapping"
             return nodes[1]
         else
             num = 0

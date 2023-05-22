@@ -317,6 +317,7 @@ function inferReturn(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     else
         reportASTError(eng, ast, "Return should have only zero or one parameter")
     end
+    # TODO : check bottom type of return
     engn = eng.retVal
     if isNone(engn)
         eng.retVal = Just(rettnode)
@@ -380,8 +381,6 @@ function inferExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         return inferWhileStmt(eng, ctx, ast)
     elseif ast.head == :(<:) || ast.head == :where
         reportUnimplementedASTError(eng, ast, "Unsupported type construction <: or where")
-    elseif ast.head == :vect
-        reportASTError(eng, ast, "Don't use untyped array construction. Use Type[...] instead of [...]")
     elseif ast.head == :(::)
         reportUnimplementedASTError(eng, ast, "type assertion is unsupported")
     elseif ast.head == :function || ast.head == :(->)
@@ -395,6 +394,9 @@ function inferExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         end
         if ast.head in Symbol[:kw, :parameters]
             reportASTError(eng, ast, "Invalid AST construction")
+        end
+        if ast.head in Symbol[:hcat, :vect, :vcat, :typed_vcat, :typed_hcat]
+            return inferCat(eng, ctx, ast)
         end
         reportUnimplementedASTError(eng, ast, "Unsupported AST type $(ast.head)")
     end
@@ -1123,6 +1125,138 @@ function inferTupleValue(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     node = makeTupleFlowNode(ast, nodes, makeTupleType(nodes))
     addFlowMapping!(eng, ast, node)
     return InferResult(ctx, node) 
+end
+
+@nocheck function makeMatrixType(typ::CompileType)::CompileType
+    makeType(Matrix{typ.typ})
+end
+
+function inferCat(eng::Engine, ctx::Context, ast::JuAST)::InferResult
+    #=
+    [x y;z w] => vcat
+    [x y z w] => hcat
+    [x, y, z, w] => vect
+    =#
+    # Julia allows something like [[1 2 3] 4]
+    # we disallow literal involving such joining
+    # [[1 2 3] [1 2 3]] == [1 2 3 1 2 3], not a nested array
+    principleType = None(FlowNode)
+    if ast.head == :typed_vcat || ast.head == :vcat 
+        # TODO : this is a hack, don't do this...
+        if ast.head == :typed_vcat
+            rel = inferExpr(eng, ctx, ast.args[1])
+            ctx = rel.ctx
+            prinType = Just(rel.node)
+            start = 2
+            istyped = true
+        else
+            start = 1
+            prinType = None(FlowNode)
+            istyped = false
+        end
+        for ii in start:length(ast.args)
+            i = ast.args[ii]
+            if i.head == :row
+                for j in i.args
+                    rel = inferExpr(eng, ctx, j)
+                    node = rel.node
+                    ctx = rel.ctx
+                    if isNone(prinType)
+                        prinType = Just(node)
+                    else
+                        pnode = castJust(prinType)
+                        if istyped
+                            pnodetyp = lift(pnode.typ)
+                            if !(tryMergeCompileValue(pnodetyp, node.typ) && 
+                                tryMergeCompileValue(node.typ, pnodetyp))
+                                # todo : improve error reporting here
+                                reportErrorElementNonSameType(eng, ast, pnode, node, true)
+                            end 
+                        else
+                            if !(tryMergeCompileValue(pnode.typ, node.typ) && 
+                                tryMergeCompileValue(node.typ, pnode.typ))
+                                reportErrorElementNonSameType(eng, ast, pnode, node, false)
+                            end
+                        end
+                    end
+                end
+            else
+                reportASTError(eng, ast, ":row is expected in :vcat")
+            end
+        end
+        if istyped
+            ttt = makeMatrixType(lift(castJust(prinType).typ))
+        else
+            # TODO : test isNone of prinType
+            ttt = makeMatrixType(castJust(prinType).typ)
+        end
+        # TODO : fix this...
+        return InferResult(ctx, FlowNode(ast, FlowNode[], ttt, nothing))
+    elseif ast.head == :vect
+        return reportASTError(eng, ast, "Don't use untyped array construction. Use Type[...] instead of [...]")
+    elseif ast.head == :hcat
+        fnode = makeLiteralFlowNode(ast, makeConstJuASTVal(Base.hcat))
+        return inferCatHelper(eng, ctx, ast, fnode, None(FlowNode))
+    elseif ast.head == :typed_hcat
+        fnode = makeLiteralFlowNode(ast, makeConstJuASTVal(Base.typed_hcat))
+        rel = inferExpr(eng, ctx, ast.args[1])
+        ctx = rel.ctx
+        return inferCatHelper(eng, ctx, ast, fnode, Just(rel.node))
+    else
+        return reportASTError(eng, ast, "Invalid array grammer")
+    end
+end
+
+function inferCatHelper(eng::Engine, ctx::Context, ast::JuAST, fnode::FlowNode, prinType::Maybe{FlowNode})::InferResult
+    istyped = !isNone(prinType)
+    if istyped
+        start = 2
+        args = FlowNode[castJust(prinType)]
+    else
+        start = 1
+        args = FlowNode[]
+    end
+    for ii in start:length(ast.args)
+        i = ast.args[ii]
+        rel = inferExpr(eng, ctx, i)
+        ctx = rel.ctx
+        node = rel.node
+        push!(args, node)
+        if isNone(prinType)
+            prinType = Just(node)
+        else
+            pnode = castJust(prinType)
+            if istyped
+                pnodetyp = lift(pnode.typ)
+                if !(tryMergeCompileValue(pnodetyp, node.typ) && 
+                    tryMergeCompileValue(node.typ, pnodetyp))
+                    # todo : improve error reporting here
+                    reportErrorElementNonSameType(eng, ast, pnode, node, true)
+                end
+            else
+                if !(tryMergeCompileValue(pnode.typ, node.typ) && 
+                    tryMergeCompileValue(node.typ, pnode.typ))
+                    reportErrorElementNonSameType(eng, ast, pnode, node, false)
+                end
+            end
+        end
+    end
+    if isNone(prinType)
+        reportErrorEmptyAnyArray(eng, ast)
+    end
+    ms = MethodCallStruct(fnode, args)
+    # TODO : report imprecise method here
+    mm = getMethodMatches(eng, ms)
+    if length(mm) >= 2 || length(mm) == 0
+        reportErrorArrayRef(eng, ast, ms, length(mm))
+    end
+    tt = extractUniqueMatch(mm)
+    if isBottomType(tt)
+        reportErrorIndexReturnBottom(eng, ast, ms)
+    end
+    newnode = makeFunCallFlowNode(ast, ms, tt)
+    addFlowMapping!(eng, ast, newnode)
+    return InferResult(ctx, newnode)    
 end
 
 function inferBreakStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
@@ -2115,6 +2249,7 @@ function checkToplevelFunction(eng::Engine,
         eng.retVal = Just(newnode)
     else
         if !tryMergeReturnFlowNode(castJust(engn), newnode)
+            println(newnode.typ)
             reportErrorReturnEnlargeType(eng, castJust(engn), newnode)
         end
     end

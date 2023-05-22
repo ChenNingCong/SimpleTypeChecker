@@ -1143,6 +1143,7 @@ function inferCat(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     principleType = None(FlowNode)
     if ast.head == :typed_vcat || ast.head == :vcat 
         # TODO : this is a hack, don't do this...
+        # TODO : this is incorrect, but I don't know how to concat complicated array...
         if ast.head == :typed_vcat
             rel = inferExpr(eng, ctx, ast.args[1])
             ctx = rel.ctx

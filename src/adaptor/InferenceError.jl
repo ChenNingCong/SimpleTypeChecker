@@ -818,7 +818,16 @@ function displayErrorElementNonSameType(err::InferenceErrorElementNonSameType)::
     ast = err.ast
     t1 = err.t1
     t2 = err.t2
-    printErrorHead(eng, ast, "Array element must have the same type")
+    typed = err.typed
+    if typed
+        printErrorHead(eng, ast, "Incompatiable type with typed array")
+        println(eng.errio, "Previous type is $(toString(lift(t1.typ))), ", formatLocation(t1.ast.loc))
+        println(eng.errio, "Current type is $(toString(t2.typ)), ", formatLocation(t2.ast.loc))
+    else
+        printErrorHead(eng, ast, "Array element must have the same type")
+        println(eng.errio, "Previous type is $(toString(t1.typ)), ", formatLocation(t1.ast.loc))
+        println(eng.errio, "Current type is $(toString(t2.typ)), ", formatLocation(t2.ast.loc))
+    end
 end
 
 

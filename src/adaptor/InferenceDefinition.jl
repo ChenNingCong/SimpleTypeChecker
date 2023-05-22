@@ -448,6 +448,24 @@ struct FunDef
     body::JuAST
 end
 
+function _helper_sort_lt(x1::Pair{Symbol, CompileType}, x2::Pair{Symbol, CompileType})::Bool
+    return x1.first < x2.first
+end
+
+const KeywordSortList = Vector{Pair{Symbol, CompileType}}
+
+struct KwFunCall
+    mi::Core.MethodInstance
+    kwargs::KeywordSortList
+    function KwFunCall(mi::Core.MethodInstance, li::KeywordSortList)
+        return new(mi, sort(li; lt = _helper_sort_lt))
+    end
+end
+
+function KwFunCall(mi::Core.MethodInstance)
+    KwFunCall(mi, KeywordSortList())
+end
+
 mutable struct GlobalContext
     errio::ErrorLogger
     # each source file has an individual JuAST
@@ -455,8 +473,8 @@ mutable struct GlobalContext
     # each method has an individual JuAST
     methodDefs::Dict{Core.Method, FunDef}
 
-    queue::Vector{Core.MethodInstance}
-    hasChecked::Dict{Core.MethodInstance, Any}
+    queue::Vector{KwFunCall}
+    hasChecked::Dict{Core.MethodInstance, Vector{Pair{KeywordSortList, Any}}}
     cache::Dict{Any, Vector{CompileType}}
 end
 
@@ -464,8 +482,8 @@ function GlobalContext()
     GlobalContext(ErrorLogger(IOBuffer()),
                   Dict{JuliaSyntax.SourceFile, JuAST}(),
                   Dict{Core.Method, FunDef}(),
-                  Core.MethodInstance[], 
-                  Dict{Core.MethodInstance, Any}(), 
+                  KwFunCall[], 
+                  Dict{Core.MethodInstance, Vector{Pair{Dict{Symbol, CompileType}, Any}}}(), 
                   Dict{Any, Vector{Any}}())
 end
 
@@ -638,7 +656,6 @@ end
 
 struct InferReport
     ast::JuAST
-    mi::Core.MethodInstance
     eng::Engine
     rel::InferResult
 end
@@ -703,7 +720,7 @@ end
     ex = r.f
     val = ex.val
     if val isa FunDef
-        println(io, "Inference Result for Method $(r.mi)")
+        println(io, "Inference Result for Method $(r.eng.mi)")
         displayReturn(io, r.eng)
         displayResult(io, r.rel)
         println(io, '\u2500'^64)

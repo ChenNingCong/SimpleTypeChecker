@@ -85,9 +85,27 @@ function getReturnType(ctx::GlobalContext, sig, f, types;world = Core.Compiler.g
         end
     end
     for i in interp.cache
-        push!(ctx.queue, i.linfo)
+        push!(ctx.queue, KwFunCall(i.linfo))
     end
     return rts
+end
+
+function getKeywordMethodInstances(ctx::GlobalContext, sig)::Vector{Core.MethodInstance}
+    # f(x...;kwargs...) => we lookup method for 
+    #=
+    if isa(f, Core.Builtin)
+        error("Builtin function should never be called with kewyord")
+    end
+    =#
+    types =  Base.to_tuple_type(sig.parameters[2:end])
+    results = Vector{Core.MethodInstance}()
+    for match in Base._methods_by_ftype(sig, -1, Core.Compiler.get_world_counter())::Vector
+        match = match::Core.MethodMatch
+        method = Base.func_for_method_checked(match.method, types, match.sparams)
+        mi = Core.Compiler.specialize_method(method, match.spec_types, match.sparams)::Core.Compiler.MethodInstance
+        push!(results, mi)
+    end
+    return results
 end
 
 function cacheLookup(eng::Engine, sig)::Vector{CompileType}
@@ -107,15 +125,27 @@ end
     return makeType(NamedTuple{tuple([i.first for i in args]...), Tuple{[i.second.typ for i in args]...}})
 end
 
-function getMethodMatches(eng::Engine, ms::MethodCallStruct)
+function getMethodMatches(eng::Engine, ms::MethodCallStruct)::Vector{CompileType}
     args = ms.fargs
     kwargs = ms.kwargs
     sig = Tuple{[i.typ.typ for i in args]...}
     if length(kwargs) > 0
+        mis = getKeywordMethodInstances(eng.globalCtx, sig)
+        if length(mis) == 0
+            error("No method instance for keyword call")
+        end
+        kwargs_ = Vector{Pair{Symbol, CompileType}}()
+        for i in mis
+            for (k, node) in kwargs
+                push!(kwargs_, k=>removeConst(node.typ))
+            end
+            push!(eng.globalCtx.queue, KwFunCall(i, kwargs_))
+        end
         tup = NamedTuple{tuple([i.first for i in kwargs]...), Tuple{[i.second.typ.typ for i in kwargs]...}}
         sig = Tuple{typeof(Core.kwcall), tup, sig.parameters...}
     end
-    cacheLookup(eng, sig)
+    result = cacheLookup(eng, sig)
+    return result
 end
 
 function extractUniqueMatch(v)::CompileType

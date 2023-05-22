@@ -782,3 +782,21 @@ function displayErrorTypeAssertNonconst(err::InferenceErrorTypeAssertNonconst)::
     ast = err.ast
     printErrorHead(eng, ast, "TypeError: the typed used for type assertion is not a constant")
 end
+
+
+struct InferenceErrorkeywordNotDefined <: InferenceError
+    eng::Engine
+    ast::JuAST
+    sym::Symbol
+end
+
+function reportErrorkeywordNotDefined(eng::Engine, ast::JuAST, sym::Symbol)::Union{}
+    throwInferenceError(InferenceErrorkeywordNotDefined(eng, ast, sym))
+end
+
+function displayErrorkeywordNotDefined(err::InferenceErrorkeywordNotDefined)::Nothing
+    eng = err.eng
+    ast = err.ast
+    sym = err.sym
+    printErrorHead(eng, ast, "UndefinedError : keyword $sym is required but not inputed")
+end

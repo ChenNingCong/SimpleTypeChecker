@@ -1988,14 +1988,21 @@ end
     return makeType(mi.specTypes.parameters[i])
 end
 
+@nocheck function specTypesLength(mi::Core.MethodInstance)::Int
+    return length(mi.specTypes.parameters)
+end
+
 function makeKwargType(arg::Argument)::CompileType
     # hack ...
     makeType(Int)
 end
 
-function checkToplevelFunction(eng::Engine, fundef::FunDef, mi::Core.MethodInstance)::InferReport
+function checkToplevelFunction(eng::Engine, 
+                               fundef::FunDef,
+                               kwargs::Dict{Symbol, CompileType})::InferReport
     ast = fundef.ast
     smapping = Dict{Symbol, ContextValue}()
+    mi = eng.mi
     if length(mi.sparam_vals) != length(fundef.sparams)
         error("mismatched param size")
     end
@@ -2015,12 +2022,83 @@ function checkToplevelFunction(eng::Engine, fundef::FunDef, mi::Core.MethodInsta
             mapping[arg.name] = ContextValue(node, node)
         end
     end
-    for i in 1:length(fundef.kwargs)
-        arg = fundef.kwargs[i]
-        node = makeParamFlowNode(ast, makeKwargType(arg))
-        mapping[arg.name] = ContextValue(node, node)
-    end
     ctx = Context(ImmutableDict(merge(smapping, mapping)))
+    # firstly we fill in all the normal arguments, then we fill in the 
+    for i in 1:length(fundef.optargs)
+        # TODO : the ast is incorrect here...
+        # add mapping here!
+        index = i + length(fundef.args) + 1
+        arg = fundef.optargs[i]
+        if index <= specTypesLength(mi)
+            node = makeParamFlowNode(ast, makeArgCompileType(mi, index))
+        else
+            if !isNone(arg.initializer)
+                rel = inferExpr(eng, ctx, castJust(arg.initializer))
+                initnode = rel.node
+                ctx = rel.ctx
+            else
+                throw(InternalError("Optional parameter must have an initializer"))
+            end
+            if !isNone(arg.typ)
+                rel = inferExpr(eng, ctx, castJust(arg.typ))
+                typnode = rel.node
+                ctx = rel.ctx
+                ttt = lift(typnode.typ)
+                if !(tryMergeCompileValue(ttt, initnode.typ) && tryMergeCompileValue(initnode.typ, ttt))
+                    reportErrorAssignInitIncompatible(eng, ast, ttt, initnode.typ)
+                end
+            end
+            node = makeParamFlowNode(ast, initnode.typ)
+        end
+        ctx = update(ctx, arg.name, ContextValue(node, node))
+    end
+
+    for i in 1:length(fundef.kwargs)
+        # TODO : the ast is incorrect here...
+        # add mapping here!
+        arg = fundef.kwargs[i]
+        mtypnode = None(FlowNode)
+        minitnode = None(FlowNode)
+        if !isNone(arg.initializer)
+            rel = inferExpr(eng, ctx, castJust(arg.initializer))
+            minitnode = Just(rel.node)
+            ctx = rel.ctx
+        end
+        if !isNone(arg.typ)
+            rel = inferExpr(eng, ctx, castJust(arg.typ))
+            mtypnode = Just(rel.node)
+            ctx = rel.ctx
+        end
+
+        if haskey(kwargs, arg.name)
+            inputtyp = kwargs[arg.name]
+            if !isNone(mtypnode)
+                typnode = castJust(mtypnode)
+                ttt = typnode.typ
+                if !(tryMergeCompileValue(ttt, inputtyp) && tryMergeCompileValue(inputtyp, ttt))
+                    reportErrorAssignInitIncompatible(eng, ast, ttt, inputtyp)
+                end
+            end
+            node = makeParamFlowNode(ast, inputtyp)
+        else
+            if isNone(minitnode)
+                reportErrorkeywordNotDefined(eng, ast, arg.name)
+            else
+                initnode = castJust(minitnode)
+                if isNone(mtypnode)
+                    node = makeParamFlowNode(ast, initnode.typ)
+                else
+                    typnode = castJust(mtypnode)
+                    ttt = typnode.typ
+                    if !(tryMergeCompileValue(ttt, initnode.typ) && tryMergeCompileValue(initnode.typ, ttt))
+                        reportErrorAssignInitIncompatible(eng, ast, ttt, initnode.typ)
+                    end
+                    node = makeParamFlowNode(ast, typnode.typ)
+                end
+            end
+        end
+        ctx = update(ctx, arg.name, ContextValue(node, node))
+    end
     # Firstly, infer return type
     astrt = fundef.rt 
     if !isNone(astrt)
@@ -2041,7 +2119,7 @@ function checkToplevelFunction(eng::Engine, fundef::FunDef, mi::Core.MethodInsta
             reportErrorReturnEnlargeType(eng, castJust(engn), newnode)
         end
     end
-    return InferReport(ast, mi, eng, rel)
+    return InferReport(ast, eng, rel)
 end
 
 function evalMods(parent::Core.Module, s::Vector{Symbol})::Core.Module
@@ -2074,7 +2152,7 @@ function readString(io)
 end
 
 
-@nocheck function mapAST2Method(mod::Module, fundef::FunDef)::Core.Method
+@nocheck function mapAST2Method(mod::Module, fundef::FunDef)::Vector{Core.Method}
     # Given an JuAST, we try to select an appropriate method for its definition
     # Currently, keywords and optional functions are not handled
     # we handle them lately !!!
@@ -2098,13 +2176,33 @@ end
         push!(result, v)
     end
     f = evalGetPropertyChain(mod, fundef.fname)
-    # iterate in reverse order
+    optresult = Any[]
+    allmethods = Core.Method[]
+
     base = Tuple{Core.Typeof(f), result...}
-    # construct from inside out
+    # construct from inside out    
     for i in reverse(fundef.sparams)
         base = UnionAll(paramMap[i.first], base)
     end
-    return Base.which(base)
+    push!(allmethods, Base.which(base))
+    
+    for arg in fundef.optargs
+        tt = arg.typ
+        if isNone(tt)
+            v = Any
+        else
+            v = fasteval(mod, castJust(tt), paramMap)
+        end
+        push!(optresult, v)
+        # iterate in reverse order
+        base = Tuple{Core.Typeof(f), vcat(result, optresult)...}
+        # construct from inside out
+        for i in reverse(fundef.sparams)
+            base = UnionAll(paramMap[i.first], base)
+        end
+        push!(allmethods, Base.which(base))
+    end
+    return allmethods
 end
 
 @nocheck function isConcreteMethod(meth::Core.Method)::Bool
@@ -2199,15 +2297,18 @@ end
         fundefs = pair.second
         for fundef in fundefs
             try
-                meth = mapAST2Method(mod, fundef)
-                ctx.methodDefs[meth] = fundef
+                meths = mapAST2Method(mod, fundef)
+                for i in meths
+                    ctx.methodDefs[i] = fundef
+                end
+                meth = meths[end]
                 # meth is the corresponding method definition for ex 
                 if isConcreteMethod(meth)
                     ci = getCodeInfo(meth)
                     if ci isa Core.CodeInfo
                         mi = ci.parent
                         if mi isa Core.MethodInstance
-                            push!(ctx.queue, mi)
+                            push!(ctx.queue, KwFunCall(mi))
                         end
                     end
                 end
@@ -2221,11 +2322,9 @@ end
 @nocheck function runCheck!(ctx::GlobalContext;checkSyntax::Bool = true)
     printTop = true
     while !isempty(ctx.queue)
-        mi = popfirst!(ctx.queue)
+        kmi = popfirst!(ctx.queue)
         # this specialization is checked
-        if haskey(ctx.hasChecked, mi)
-            continue
-        end
+        mi = kmi.mi
         meth = mi.def
         if meth isa Module
             continue
@@ -2234,14 +2333,28 @@ end
         if !haskey(ctx.methodDefs, meth)
             continue
         end
+        if haskey(ctx.hasChecked, mi)
+            keys = ctx.hasChecked[mi]
+            found = false
+            for (k, v) in keys
+                if k == kmi.kwargs
+                    found = true
+                end
+            end
+            if found
+                continue
+            end
+        else
+            ctx.hasChecked[mi] = Pair{KeywordSortList, Any}[]
+        end
+        push!(ctx.hasChecked[mi], kmi.kwargs=>nothing)
         fundef = ctx.methodDefs[meth]
         tts = mi.specTypes
         # mark the specialization in check
-        ctx.hasChecked[mi] = nothing
         try
             sictx = analyzeScopeVariable(ctx, fundef)
             eng = Engine(ctx, mi, sictx.infos)
-            checkToplevelFunction(eng, fundef, mi)
+            checkToplevelFunction(eng, fundef, Dict(kmi.kwargs))
         catch e
             if e isa InferenceError || e isa SyntaxError
                 if !checkSyntax && e isa SyntaxError
@@ -2252,7 +2365,8 @@ end
                     printTop = false
                 end
                 println("Checking $mi\n")
-                ctx.hasChecked[mi] = e
+                # replace with a error
+                ctx.hasChecked[mi][end] = ctx.hasChecked[mi][end].first=>e
                 if e isa SyntaxError
                     println("At $(formatLocation(e.ast.loc))\n", e.msg)
                 else

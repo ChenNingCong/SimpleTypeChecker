@@ -15,7 +15,12 @@ end
     println(eng.errio, errkind)
     try
         code = loc.file.code[loc.span[1]:loc.span[2]]
-        println(eng.errio, ' '^4, code)
+        needTab = !occursin('\n', code)
+        if needTab
+            println(eng.errio, ' '^4, code)
+        else
+            println(eng.errio, '\n', code)
+        end
     catch e
         println(eng.errio, ' '^4, "(Failed to extract code)")
     end

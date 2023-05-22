@@ -1754,7 +1754,6 @@ function inferForStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
             z = makeForUpdateFlowNode(ast, v.curtyp)
             newmapping[k] = ContextValue(v.typ, z)
         elseif hasVar(scopeinfo, k)
-            println(k)
             # this variable is shadowed in this scope
         else
             # unchanged

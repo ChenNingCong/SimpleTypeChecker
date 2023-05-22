@@ -2029,8 +2029,9 @@ function checkToplevelFunction(eng::Engine,
         # add mapping here!
         index = i + length(fundef.args) + 1
         arg = fundef.optargs[i]
+        # TODO : check input here
         if index <= specTypesLength(mi)
-            node = makeParamFlowNode(ast, makeArgCompileType(mi, index))
+            initnode = makeParamFlowNode(ast, makeArgCompileType(mi, index))
         else
             if !isNone(arg.initializer)
                 rel = inferExpr(eng, ctx, castJust(arg.initializer))
@@ -2039,18 +2040,18 @@ function checkToplevelFunction(eng::Engine,
             else
                 throw(InternalError("Optional parameter must have an initializer"))
             end
-            if !isNone(arg.typ)
-                rel = inferExpr(eng, ctx, castJust(arg.typ))
-                typnode = rel.node
-                ctx = rel.ctx
-                ttt = lift(typnode.typ)
-                if !(tryMergeCompileValue(ttt, initnode.typ) && tryMergeCompileValue(initnode.typ, ttt))
-                    reportErrorAssignInitIncompatible(eng, ast, ttt, initnode.typ)
-                end
-            end
-            node = makeParamFlowNode(ast, initnode.typ)
+            initnode = makeParamFlowNode(ast, initnode.typ)
         end
-        ctx = update(ctx, arg.name, ContextValue(node, node))
+        if !isNone(arg.typ)
+            rel = inferExpr(eng, ctx, castJust(arg.typ))
+            typnode = rel.node
+            ctx = rel.ctx
+            ttt = lift(typnode.typ)
+            if !tryMergeCompileValue(ttt, initnode.typ)
+                reportErrorAssignInitIncompatible(eng, ast, ttt, initnode.typ)
+            end
+        end
+        ctx = update(ctx, arg.name, ContextValue(initnode, initnode))
     end
 
     for i in 1:length(fundef.kwargs)
@@ -2074,8 +2075,8 @@ function checkToplevelFunction(eng::Engine,
             inputtyp = kwargs[arg.name]
             if !isNone(mtypnode)
                 typnode = castJust(mtypnode)
-                ttt = typnode.typ
-                if !(tryMergeCompileValue(ttt, inputtyp) && tryMergeCompileValue(inputtyp, ttt))
+                ttt = lift(typnode.typ)
+                if !tryMergeCompileValue(ttt, inputtyp)
                     reportErrorAssignInitIncompatible(eng, ast, ttt, inputtyp)
                 end
             end
@@ -2085,16 +2086,14 @@ function checkToplevelFunction(eng::Engine,
                 reportErrorkeywordNotDefined(eng, ast, arg.name)
             else
                 initnode = castJust(minitnode)
-                if isNone(mtypnode)
-                    node = makeParamFlowNode(ast, initnode.typ)
-                else
+                if !isNone(mtypnode)
                     typnode = castJust(mtypnode)
-                    ttt = typnode.typ
-                    if !(tryMergeCompileValue(ttt, initnode.typ) && tryMergeCompileValue(initnode.typ, ttt))
+                    ttt = lift(typnode.typ)
+                    if !tryMergeCompileValue(ttt, initnode.typ)
                         reportErrorAssignInitIncompatible(eng, ast, ttt, initnode.typ)
                     end
-                    node = makeParamFlowNode(ast, typnode.typ)
                 end
+                node = makeParamFlowNode(ast, initnode.typ)
             end
         end
         ctx = update(ctx, arg.name, ContextValue(node, node))

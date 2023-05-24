@@ -1764,6 +1764,7 @@ function inferIfStmt(eng::Engine, ctx::Context, ast::JuAST, isOr::Bool, isAnd::B
             else
                 error("Variable declared in if-else but not used")
             end
+            continue
         end
         # check whether the type is compatible in every branch, even some of them is unreachable
         storenode = tryMergeFlowNode(eng, ast, storetyps, false)

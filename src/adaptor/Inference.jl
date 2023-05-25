@@ -707,7 +707,11 @@ function inferAssignLHSVar(eng::Engine, ctx::Context, ast::JuAST, rhsnode::FlowN
             throw(InternalError("All the update assignment operators should be defined in module $(eng.mod)"))
         end
     end
-
+    # TODO : is this kind of reasoning correct??
+    # we simply drop the variable here
+    if varid == Symbol("_")
+        return InferResult(ctx, rhsnode)
+    end
     # TODO : fix assignment here
     if hasVar(ctx, varid)
         # this variable is already assigned before, we check type compatibility

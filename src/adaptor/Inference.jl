@@ -217,12 +217,27 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
             end
             push!(fargs, rel.node)
         else
-            # iast.head == :kw or iast.head == :(=)
+            # iast.head == :kw || iast.head == :(=)
+            if length(iast.args) == 2
+                if iast.args[1].head == :identifier
+                    sym = cast2Symbol(iast.args[1].val)
+                    rel = inferExpr(eng, ctx, iast.args[2])
+                else
+                    reportASTError(eng, iast, "Invalid keywords assignment : disallow destruction")
+                end
+                ctx = rel.ctx
+                if isBottomType(rel.node.typ)
+                    reportErrorKeywordUseBottom(eng, ast, sym)
+                end
+                push!(kwargs, sym=>rel.node)
+            else
+                reportASTError(eng, iast, "Invalid keywords assignment")
+            end
             #=
             f(x, y = 1) is the same thing as f(x;y=1)
             Maybe just force the users to use the latter one
             =#
-            reportASTError(eng, iast, "Use semi-colon to seperate keyword arguments instead of comma. Write f(x;y=1) instead f(x, y=1)")
+            # reportASTError(eng, iast, "Use semi-colon to seperate keyword arguments instead of comma. Write f(x;y=1) instead f(x, y=1)")
         end
     end
     if isDotcall && length(kwargs) > 0

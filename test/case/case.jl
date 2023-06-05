@@ -374,5 +374,9 @@ function f45(y::Vector{Vector{Int}})
     y[1] .= y[2]
     
 end
+function optional_test(x::Vector{Int})
+    sort(x, by = identity)
+    sort(x; by = identity)
+end
 
 end

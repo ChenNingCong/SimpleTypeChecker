@@ -621,7 +621,7 @@ mutable struct Engine
 end
 
 @noinline function inferExpand(eng::Engine, ctx::Context, e::MacroExpander, ast::JuAST)::InferResult
-    result = e.expander(eng, ctx, e, ast)
+    result = e.expander(eng, ctx, ast)
     if result isa InferResult
         return result
     else

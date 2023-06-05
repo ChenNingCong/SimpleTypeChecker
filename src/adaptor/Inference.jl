@@ -2436,10 +2436,11 @@ end
                     collectToplevelFunction!(ctx, rel, mod, ast.args[3])
                 end
             end
-        end
-        # TODO : This is incorrect... but we do it anyway
-        for i in ast.args
-            collectToplevelFunction!(ctx, rel, mod, i)
+        else
+            # TODO : This is incorrect... but we do it anyway
+            for i in ast.args
+                collectToplevelFunction!(ctx, rel, mod, i)
+            end
         end
     end
     if isFunc

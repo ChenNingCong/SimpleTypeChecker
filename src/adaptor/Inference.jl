@@ -2437,6 +2437,10 @@ end
                 end
             end
         end
+        # TODO : This is incorrect... but we do it anyway
+        for i in ast.args
+            collectToplevelFunction!(ctx, rel, mod, i)
+        end
     end
     if isFunc
         try

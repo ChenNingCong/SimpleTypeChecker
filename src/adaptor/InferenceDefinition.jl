@@ -466,6 +466,10 @@ function KwFunCall(mi::Core.MethodInstance)
     KwFunCall(mi, KeywordSortList())
 end
 
+struct MacroExpander
+    expander::Any
+end
+
 mutable struct GlobalContext
     errio::ErrorLogger
     # each source file has an individual JuAST
@@ -476,6 +480,7 @@ mutable struct GlobalContext
     queue::Vector{KwFunCall}
     hasChecked::Dict{Core.MethodInstance, Vector{Pair{KeywordSortList, Any}}}
     cache::Dict{Any, Vector{CompileType}}
+    const expanders::Dict{CompileType, MacroExpander}
 end
 
 function GlobalContext()
@@ -484,7 +489,8 @@ function GlobalContext()
                   Dict{Core.Method, FunDef}(),
                   KwFunCall[], 
                   Dict{Core.MethodInstance, Vector{Pair{Dict{Symbol, CompileType}, Any}}}(), 
-                  Dict{Any, Vector{Any}}())
+                  Dict{Any, Vector{Any}}(),
+                  Dict{CompileType, MacroExpander}())
 end
 
 
@@ -612,6 +618,27 @@ mutable struct Engine
     const arrayContext::Vector{FlowNode}
     const loopContext::Vector{Vector{Context}}
     retVal::Maybe{FlowNode}
+end
+
+@noinline function inferExpand(eng::Engine, ctx::Context, e::MacroExpander, ast::JuAST)::InferResult
+    result = e.expander(eng, ctx, e, ast)
+    if result isa InferResult
+        return result
+    else
+        error("Macto expand must return a InferResult")
+    end
+end
+
+const GlobalExpanders = Dict{CompileType, MacroExpander}()
+function addGlobalExpander!(mod::Module, symbol::Symbol, f)
+    GlobalExpanders[makeConstVal(getproperty(mod, symbol))] = MacroExpander(f)
+    return
+end
+
+function getGlobalExpander(ctx::GlobalContext)
+    for (k, v) in GlobalExpanders
+        ctx.expanders[k] = v
+    end
 end
 
 function enterLoop(eng::Engine)

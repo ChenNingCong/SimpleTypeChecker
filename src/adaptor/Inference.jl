@@ -124,8 +124,21 @@ end
 
 function inferMacroCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     #= TODO : add a macro explander here !!!=#
-    node = makeMacroCallFlowNode(ast)
-    pushdownFlowNode(eng, ast, node)
+    assertASTKind(ast, :macrocall)
+    rel = inferExpr(eng, ctx, ast.args[1])
+    ctx = rel.ctx
+    node = rel.node
+    typ = node.typ
+    if isConstVal(typ)
+        if haskey(eng.globalCtx.expanders, typ)
+            rel = inferExpand(eng, ctx, eng.globalCtx.expanders[typ], ast.args[2])
+            ctx = rel.ctx
+            node = rel.node
+        else
+            reportWarning(eng, ast, "Macro is not implemented. Inferred as a nothing")
+            node = makeMacroCallFlowNode(ast)
+        end
+    end
     return InferResult(ctx, node)
 end
 

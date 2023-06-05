@@ -1,8 +1,10 @@
 module MyTest
 
 include("../../src/SimpleTypeChecker.jl")
+include("macro.jl")
 const path = abspath(".")
 ctx = SimpleTypeChecker.Inference.GlobalContext()
+SimpleTypeChecker.Inference.getGlobalExpander(ctx)
 SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.SyntaxDefinition, joinpath(path, "src/adaptor/SyntaxDefinition.jl"))
 SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.SyntaxAdaptor, joinpath(path, "src/adaptor/SyntaxAdaptor.jl"))
 SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.SyntaxAdaptor, joinpath(path, "src/adaptor/JSAdaptor.jl"))

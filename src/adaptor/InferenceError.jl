@@ -10,6 +10,10 @@ reportErrorXXX(...)::InferenceErrorXXX -> generate a inference error
 displayErrorXXX(io::IO, err::InferenceErrorXXX) -> print the error to the terminal or IOBuffer
 =#
 
+function reportWarning(eng::Engine, ast::JuAST, msg::String)::Nothing
+    printErrorHead(eng, ast, msg)
+end
+
 struct InferenceErrorAssignBottom <: InferenceError 
     eng::Engine
     ast::JuAST

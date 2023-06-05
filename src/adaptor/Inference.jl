@@ -770,6 +770,16 @@ function inferAssignLHSVar(eng::Engine, ctx::Context, ast::JuAST, rhsnode::FlowN
     return InferResult(ctx, newnode)
 end
 
+
+function inferAssignLHSFunCall(eng::Engine, ctx::Context, ast::JuAST, rhsnode::FlowNode, op::UpdateOp)::InferResult
+    # f() .+= y, handled similar to variable
+    assertASTKind(ast, :call)
+    rel = inferExpr(eng, ctx, ast)
+    ctx = rel.ctx
+    lhsnode = rel.node
+    return inferAssignLHSBroadcastHelper(eng, ctx, ast, lhsnode, rhsnode, op)
+end
+
 #=
 function inferGenerator(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     assertASTKind(ast, :generator)
@@ -940,6 +950,8 @@ function inferAssignLHS(eng::Engine, ctx::Context, ast::JuAST, rhsnode::FlowNode
             reportASTError(eng, ast, "Don't use broadcast to assign a variable with tyed assert")
         end
         return inferAssignLHSTypedAssert(eng, ctx, ast, Just(rhsnode))
+    elseif ast.head == :call
+        return inferAssignLHSFunCall(eng, ctx, ast, rhsnode, op)
     else
         reportASTError(eng, ast, "LHS of assignment must be a variable, tuple, property or arrayref")
     end
@@ -1060,7 +1072,7 @@ function inferAssign(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     if length(ast.args) != 2
         reportASTError(eng, ast, "Assignment expression should only have 2 children, $(length(ast.args)) found")
     end
-    if ast.args[1].head == :call
+    if ast.args[1].head == :call && !op.isDotcall
         reportASTError(eng, ast, "Shorthand function definition not supported")
     end
     rel = inferExpr(eng, ctx, ast.args[2])

@@ -2028,10 +2028,10 @@ function collectQualifiedName(ctx::GlobalContext, ast::JuAST)::Vector{Symbol}
             if lhs.head == :identifier && rhs.head == :quote && rhs.args[1].head == :identifier
                 push!(rel, cast2Symbol(lhs.val))
                 ast = rhs.args[1]
+                continue
             end
-        else
-            reportASTError(ctx, ast, "Not a valid function name, only support identifier (f) or qualified name (Base.f)")
         end
+        reportASTError(ctx, ast, "Not a valid function name, only support identifier (f) or qualified name (Base.f)")
     end
     return rel
 end

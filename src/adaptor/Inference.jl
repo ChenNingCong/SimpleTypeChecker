@@ -2427,17 +2427,18 @@ end
         for i in ast.args
             collectToplevelFunction!(ctx, rel, mod, i)
         end
-    elseif ast.head == :macrocall 
-        if length(ast.args) == 3
-            n1 = ast.args[1]
-            if n1.head == :identifier
-                sym = cast2Symbol(n1.val)
-                if sym == Symbol("core_@doc")
-                    collectToplevelFunction!(ctx, rel, mod, ast.args[3])
+    elseif ast.head == :macrocall
+        n1 = ast.args[1]
+        if n1.head == :identifier
+            sym = cast2Symbol(n1.val)
+            if sym == Symbol("core_@doc")
+                collectToplevelFunction!(ctx, rel, mod, ast.args[3])
+            elseif sym != Symbol("@nocheck")
+                for i in ast.args
+                    collectToplevelFunction!(ctx, rel, mod, i)
                 end
             end
         else
-            # TODO : This is incorrect... but we do it anyway
             for i in ast.args
                 collectToplevelFunction!(ctx, rel, mod, i)
             end

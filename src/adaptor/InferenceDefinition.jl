@@ -24,8 +24,9 @@ end
 @nocheck function makeType(val::Any)
     if Base.issingletontype(val)
         CompileType(true, val.instance, val)
-    elseif val isa Type && val <: Type && val != Union{} && val isa DataType
+    elseif val isa DataType && val.name == Type.body.name
         # this is incorrect, but how can we infer the type here?
+        println(val)
         CompileType(true, val.parameters[1], val)
     else
         CompileType(false, nothing, val)
@@ -620,7 +621,7 @@ mutable struct Engine
     retVal::Maybe{FlowNode}
 end
 
-@noinline function inferExpand(eng::Engine, ctx::Context, e::MacroExpander, ast::JuAST)::InferResult
+@nocheck function inferExpand(eng::Engine, ctx::Context, e::MacroExpander, ast::JuAST)::InferResult
     result = e.expander(eng, ctx, ast)
     if result isa InferResult
         return result

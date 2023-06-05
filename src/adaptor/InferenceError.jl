@@ -10,8 +10,26 @@ reportErrorXXX(...)::InferenceErrorXXX -> generate a inference error
 displayErrorXXX(io::IO, err::InferenceErrorXXX) -> print the error to the terminal or IOBuffer
 =#
 
+@nocheck function printWarningHead(eng::Engine, ast::JuAST, errkind::String)
+    loc = ast.loc
+    println(stdout, formatLocation(loc))
+    print(stdout, " ")
+    println(stdout, errkind)
+    try
+        code = loc.file.code[loc.span[1]:loc.span[2]]
+        needTab = !occursin('\n', code)
+        if needTab
+            println(stdout, ' '^4, code)
+        else
+            println(stdout, '\n', code)
+        end
+    catch e
+        println(stdout, ' '^4, "(Failed to extract code)")
+    end
+end
+
 function reportWarning(eng::Engine, ast::JuAST, msg::String)::Nothing
-    printErrorHead(eng, ast, msg)
+    printWarningHead(eng, ast, msg)
 end
 
 struct InferenceErrorAssignBottom <: InferenceError 

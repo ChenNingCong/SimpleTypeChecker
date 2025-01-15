@@ -84,7 +84,12 @@ function getReturnType(ctx::GlobalContext, sig, f, types;world = Core.Compiler.g
             end
         end
     end
-    for i in interp.cache
+    if hasfield(Core.Compiler.NativeInterpreter, :cache)
+        cache = interp.cache
+    else
+        cache = interp.inf_cache
+    end
+    for i in cache
         push!(ctx.queue, KwFunCall(i.linfo))
     end
     return rts

@@ -27,12 +27,12 @@ import SimpleTypeChecker
 # firstly we get the package directory of SimpleTypeChecker
 const path = abspath(joinpath(splitdir(pathof(SimpleTypeChecker))[1], ".."))
 ctx = SimpleTypeChecker.Inference.GlobalContext()
-SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.SyntaxAdaptor, joinpath(path, "src/adaptor/TreeQuery.jl"))
-SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/InferenceDefinition.jl"))
-SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/Inference.jl"))
-SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/InferenceErrorUtility.jl"))
-SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/InferenceError.jl"))
-SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/adaptor/ScopeChecking.jl"))
+SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.SyntaxAdaptor, joinpath(path, "src/syntax/TreeQuery.jl"))
+SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/inference/InferenceDefinition.jl"))
+SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/inference/Inference.jl"))
+SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/inference/InferenceErrorUtility.jl"))
+SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/inference/InferenceError.jl"))
+SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/inference/ScopeChecking.jl"))
 SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Server, joinpath(path, "src/server/SimpleHTTPServer.jl"))
 SimpleTypeChecker.API.runCheck!(ctx)
 ```

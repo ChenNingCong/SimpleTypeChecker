@@ -11,7 +11,7 @@ if !isdefined(Main, :modtime)
         return Dates.unix2datetime(maxtime)
     end
 end
-newtime = watchDirectory(joinpath(@__DIR__, "../src/adaptor"))
+newtime = watchDirectory(joinpath(@__DIR__, "../src"))
 if modtime isa Nothing || modtime != newtime
     println("Update code $modtime $newtime")
     modtime = newtime

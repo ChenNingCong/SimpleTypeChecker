@@ -1,0 +1,53 @@
+using Test
+using SimpleTypeChecker
+
+# Per-interface unit tests. These exist to ground each module in its own
+# tests so a future change can be validated without running the whole pipeline.
+# When you add or modify a module, add or extend its test file here.
+@testset "SimpleTypeChecker" begin
+    @testset "CompilerAdaptor (Julia compiler internals)" begin
+        include("compiler_adaptor/test_compiler_adaptor.jl")
+    end
+
+    # End-to-end smoke tests. These exercise the whole pipeline by checking
+    # known sample programs; assertions are coarse ("doesn't crash"). The
+    # detailed correctness checks belong in the per-interface testsets above.
+
+    @testset "Smoke — case.jl produces error reports" begin
+        # Set up a fresh module to host the case-test source, then check it.
+        # We don't go through test/case/casetest.jl because that driver
+        # re-includes the SimpleTypeChecker source with a brittle relative
+        # path. The relevant test artifact is test/case/case.jl itself.
+        case_path = abspath(joinpath(@__DIR__, "case", "case.jl"))
+        smoke_mod = Module(:CaseSmoke)
+        Base.include(smoke_mod, case_path)
+        @assert isdefined(smoke_mod, :CaseTest) "case.jl should define module CaseTest"
+        ctx = SimpleTypeChecker.Inference.GlobalContext()
+        SimpleTypeChecker.API.addFile!(ctx, smoke_mod.CaseTest, case_path)
+        SimpleTypeChecker.API.runCheck!(ctx)
+        # The case suite is constructed to produce many error reports.
+        # If runCheck! completes without throwing, the smoke check passes.
+        @test true
+    end
+
+    @testset "Smoke — README self-check runs to completion" begin
+        path = abspath(joinpath(splitdir(pathof(SimpleTypeChecker))[1], ".."))
+        ctx = SimpleTypeChecker.Inference.GlobalContext()
+        for relpath in [
+            "src/syntax/TreeQuery.jl",
+            "src/inference/InferenceDefinition.jl",
+            "src/inference/Inference.jl",
+            "src/inference/InferenceErrorUtility.jl",
+            "src/inference/InferenceError.jl",
+            "src/inference/ScopeChecking.jl",
+        ]
+            mod = startswith(relpath, "src/syntax/") ?
+                SimpleTypeChecker.SyntaxAdaptor : SimpleTypeChecker.Inference
+            SimpleTypeChecker.API.addFile!(ctx, mod, joinpath(path, relpath))
+        end
+        SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Server,
+                                       joinpath(path, "src/server/SimpleHTTPServer.jl"))
+        SimpleTypeChecker.API.runCheck!(ctx)
+        @test true
+    end
+end

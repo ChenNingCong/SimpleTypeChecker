@@ -1,15 +1,14 @@
-function hasField(ft::CompileType, p::Symbol)::Bool  
-    return hasfield(ft.typ, p)
+function hasField(rtctx::RuntimeContext, ft::CompileType, p::Symbol)::Bool
+    return rtctx.hasFieldOf(ft, p)
 end
 
 function isConcreteType(rtctx::RuntimeContext, ft::CompileType)::Bool
     return rtctx.isConcrete(ft)
 end
 
-function getFieldType(ft::CompileType, p::Symbol)::CompileType
-    tt = ft.typ
-    if hasfield(tt, p)
-        return makeType(fieldtype(tt, p))
+function getFieldType(rtctx::RuntimeContext, ft::CompileType, p::Symbol)::CompileType
+    if rtctx.hasFieldOf(ft, p)
+        return unwrap(rtctx.getFieldTypeOf(ft, p), CompileType)
     else
         error("Internal error : getFieldType not checked")
     end

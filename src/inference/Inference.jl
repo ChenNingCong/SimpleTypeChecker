@@ -1294,13 +1294,13 @@ function inferAssignLHSSetField(eng::Engine, ctx::Context, ast::JuAST, rhsnode::
     if !isConcreteType(eng.globalCtx.rtctx, xnode.typ)
         reportErrorFieldType(eng, ast, xnode, false)
     end
-    if !hasField(xnode.typ, p)
+    if !hasField(eng.globalCtx.rtctx, xnode.typ, p)
         reportErrorNoField(eng, ast, xnode, p)
     end
     
     # here, it should be dotgetproperty for broadcast call
     # or getproperty for other non-broadcast call
-    ft = getFieldType(xnode.typ, p)
+    ft = getFieldType(eng.globalCtx.rtctx, xnode.typ, p)
     if !isConcreteType(eng.globalCtx.rtctx, ft)
         if op.isDotcall || op.isUpdate
             reportErrorFieldType(eng, ast, xnode, false)
@@ -1955,8 +1955,8 @@ function inferGetField(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     if !isConcreteType(eng.globalCtx.rtctx, ft)
         reportErrorFieldType(eng, ast, node, false)
     end
-    if hasField(ft, p)
-        tt = getFieldType(ft, p)
+    if hasField(eng.globalCtx.rtctx, ft, p)
+        tt = getFieldType(eng.globalCtx.rtctx, ft, p)
         newnode = makeGetPropertyFlowNode(ast, node, tt)
         addFlowMapping!(eng, ast, newnode)
         return InferResult(ctx, newnode)

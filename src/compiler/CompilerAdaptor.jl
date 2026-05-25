@@ -614,6 +614,17 @@ end
     return unwrap(h, CompileType).typ === Union{}
 end
 
+# Field-shape ops. Both peek `.typ`; getFieldTypeOf additionally
+# constructs a fresh CompileType (driver-side because `fieldtype` is a
+# runtime-type op and `makeType` wraps a target-runtime value).
+@nocheck function hasFieldOf(h::OpaqueHandle{CompileTypeK}, p::Symbol)::Bool
+    return hasfield(unwrap(h, CompileType).typ, p)
+end
+
+@nocheck function getFieldTypeOf(h::OpaqueHandle{CompileTypeK}, p::Symbol)::CompileType
+    return makeType(fieldtype(unwrap(h, CompileType).typ, p))
+end
+
 # Per-field kwargs default to the live-JIT driver. Tests pass only the
 # fields they want to override; adding a new field to RuntimeContext
 # does not break existing call sites.
@@ -630,11 +641,14 @@ function defaultRuntimeContext(;
     isTupleTypeFn::IsTupleTypeFn           = IsTupleTypeFn(isTupleType),
     isConcreteFn::IsConcreteFn             = IsConcreteFn(isConcrete),
     isBottomFn::IsBottomFn                 = IsBottomFn(isBottom),
+    hasFieldOfFn::HasFieldOfFn             = HasFieldOfFn(hasFieldOf),
+    getFieldTypeOfFn::GetFieldTypeOfFn     = GetFieldTypeOfFn(getFieldTypeOf),
 )::RuntimeContext
     return RuntimeContext(methodsOfFn, inferReturnTypeFn,
                           makeCallSigFn, makeTupleTypeFn,
                           subtypeOfFn,
                           isAnyFn, isBoolFn, isTypeValueFn,
                           isUnionFn, isTupleTypeFn,
-                          isConcreteFn, isBottomFn)
+                          isConcreteFn, isBottomFn,
+                          hasFieldOfFn, getFieldTypeOfFn)
 end

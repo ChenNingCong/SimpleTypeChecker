@@ -84,6 +84,13 @@ const IsTupleTypeFn = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
 #                 is the analyzer-runtime's Union{}, not the target's)
 const IsConcreteFn = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
 const IsBottomFn   = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
+# Field-shape ops on a CompileType:
+#   hasFieldOf       -> hasfield(t.typ, name)
+#   getFieldTypeOf   -> makeType(fieldtype(t.typ, name))  (wrapped back as a handle)
+# Name args cross the seam as plain Symbols — Symbols are interned in the
+# driver runtime and shared by reference, so they don't need a handle wrap.
+const HasFieldOfFn     = FunctionWrapper{Bool,                       Tuple{OpaqueHandle{CompileTypeK}, Symbol}}
+const GetFieldTypeOfFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}, Symbol}}
 
 struct RuntimeContext
     methodsOf::MethodsOfFn
@@ -98,4 +105,6 @@ struct RuntimeContext
     isTupleType::IsTupleTypeFn
     isConcrete::IsConcreteFn
     isBottom::IsBottomFn
+    hasFieldOf::HasFieldOfFn
+    getFieldTypeOf::GetFieldTypeOfFn
 end

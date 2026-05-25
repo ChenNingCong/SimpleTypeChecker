@@ -355,7 +355,7 @@ function inferTypeAssertExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     # declared type isn't <: asserted, the assertion can never hold. We
     # check the value's storage type by removing const-ness first so the
     # comparison is on the type-value form.
-    valtyp = removeConst(vnode.typ)
+    valtyp = removeConst(rtctx, vnode.typ)
     if !rtctx.subtypeOf(valtyp, asserted_typ)
         # Reuse the assign-init-incompatible error — same shape as `local x::Int = 1.0`.
         reportErrorAssignInitIncompatible(eng, ast, tnode.typ, vnode.typ)
@@ -2135,7 +2135,7 @@ function inferWhileStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         v = tmp.second
         if haskey(modified, k)
             # TODO : mark this as while update node
-            z = makeForUpdateFlowNode(ast, v.curtyp)
+            z = makeForUpdateFlowNode(eng.globalCtx.rtctx, ast, v.curtyp)
             newmapping[k] = ContextValue(v.typ, z)
         elseif hasVar(scopeinfo, k)
             # this variable is shadowed in this scope
@@ -2506,7 +2506,7 @@ function inferForStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         v = tmp.second
         if haskey(scopeinfo.modified, k)
             # Note : this is incorrect, we should add more check here!!!
-            z = makeForUpdateFlowNode(ast, v.curtyp)
+            z = makeForUpdateFlowNode(eng.globalCtx.rtctx, ast, v.curtyp)
             newmapping[k] = ContextValue(v.typ, z)
         elseif hasVar(scopeinfo, k)
             # this variable is shadowed in this scope

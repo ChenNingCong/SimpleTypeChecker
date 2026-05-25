@@ -38,9 +38,9 @@ function isConstVal(typ::CompileType)
     return typ.isConst
 end
 
-function removeConst(typ::CompileType)::CompileType
+function removeConst(rtctx::RuntimeContext, typ::CompileType)::CompileType
     if typ.isConst
-        return makeType(typ.typ)
+        return unwrap(rtctx.removeConstOf(typ), CompileType)
     else
         return typ
     end
@@ -303,9 +303,9 @@ function makeLetFlowNode(ast::JuAST, typ::FlowNode)
     FlowNode(ast, FlowNode[typ], typ.typ, LetFlowNode())
 end
 
-function makeForUpdateFlowNode(ast::JuAST, node::FlowNode)
+function makeForUpdateFlowNode(rtctx::RuntimeContext, ast::JuAST, node::FlowNode)
     if mustInitialized(node) && isConstVal(node.typ)
-        return FlowNode(ast, FlowNode[node], removeConst(node.typ), ForUpdateFlowNode())
+        return FlowNode(ast, FlowNode[node], removeConst(rtctx, node.typ), ForUpdateFlowNode())
     else
         return node
     end

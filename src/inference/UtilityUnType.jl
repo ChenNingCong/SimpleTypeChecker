@@ -17,6 +17,10 @@ function getFieldType(rtctx::RuntimeContext, ft::CompileType, p::Symbol)::Compil
     end
 end
 
+# Legacy: take a raw Core.Module reference (used by callers that have a
+# Module from `eng.mod` directly — not yet membrane-wrapped). TODO:
+# convert eng.mod to a CompileType handle so these can be deleted in
+# favor of the constModule* variants below.
 function getFromModule(mod::Core.Module, p::Symbol)::CompileType
     # todo handle typed global here
     if isdefined(mod, p)
@@ -34,9 +38,9 @@ function isModuleDefined(mod::Core.Module, p::Symbol)::Bool
     return isdefined(mod, p)::Bool
 end
 
-# Membrane-aware variants that take a const CompileType handle (wrapping a
-# Module) instead of a raw Module reference. Used by inferGetProperty so
-# the Module value never crosses into the inferencer.
+# Membrane-aware accessors that take a const CompileType handle (wrapping
+# a Module) instead of a raw Module reference. The Module value stays on
+# the driver side; the inferencer sees only the opaque CompileType handle.
 function constModuleIsDefined(rtctx::RuntimeContext, modct::CompileType, p::Symbol)::Bool
     return rtctx.constModuleIsDefined(modct, String(p))
 end
@@ -90,7 +94,7 @@ function getMethodMatches(eng::Engine, ms::MethodCallStruct)::Vector{CompileType
         kwargs_ = Vector{Pair{Symbol, CompileType}}()
         for i in mis
             for (k, node) in kwargs
-                push!(kwargs_, k=>removeConst(node.typ))
+                push!(kwargs_, k=>removeConst(rtctx, node.typ))
             end
             push!(eng.globalCtx.queue, KwFunCall(i, kwargs_))
         end

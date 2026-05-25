@@ -436,7 +436,50 @@ end
     return InferResult(ctx, node)
 end
 
+# Special handler for `ccall(symbol, RetT, (ArgTs...), args...)` — a Julia
+# intrinsic that isn't a normal function value. We:
+#   1. Skip resolving `ccall` as an identifier.
+#   2. Don't validate the symbol expr (can be :Symbol, :Tuple, etc.).
+#   3. Trust the user-declared RetT as the result type.
+#   4. Infer the trailing args for side-effects on ctx.queue (still want
+#      nested method instances queued).
+@nocheck function inferCCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
+    # ast.args layout: [ccall_ident, sym_expr, rettype_expr, argtypes_tuple, args...]
+    if length(ast.args) < 4
+        reportASTError(eng, ast, "ccall requires at least symbol, return type, arg type tuple")
+    end
+    # Infer the return-type expression (must resolve to a Type).
+    rt_rel = inferExpr(eng, ctx, ast.args[3])
+    ctx = rt_rel.ctx
+    rt_node = rt_rel.node
+    local result_ct::CompileType
+    if isConstVal(rt_node.typ) && isTypeValue(rt_node.typ.val)
+        result_ct = makeType(rt_node.typ.val)
+    else
+        # Couldn't statically determine the return type — widen to Any.
+        result_ct = makeType(Any)
+    end
+    # Infer trailing call args so any nested function calls they contain get
+    # type-checked too. Don't validate against the arg-type tuple — that's
+    # Julia's runtime concern.
+    for i in 5:length(ast.args)
+        rel = inferExpr(eng, ctx, ast.args[i])
+        ctx = rel.ctx
+    end
+    node = makeCurlyCallFlowNode(ast, FlowNode[rt_node], result_ct)
+    addFlowMapping!(eng, ast, node)
+    return InferResult(ctx, node)
+end
+
 function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::InferResult
+    # Special-case ccall — it's a Julia builtin/intrinsic, not a normal
+    # function, so it isn't visible as a variable in any module. The shape is
+    # `ccall(symbol, RetT, (ArgTs...), args...)`. We infer the args for their
+    # side effects (type-check the arguments), then return the declared RetT.
+    if !isDotcall && length(ast.args) >= 1 &&
+       ast.args[1].head == :identifier && cast2Symbol(ast.args[1].val) === :ccall
+        return inferCCall(eng, ctx, ast)
+    end
     # This function doesn't handle function definition
     args = ast.args
     fargs = FlowNode[]

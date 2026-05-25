@@ -51,20 +51,7 @@ function magnitudes(history::Vector{Vector{Float64}})::Vector{Float64}
 end
 
 function above_threshold(history::Vector{Vector{Float64}}, threshold::Float64)::Vector{Vector{Float64}}
-    # Same closure-capture limitation as `rescale_z` (see below). With the
-    # broader dynamic-dispatch detection, capturing `threshold` and routing
-    # the comparison through `filter`'s machinery surfaces a real dynamic
-    # `>(::Float64, ::Any)` deep in the call tree — caused by the checker
-    # losing the captured-variable type at module-level lambda eval, not by
-    # the user's source. For-loop hoists the captured value to keep the
-    # comparison statically typed.
-    result = Vector{Vector{Float64}}()
-    for s in history
-        if s[3] > threshold
-            push!(result, s)
-        end
-    end
-    return result
+    return filter(s -> s[3] > threshold, history)
 end
 
 function rescale_z(history::Vector{Vector{Float64}}, factor::Float64)::Vector{Vector{Float64}}

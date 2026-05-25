@@ -425,6 +425,60 @@ end
     write(log.io, x)
 end
 
+# Typed StringBuilder-style writers — bypass the open-world `print` /
+# `println` / `show` stack so the diagnostic-printing code itself stays
+# trim-safe. Each method takes a concrete arg and delegates to one of
+# IOBuffer's typed `write` methods, which post-opt reduces to intrinsics
+# only (no abstract IO dispatch).
+#
+# Usage:
+#   writelog!(errio, "header ")     # write a String
+#   writelog!(errio, n)             # write an Int as decimal
+#   writelog!(errio, ' ')           # write a Char
+#   writelogln!(errio)              # write '\n'
+#   writelogln!(errio, "msg")       # write a String then '\n'
+#   takelog!(errio)                 # consume buffer as String
+function writelog!(log::ErrorLogger, s::String)::Nothing
+    write(log.io, s)
+    return nothing
+end
+
+function writelog!(log::ErrorLogger, s::SubString{String})::Nothing
+    write(log.io, s)
+    return nothing
+end
+
+function writelog!(log::ErrorLogger, c::Char)::Nothing
+    write(log.io, c)
+    return nothing
+end
+
+function writelog!(log::ErrorLogger, n::Int)::Nothing
+    write(log.io, string(n))
+    return nothing
+end
+
+function writelogln!(log::ErrorLogger)::Nothing
+    write(log.io, '\n')
+    return nothing
+end
+
+function writelogln!(log::ErrorLogger, s::String)::Nothing
+    write(log.io, s)
+    write(log.io, '\n')
+    return nothing
+end
+
+function writelogln!(log::ErrorLogger, s::SubString{String})::Nothing
+    write(log.io, s)
+    write(log.io, '\n')
+    return nothing
+end
+
+function takelog!(log::ErrorLogger)::String
+    return String(take!(log.io))
+end
+
 struct Argument
     name::Symbol
     typ::Maybe{JuAST}
@@ -482,9 +536,23 @@ mutable struct GlobalContext
     hasChecked::Dict{MethodHandle, Vector{Pair{KeywordSortList, Any}}}
     cache::Dict{Any, Vector{CompileType}}
     # Parallel cache: did Julia's inferencer find any dynamic dispatch in the
-    # transitive call tree rooted at this sig? Populated alongside `cache` by
-    # inferReturnType. Keyed by the same sig tuple `cache` uses.
+    # transitive call tree rooted at this sig? Populated by inferReturnType
+    # ONLY when `deepDispatchCheck` is enabled. Keyed by the same sig tuple
+    # `cache` uses.
     dynDispatchCache::Dict{Any, Bool}
+    # Switch between two modes of top-level dispatch detection:
+    #   - false (default): shallow — only flag when Julia widened the return
+    #     type to `Any`. Cheap, low false-positive rate, but misses dyn
+    #     dispatch deep in the chain when the return type happens to stay
+    #     concrete (e.g. `println(::String) :: Nothing`).
+    #   - true: recursive — walk Julia's inferred IR (seed `result.src` plus
+    #     `interp.codegen` transitive set) looking for any post-inference
+    #     `:call` whose callee isn't a Builtin/Intrinsic and whose result
+    #     isn't a `Core.Const`. Catches deep cases but currently has known
+    #     false positives in code that closes over typed locals (lambda
+    #     module-level eval erases captured-var types) and on the checker's
+    #     own diagnostic-printing path (println via abstract IO).
+    deepDispatchCheck::Bool
     const expanders::Dict{CompileType, MacroExpander}
 end
 
@@ -496,6 +564,7 @@ function GlobalContext()
                   Dict{MethodHandle, Vector{Pair{KeywordSortList, Any}}}(),
                   Dict{Any, Vector{CompileType}}(),
                   Dict{Any, Bool}(),
+                  false,
                   Dict{CompileType, MacroExpander}())
 end
 

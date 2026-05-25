@@ -621,14 +621,22 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
         if isBottomType(tt) && checkConstructor
             reportErrorNoConstructor(eng, ast, ms)
         end
-        # All args at this site are concrete (checked above). If Julia's
-        # inferencer found any dynamic dispatch anywhere in the transitive
-        # call tree — regardless of the return type at this site — this
-        # top-level call is the user-actionable cause. Deeper blame lives in
-        # the callee (likely Base / a third-party package) where the user
-        # can't fix it. Trim would reject this call for the same reason.
-        if hasDynamicDispatchForCall(eng, ms)
-            reportErrorTopLevelDispatch(eng, ast, ms, isDotcall)
+        # All args at this site are concrete (checked above).
+        # Two modes:
+        #   - shallow (default): only flag when Julia widened the return
+        #     type to `Any` — that's the proxy for "dispatch couldn't be
+        #     resolved internally". Cheap and conservative.
+        #   - deep (opt-in via ctx.deepDispatchCheck): flag whenever the
+        #     IR walk in inferReturnType found dyn dispatch ANYWHERE in
+        #     the call tree, regardless of return type.
+        if eng.globalCtx.deepDispatchCheck
+            if hasDynamicDispatchForCall(eng, ms)
+                reportErrorTopLevelDispatch(eng, ast, ms, isDotcall)
+            end
+        else
+            if tt.typ === Any
+                reportErrorTopLevelDispatch(eng, ast, ms, isDotcall)
+            end
         end
     end
     # TODO : we should add constant propagation for pure builtin function !!!
@@ -724,6 +732,8 @@ function inferExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         return inferLambdaExpr(eng, ctx, ast)
     elseif ast.head == :comparison
         return inferComparison(eng, ctx, ast)
+    elseif ast.head == :try
+        return inferTryStmt(eng, ctx, ast)
     else
         str = String(ast.head)
         if last(str) == '='
@@ -1421,6 +1431,58 @@ function inferBlock(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     newnode = makeBlockFlowNode(ast, ret.node)
     addFlowMapping!(eng, ast, newnode)
     return InferResult(ret.ctx, newnode)
+end
+
+function inferTryStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
+    assertASTKind(ast, :try)
+    # JuliaSyntax `try` AST has 5 args:
+    #   args[1] : try body (:block)
+    #   args[2] : catch variable (:identifier, or :literal nothing if absent)
+    #   args[3] : catch body (:block, or :literal nothing if absent)
+    #   args[4] : else body  (:literal nothing if absent)
+    #   args[5] : finally body (:literal nothing if absent)
+    try_body  = ast.args[1]
+    catch_var = ast.args[2]
+    catch_body = ast.args[3]
+    else_body = ast.args[4]
+    finally_body = ast.args[5]
+
+    # IMPORTANT: variables assigned inside any of the four sub-blocks are
+    # LOCAL to that block — an exception can fire partway, so a binding
+    # the assignment WOULD have created might never actually exist after
+    # the try. We walk each block in a derived context purely for type
+    # checking, then drop the resulting ctx — the enclosing context is
+    # whatever came in.
+
+    # Try body: walk for checks, capture its return type, drop its ctx.
+    try_rel = inferExpr(eng, ctx, try_body)
+
+    # Catch body: bind the catch variable (local to the catch block) to
+    # Any, then walk. Discard its ctx.
+    if catch_body.head == :block
+        catch_ctx = ctx
+        if catch_var.head == :identifier
+            name = cast2Symbol(catch_var.val)
+            anynode = makeParamFlowNode(catch_var, makeType(Any))
+            catch_ctx = update(catch_ctx, name, ContextValue(anynode, anynode))
+        end
+        inferExpr(eng, catch_ctx, catch_body)
+    end
+
+    # Else / finally — walk for side effects in the pre-try context.
+    if else_body.head == :block
+        inferExpr(eng, ctx, else_body)
+    end
+    if finally_body.head == :block
+        inferExpr(eng, ctx, finally_body)
+    end
+
+    # Resulting value comes from the try body (when no exception fired).
+    # The resulting context is the pre-try `ctx` — no sub-block bindings
+    # propagate.
+    node = makeBlockFlowNode(ast, try_rel.node)
+    addFlowMapping!(eng, ast, node)
+    return InferResult(ctx, node)
 end
 
 function inferLet(eng::Engine, ctx::Context, ast::JuAST)::InferResult

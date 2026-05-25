@@ -37,7 +37,9 @@ end
         rt = Core.Compiler.builtin_tfunction(interp, f, argtypes, nothing)
         rt = Core.Compiler.ignorelimited(rt)
         # Builtins lower directly — no dispatch chain to walk.
-        ctx.dynDispatchCache[sig] = false
+        if ctx.deepDispatchCheck
+            ctx.dynDispatchCache[sig] = false
+        end
         if rt isa Core.Compiler.Const
             return CompileType[makeConstVal(rt.val)]
         else
@@ -78,8 +80,9 @@ end
         # walk result.src too. This is what catches dynamic dispatch when
         # the user calls something like `println(::String)` whose IR has a
         # `:call Base.print` that survives optimization because `stdout`
-        # widens to abstract `IO`.
-        if !hasDyn && result.src isa Core.CodeInfo
+        # widens to abstract `IO`. Skipped when deep mode is off — the
+        # walk is the expensive part of this function.
+        if ctx.deepDispatchCheck && !hasDyn && result.src isa Core.CodeInfo
             if _codeinfo_has_dyncall(result.src)
                 hasDyn = true
             end
@@ -99,8 +102,12 @@ end
     # tree, looking for any `:call` (post-inference) that isn't a builtin /
     # intrinsic — that's dynamic dispatch deep in the chain. Statically
     # resolved calls become `:invoke`; remaining `:call`s with a non-Builtin
-    # callee are the trim-killing kind.
-    ctx.dynDispatchCache[sig] = unableToInfer || hasDyn || _codegen_has_dyncall(interp)
+    # callee are the trim-killing kind. Only run this in deep mode; in
+    # shallow mode the cache stays empty and inferFunCall falls back to
+    # the `tt.typ === Any` heuristic.
+    if ctx.deepDispatchCheck
+        ctx.dynDispatchCache[sig] = unableToInfer || hasDyn || _codegen_has_dyncall(interp)
+    end
     return rts
 end
 

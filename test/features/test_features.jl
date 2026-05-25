@@ -14,5 +14,6 @@ include("helpers.jl")
     include("test_lambda.jl")
     include("test_macros.jl")
     include("test_arrays.jl")
+    include("test_try.jl")
     include("test_dispatch.jl")
 end

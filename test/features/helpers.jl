@@ -19,7 +19,7 @@ const FEATURES_DIR = @__DIR__
 # name. If they match, `evalMods(inner, [inner_name])` in runCheck! tries to
 # dereference `inner.inner_name`, which doesn't exist, and the checker
 # silently skips the method as a CompilerError.
-function check_case(rel::String, module_name::Symbol)
+function check_case(rel::String, module_name::Symbol; deep::Bool=false)
     path = joinpath(FEATURES_DIR, "cases", rel)
     wrapper = Module(:FeatureTestWrapper)
     # Julia 1.12 enforces strict world-age semantics for new bindings inside
@@ -32,6 +32,9 @@ function check_case(rel::String, module_name::Symbol)
     Base.invokelatest(Base.include, wrapper, path)
     target_mod = Base.invokelatest(getfield, wrapper, module_name)
     ctx = GlobalContext()
+    # `deep=true` opts into the recursive dyn-dispatch detection. Tests
+    # for that detection set it; everything else uses the shallow default.
+    ctx.deepDispatchCheck = deep
     Base.invokelatest(SimpleTypeChecker.API.addFile!, ctx, target_mod, path)
     open("/dev/null", "w") do devnull
         redirect_stdout(devnull) do
@@ -68,10 +71,12 @@ end
 
 # Convenience asserters — one line per case in the test files. The fixture's
 # inline comment documents the expected outcome; the assertion enforces it.
-function expect_clean(rel::String, module_name::Symbol)
-    @test !any_error(check_case(rel, module_name))
+# Pass `deep=true` for tests that depend on the recursive dyn-dispatch
+# detection (off by default in fresh GlobalContexts).
+function expect_clean(rel::String, module_name::Symbol; deep::Bool=false)
+    @test !any_error(check_case(rel, module_name; deep))
 end
 
-function expect_error(rel::String, module_name::Symbol, pattern::String)
-    @test has_error_matching(check_case(rel, module_name), pattern)
+function expect_error(rel::String, module_name::Symbol, pattern::String; deep::Bool=false)
+    @test has_error_matching(check_case(rel, module_name; deep), pattern)
 end

@@ -10,22 +10,27 @@ reportErrorXXX(...)::InferenceErrorXXX -> generate a inference error
 displayErrorXXX(io::IO, err::InferenceErrorXXX) -> print the error to the terminal or IOBuffer
 =#
 
-@nocheck function printWarningHead(eng::Engine, ast::JuAST, errkind::String)
+function printWarningHead(eng::Engine, ast::JuAST, errkind::String)::Nothing
+    # Warnings buffer into eng.errio like errors do — same typed writer path,
+    # same trim-clean call tree. The runCheck pipeline flushes the buffer.
     loc = ast.loc
-    println(stdout, formatLocation(loc))
-    print(stdout, " ")
-    println(stdout, errkind)
+    writelogln!(eng.errio, formatLocation(loc))
+    writelog!(eng.errio, " ")
+    writelogln!(eng.errio, errkind)
     try
         code = loc.file.code[loc.span[1]:loc.span[2]]
         needTab = !occursin('\n', code)
         if needTab
-            println(stdout, ' '^4, code)
+            writelog!(eng.errio, "    ")
+            writelogln!(eng.errio, code)
         else
-            println(stdout, '\n', code)
+            writelogln!(eng.errio)
+            writelogln!(eng.errio, code)
         end
     catch e
-        println(stdout, ' '^4, "(Failed to extract code)")
+        writelogln!(eng.errio, "    (Failed to extract code)")
     end
+    return nothing
 end
 
 function reportWarning(eng::Engine, ast::JuAST, msg::String)::Nothing
@@ -64,10 +69,10 @@ function displayErrorAssignIncompatible(err::InferenceErrorAssignIncompatible)::
     old = err.old
     new = err.new
     printErrorHead(eng, new.ast, "AssignError: reassigned type $(toString(new.typ)) is incompatible")
-    println(eng.errio, "Previous type is $(toString(old.typ)), ", formatLocation(old.ast.loc))
+    writelogln!(eng.errio, "Previous type is $(toString(old.typ)), $(formatLocation(old.ast.loc))")
 end
 
-struct InferenceErrorUnitializedVar <: InferenceError 
+struct InferenceErrorUnitializedVar <: InferenceError
     eng::Engine
     ast::JuAST
     id::Symbol
@@ -500,19 +505,19 @@ function displayErrorFunCallArgs(err::InferenceErrorFunCallArgs)::Nothing
     end
     for ii in i
         if ii != 1
-            println(eng.errio, "  argument $(ii-1) is abstract ($(explainAbstractType(fargs[ii].typ)))")
+            writelogln!(eng.errio, "  argument $(ii-1) is abstract ($(explainAbstractType(fargs[ii].typ)))")
         else
-            println(eng.errio, "  the called function itself is abstract ($(explainAbstractType(fargs[ii].typ)))")
+            writelogln!(eng.errio, "  the called function itself is abstract ($(explainAbstractType(fargs[ii].typ)))")
         end
     end
     for ii in kwi
         name, node = kwargs[ii]
-        println(eng.errio, "  keyword argument $(name) is abstract ($(explainAbstractType(node.typ)))")
+        writelogln!(eng.errio, "  keyword argument $(name) is abstract ($(explainAbstractType(node.typ)))")
     end
-    println(eng.errio, "  Calls through this site fall into Julia's open-world dispatch and can't be resolved at compile time.")
-    println(eng.errio, "  Fix: make the abstract slot concrete at this site, or wrap it in a parametric struct so the type is carried through the call chain.")
+    writelogln!(eng.errio, "  Calls through this site fall into Julia's open-world dispatch and can't be resolved at compile time.")
+    writelogln!(eng.errio, "  Fix: make the abstract slot concrete at this site, or wrap it in a parametric struct so the type is carried through the call chain.")
     if isBuiltinEqual(ms.fargs[1].typ)
-        println(eng.errio, "  Note: don't use ===/!== to compare values of different types — use (<var> isa Nothing) to narrow the type explicitly.")
+        writelogln!(eng.errio, "  Note: don't use ===/!== to compare values of different types — use (<var> isa Nothing) to narrow the type explicitly.")
     end
 end
 
@@ -543,12 +548,12 @@ function displayErrorTopLevelDispatch(err::InferenceErrorTopLevelDispatch)::Noth
     else
         printErrorHead(eng, ast, "DispatchError: this call won't trim — dynamic dispatch somewhere in the call chain")
     end
-    println(eng.errio, "  All arguments at this site are concrete, but somewhere in the transitive call tree Julia couldn't statically resolve dispatch (a post-inference `:call` survived where `:invoke` was needed).")
-    println(eng.errio, "  This top-level call is the user-actionable cause. The deeper blame lives inside the callee (likely Base / a third-party package), where the user can't fix it.")
-    println(eng.errio, "  Fix options:")
-    println(eng.errio, "    - Use a different concrete-dispatch-friendly callee (e.g. Core.stdout instead of Base.stdout; libc snprintf via ccall instead of string(::Any)).")
-    println(eng.errio, "    - Wrap the callee with a type-stable callable struct or FunctionWrapper.")
-    println(eng.errio, "    - Mark the enclosing function @nocheck if this dispatch is intentional.")
+    writelogln!(eng.errio, "  All arguments at this site are concrete, but somewhere in the transitive call tree Julia couldn't statically resolve dispatch (a post-inference `:call` survived where `:invoke` was needed).")
+    writelogln!(eng.errio, "  This top-level call is the user-actionable cause. The deeper blame lives inside the callee (likely Base / a third-party package), where the user can't fix it.")
+    writelogln!(eng.errio, "  Fix options:")
+    writelogln!(eng.errio, "    - Use a different concrete-dispatch-friendly callee (e.g. Core.stdout instead of Base.stdout; libc snprintf via ccall instead of string(::Any)).")
+    writelogln!(eng.errio, "    - Wrap the callee with a type-stable callable struct or FunctionWrapper.")
+    writelogln!(eng.errio, "    - Mark the enclosing function @nocheck if this dispatch is intentional.")
 end
 
 struct InferenceErrorNoConstructor <: InferenceError
@@ -684,7 +689,7 @@ function displayErrorAssignInitIncompatible(err::InferenceErrorAssignInitIncompa
     ass = err.ass
     init = err.init
     printErrorHead(eng, ast, "AssignError: initializer's type $(toString(init)) is incompatible with asserted type of $(toString(ass))")
-    println(eng.errio, "Note implicit conversion is disallowed for assignment.")
+    writelogln!(eng.errio, "Note implicit conversion is disallowed for assignment.")
 end
 
 struct InferenceErrorReturnEnlargeType <: InferenceError
@@ -702,8 +707,8 @@ function displayErrorReturnEnlargeType(err::InferenceErrorReturnEnlargeType)::No
     r1 = err.r1
     r2 = err.r2
     printErrorHead(eng, r2.ast, "ReturnError: return type is enlarged")
-    println(eng.errio, "Previous type is $(toString(r1.typ)), ", formatLocation(r1.ast.loc))
-    println(eng.errio, "Current type is $(toString(r2.typ)), ", formatLocation(r2.ast.loc))
+    writelogln!(eng.errio, "Previous type is $(toString(r1.typ)), $(formatLocation(r1.ast.loc))")
+    writelogln!(eng.errio, "Current type is $(toString(r2.typ)), $(formatLocation(r2.ast.loc))")
 end
 
 struct InferenceErrorIsaLHSBadType <: InferenceError
@@ -791,8 +796,8 @@ function displayErrorIfEnlargeType(err::InferenceErrorIfEnlargeType)::Nothing
     r1 = err.r1
     r2 = err.r2
     printErrorHead(eng, r2.ast, "IfError: if type is enlarged")
-    println(eng.errio, "Previous type is $(toString(r1.typ)), ", formatLocation(r1.ast.loc))
-    println(eng.errio, "Current type is $(toString(r2.typ)), ", formatLocation(r2.ast.loc))
+    writelogln!(eng.errio, "Previous type is $(toString(r1.typ)), $(formatLocation(r1.ast.loc))")
+    writelogln!(eng.errio, "Current type is $(toString(r2.typ)), $(formatLocation(r2.ast.loc))")
 end
 
 struct InferenceErrorFailedToDestruct <: InferenceError
@@ -880,12 +885,12 @@ function displayErrorElementNonSameType(err::InferenceErrorElementNonSameType)::
     typed = err.typed
     if typed
         printErrorHead(eng, ast, "Incompatiable type with typed array")
-        println(eng.errio, "Previous type is $(toString(lift(t1.typ))), ", formatLocation(t1.ast.loc))
-        println(eng.errio, "Current type is $(toString(t2.typ)), ", formatLocation(t2.ast.loc))
+        writelogln!(eng.errio, "Previous type is $(toString(lift(t1.typ))), $(formatLocation(t1.ast.loc))")
+        writelogln!(eng.errio, "Current type is $(toString(t2.typ)), $(formatLocation(t2.ast.loc))")
     else
         printErrorHead(eng, ast, "Array element must have the same type")
-        println(eng.errio, "Previous type is $(toString(t1.typ)), ", formatLocation(t1.ast.loc))
-        println(eng.errio, "Current type is $(toString(t2.typ)), ", formatLocation(t2.ast.loc))
+        writelogln!(eng.errio, "Previous type is $(toString(t1.typ)), $(formatLocation(t1.ast.loc))")
+        writelogln!(eng.errio, "Current type is $(toString(t2.typ)), $(formatLocation(t2.ast.loc))")
     end
 end
 

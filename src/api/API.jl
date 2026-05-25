@@ -94,7 +94,7 @@ end
 # attributed to (usually the parent module, NOT a module the file declares
 # itself — see [[project-install-friction]] for why a wrapper-name match
 # silently drops methods).
-@nocheck function checkFile(mod::Module, path::String)::GlobalContext
+function checkFile(mod::Module, path::String)::GlobalContext
     ctx = GlobalContext()
     addFile!(ctx, mod, abspath(path))
     runCheck!(ctx)

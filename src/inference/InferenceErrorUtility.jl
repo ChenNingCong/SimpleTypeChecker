@@ -12,9 +12,11 @@ end
 # static too. The DataType name itself comes from Julia's C runtime via
 # ccall (`jl_typename_str`) — same trim-safe pattern as the JLL ccall layer.
 #
-# For the truly-unknown fallback (Const values etc.) we delegate to a single
-# `@nocheck`-marked helper to keep the caller's call tree clean.
-@nocheck function _to_string_fallback(t::Any)::String
+# Fallback for non-type values (Const values etc.). Single-method
+# `@nospecialize` makes this an escape-hatch — the checker accepts the
+# `Any` arg here without flagging callers, and skips the body. Body
+# delegates to Base.string which dyn-dispatches on Any (by design).
+function _to_string_fallback(@nospecialize t)::String
     return string(t)
 end
 
@@ -67,7 +69,7 @@ function _union_flatten!(parts::Vector{String}, @nospecialize t)::Nothing
     return nothing
 end
 
-@nocheck function toString(typ::CompileType)::String
+function toString(typ::CompileType)::String
     return _type_to_string(typ.typ)
 end
 
@@ -92,7 +94,7 @@ function printErrorHead(eng::Engine, ast::JuAST, errkind::String)::Nothing
     return nothing
 end
 
-@nocheck function printSignature(io::IOBuffer, f::CompileType, typ::Vector{CompileType}, kwtyp::Vector{Pair{Symbol, CompileType}})::Nothing
+function printSignature(io::IOBuffer, f::CompileType, typ::Vector{CompileType}, kwtyp::Vector{Pair{Symbol, CompileType}})::Nothing
     if isConstVal(f)
         write(io, _type_to_string(f.val))
     else
@@ -149,7 +151,7 @@ function toIndex(v::Vector{Int})::String
 end
 
 
-@nocheck function getTypeSignature(args::Vector{FlowNode})::String
+function getTypeSignature(args::Vector{FlowNode})::String
     io = IOBuffer()
     write(io, _type_to_string(args[1].typ.val))
     write(io, '{')

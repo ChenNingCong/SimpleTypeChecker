@@ -233,7 +233,7 @@ function forwardPointer(spanMapping::Dict{SpanInfo, Vector{MutableGreenNode}},
     end
 end
 
-@nocheck function checkField(ast::JuAST, field::Symbol)::Bool
+function checkField(ast::JuAST, field::Symbol)::Bool
     isdefined(ast, :node)::Bool
 end
 

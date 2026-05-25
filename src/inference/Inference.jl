@@ -48,23 +48,29 @@ function cast2Symbol(val::JuASTVal)::Symbol
 end
 
 
-@nocheck function isaJuASTVal(val::JuASTVal, typ)::Bool
+function isaJuASTVal(val::JuASTVal, @nospecialize(typ))::Bool
     if !val.isconst
         throw(InternalError("Not a valid literal value"))
     end
     return val.val isa typ
 end
 
-@nocheck function castJuASTVal(typ::Type{T}, val::JuASTVal)::T where T
+# Dynamic dispatcher on a runtime-supplied type. We accept `typ` as
+# `@nospecialize` so the call site doesn't trip the abstract-arg check —
+# the only contract is that `typ` is a Type at runtime, enforced here.
+function castJuASTVal(@nospecialize(typ), val::JuASTVal)
+    if !(typ isa Type)
+        throw(InternalError("Failed to cast value : typ argument is not a Type"))
+    end
     if val.isconst
         valval = val.val
-        if valval isa T
+        if valval isa typ
             return valval
         else
             throw(InternalError("Failed to cast value : type mismatched"))
         end
     else
-        throw(InternalError(("Failed to cast value : not a valid constant value")))
+        throw(InternalError("Failed to cast value : not a valid constant value"))
     end
 end
 
@@ -126,7 +132,7 @@ end
 # result of `@m expr` is identical to the result of inferring `expr`.
 # This is an explicit whitelist (rather than a Set, to keep the dispatch
 # checkable by the type checker itself).
-@nocheck function isPassthroughMacroName(name::Symbol)::Bool
+function isPassthroughMacroName(name::Symbol)::Bool
     return name === Symbol("@inbounds")    ||
            name === Symbol("@views")       ||
            name === Symbol("@view")        ||
@@ -140,7 +146,7 @@ end
            name === Symbol("@specialize")
 end
 
-@nocheck function macroIdentifierName(ast::JuAST)::Symbol
+function macroIdentifierName(ast::JuAST)::Symbol
     # ast.args[1] is the macro identifier — either an :identifier with a
     # Symbol val (`@foo`) or a :(.) qualified access (`Mod.@foo`). For the
     # qualified case the trailing symbol is what we whitelist against.
@@ -162,7 +168,7 @@ end
 # body. Errors raised while inferring an individual argument are swallowed
 # so one bad argument can't poison checking of the others. Returns ctx
 # possibly updated by successful argument inference.
-@nocheck function inferMacroArgsForSideEffects!(eng::Engine, ctx::Context, ast::JuAST)::Context
+function inferMacroArgsForSideEffects!(eng::Engine, ctx::Context, ast::JuAST)::Context
     n = length(ast.args)
     if n < 2
         return ctx
@@ -185,7 +191,7 @@ end
     return ctx
 end
 
-@nocheck function inferMacroCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
+function inferMacroCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     assertASTKind(ast, :macrocall)
     # Resolving the macro identifier can fail in several ways:
     #   - Module-qualified macros (Core.@cmd) get tokenized by JuliaSyntax as
@@ -275,18 +281,18 @@ function inferDotCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
 end
 
 # Helpers wrapping `isa Type` and `<:` on values of static type Any. These are
-# `@nocheck` so the checker doesn't recurse into their bodies — `isa Type`
-# against Any-typed values would trigger IsaBadForm, and the checker's whole
-# point of the helpers is to ride past that.
-@nocheck function isTypeValue(x::Any)::Bool
+# Escape-hatch helpers — each is a single-method `@nospecialize` function
+# that rides past the abstract-arg / IsaBadForm checks the checker would
+# normally raise on `isa Type` against an Any-typed value.
+function isTypeValue(@nospecialize x)::Bool
     return x isa Type
 end
 
-@nocheck function subtypeOf(a::Any, b::Any)::Bool
+function subtypeOf(@nospecialize(a), @nospecialize(b))::Bool
     return a <: b
 end
 
-@nocheck function makeUnionAll(tv::TypeVar, base::Any)::Any
+function makeUnionAll(tv::TypeVar, @nospecialize base)
     return UnionAll(tv, base)
 end
 
@@ -294,7 +300,7 @@ end
 # sides resolve to concrete Type values, abstract Bool otherwise.
 # @nocheck because it inspects Any-typed values (.val) at runtime to decide
 # whether constant propagation through subtyping is possible.
-@nocheck function inferSubtypeOp(eng::Engine, ctx::Context, ast::JuAST)::InferResult
+function inferSubtypeOp(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     assertASTKind(ast, :(<:))
     if length(ast.args) != 2
         reportASTError(eng, ast, "<: requires exactly two arguments")
@@ -322,7 +328,7 @@ end
 # runtime; for the type checker, narrows x's type to T. The asserted type T
 # must resolve to a known Type. If x's inferred type is incompatible with T,
 # emit a same-error path used by other "incompatible" sites.
-@nocheck function inferTypeAssertExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
+function inferTypeAssertExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     assertASTKind(ast, :(::))
     if length(ast.args) != 2
         reportASTError(eng, ast, ":: requires exactly two arguments (value and asserted type)")
@@ -381,7 +387,7 @@ end
 # require knowing the parameter types from the caller (e.g. inside `map`),
 # which is a deep higher-order analysis. Skipping it loses some checks but
 # keeps the feature shippable.
-@nocheck function inferLambdaExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
+function inferLambdaExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     local result_ct::CompileType
     try
         lam_expr = Expr(ast.tree)
@@ -403,7 +409,7 @@ end
 # referring to U inside T resolve correctly). Constructs a UnionAll when the
 # base resolves to a known Type. Bound binders (`T where U<:Number`) are not
 # supported yet — they fall through to the widened branch.
-@nocheck function inferWhereType(eng::Engine, ctx::Context, ast::JuAST)::InferResult
+function inferWhereType(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     assertASTKind(ast, :where)
     if length(ast.args) != 2
         reportASTError(eng, ast, "where requires exactly two arguments (base type and TypeVar binder)")
@@ -443,7 +449,7 @@ end
 #   3. Trust the user-declared RetT as the result type.
 #   4. Infer the trailing args for side-effects on ctx.queue (still want
 #      nested method instances queued).
-@nocheck function inferCCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
+function inferCCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     # ast.args layout: [ccall_ident, sym_expr, rettype_expr, argtypes_tuple, args...]
     if length(ast.args) < 4
         reportASTError(eng, ast, "ccall requires at least symbol, return type, arg type tuple")
@@ -469,6 +475,72 @@ end
     node = makeCurlyCallFlowNode(ast, FlowNode[rt_node], result_ct)
     addFlowMapping!(eng, ast, node)
     return InferResult(ctx, node)
+end
+
+# Body-side companion to `_escapeHatchMask`. Returns true if THIS method
+# is the only one on its function AND declares `@nospecialize` on some
+# positional slot AND has no kwargs/varargs/optional args. When true,
+# `runCheck!` skips checking the body — the user has explicitly opted out
+# at the typed-to-Any seam.
+@nocheck function _isEscapeHatchMethod(meth::MethodDef)::Bool
+    if methodDefNKw(meth) != 0 || methodDefIsVarArg(meth)
+        return false
+    end
+    if methodDefNospecializeMask(meth) == UInt32(0)
+        return false
+    end
+    # Resolve the function value via (module, name) and count its methods.
+    mod = meth.module
+    name = meth.name
+    if !isdefined(mod, name)
+        return false
+    end
+    fval = getfield(mod, name)
+    if !(fval isa Function)
+        return false
+    end
+    return length(methods(fval)) == 1
+end
+
+# Detects "escape-hatch" callees — a function that the user has
+# deliberately marked `@nospecialize` to accept Any at certain slots.
+# To qualify ALL of the following must hold:
+#   1. The callee value is statically known (a Const callable).
+#   2. The callable has exactly ONE method (no multi-method dispatch
+#      ambiguity).
+#   3. The method declares no keyword args, no varargs, and no optional
+#      positional args (we ignore arity that doesn't match the call).
+#   4. The method has `@nospecialize` on at least one positional arg.
+# Returns `(true, mask)` if escape-hatch, else `(false, 0)`. The mask
+# is `Method.nospecialize` — bit `i-1` set ⇒ user-arg `i` is @nospecialize.
+@nocheck function _escapeHatchMask(fargs::Vector{FlowNode})::Tuple{Bool, UInt32}
+    f = fargs[1]
+    if !isConstVal(f.typ)
+        return (false, UInt32(0))
+    end
+    fval = f.typ.val
+    if !(fval isa Function)
+        return (false, UInt32(0))
+    end
+    ms = methodsOf(fval)
+    if length(ms) != 1
+        return (false, UInt32(0))
+    end
+    m = ms[1]
+    if methodDefNKw(m) != 0 || methodDefIsVarArg(m)
+        return (false, UInt32(0))
+    end
+    # `nargs` counts the function slot + positional args. The call site's
+    # `fargs` also includes the function slot — they must match for the
+    # arity to be a clean fit (no missing/extra optional args).
+    if methodDefNargs(m) != length(fargs)
+        return (false, UInt32(0))
+    end
+    mask = methodDefNospecializeMask(m)
+    if mask == UInt32(0)
+        return (false, UInt32(0))
+    end
+    return (true, mask)
 end
 
 function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::InferResult
@@ -564,7 +636,7 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
             push!(imprecise, i)
         end
     end
-    
+
     checkConstructor = false
     if isConstructor(fargs[1].typ)
         checkConstructor = true
@@ -583,6 +655,27 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
         end
     end
     ms = MethodCallStruct(fargs, kwargs)
+
+    # Drop imprecise positions where the callee is a designated
+    # "escape-hatch" callable — single method with `@nospecialize`, no
+    # kwargs/optional/varargs, fixed positional arity. This lets user
+    # code write a typed wrapper like
+    #     @nospecialize_singlemethod f(@nospecialize(x))::String = ...
+    # and call it with Any without the abstract-arg complaint.
+    if length(imprecise) > 0
+        ok, mask = _escapeHatchMask(fargs)
+        if ok
+            kept = Int[]
+            for i in imprecise
+                if i >= 2 && ((mask >> UInt32(i - 2)) & UInt32(1)) != UInt32(0)
+                    continue  # @nospecialize'd at this slot — accepted
+                end
+                push!(kept, i)
+            end
+            imprecise = kept
+        end
+    end
+
     if length(imprecise) > 0 || length(kwimprecise) > 0
         reportErrorFunCallArgs(eng, ast, ms, imprecise, kwimprecise, fargs, kwargs, isDotcall)
     end
@@ -1276,7 +1369,7 @@ function inferAssignLHS(eng::Engine, ctx::Context, ast::JuAST, rhsnode::FlowNode
     end
 end
 
-@nocheck function tryDestructTuple(eng::Engine, ctx::Context, ast::JuAST, node::FlowNode)::Union{Nothing, Vector{FlowNode}}
+function tryDestructTuple(eng::Engine, ctx::Context, ast::JuAST, node::FlowNode)::Union{Nothing, Vector{FlowNode}}
     t = node.typ.typ
     if t isa DataType 
         if length(t.parameters) >= length(ast.args)
@@ -1542,8 +1635,8 @@ function inferTupleValue(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     return InferResult(ctx, node) 
 end
 
-@nocheck function makeMatrixType(typ::CompileType)::CompileType
-    makeType(Matrix{typ.typ})
+function makeMatrixType(typ::CompileType)::CompileType
+    return makeType(Matrix{typ.typ})
 end
 
 function inferCat(eng::Engine, ctx::Context, ast::JuAST)::InferResult
@@ -2778,7 +2871,7 @@ end
 # call site (its concrete struct type passes the abstract-arg check);
 # only the wrapper's body misses auto-checking. Future work: thread the
 # callable type through prepareToplevelFunction / mapAST2Method.
-@nocheck function isCallableMethodDef(ast::JuAST)::Bool
+function isCallableMethodDef(ast::JuAST)::Bool
     f = ast
     if f.head == :function || f.head == :(=)
         if length(f.args) == 0
@@ -2805,7 +2898,7 @@ end
     return name.head == :(::)
 end
 
-@nocheck function collectToplevelFunction!(ctx::GlobalContext, rel::Dict{Vector{Symbol}, Vector{FunDef}}, mod::Vector{Symbol}, ast::JuAST)::Nothing
+function collectToplevelFunction!(ctx::GlobalContext, rel::Dict{Vector{Symbol}, Vector{FunDef}}, mod::Vector{Symbol}, ast::JuAST)::Nothing
     isFunc = false
     if isCallableMethodDef(ast)
         return nothing
@@ -2938,6 +3031,14 @@ end
         end
         push!(ctx.hasChecked[mi], kmi.kwargs=>nothing)
         fundef = ctx.methodDefs[meth]
+        # Escape hatch: if this method is the only one on its function AND
+        # has @nospecialize on some positional slot AND no kwargs / varargs,
+        # treat the body as opted-out — the user has explicitly declared
+        # this method as the typed-to-Any boundary. Same criterion the call
+        # site uses (`_escapeHatchMask` in Inference.jl).
+        if _isEscapeHatchMethod(meth)
+            continue
+        end
         # mark the specialization in check
         try
             sictx = analyzeScopeVariable(ctx, fundef)

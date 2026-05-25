@@ -131,7 +131,7 @@ struct InferenceErrorFunCall <: InferenceError
     isDotcall::Bool
 end
 
-@nocheck function reportErrorFunCall(eng::Engine, ast::JuAST, ms::MethodCallStruct, num::Int, isDotcall::Bool = false)::Union{}
+function reportErrorFunCall(eng::Engine, ast::JuAST, ms::MethodCallStruct, num::Int, isDotcall::Bool = false)::Union{}
     throwInferenceError(InferenceErrorFunCall(eng, ast, ms, num, isDotcall))
 end
 
@@ -466,22 +466,23 @@ function reportErrorFunCallArgs(eng::Engine, ast::JuAST, ms::MethodCallStruct, i
     throwInferenceError(InferenceErrorFunCallArgs(eng, ast, ms, i, kwi, fargs, kwargs, isDotcall))
 end
 
-@nocheck function explainAbstractType(typ::CompileType)::String
+function explainAbstractType(typ::CompileType)::String
     base = toString(typ)
     val = typ.typ
     if val isa UnionAll
+        # Unwrap to the fully-applied body for the diagnostic suffix.
         while val isa UnionAll
             val = val.body
         end
-        base *= ", \nfully applied type should be $(val)"
+        base = string(base, ", \nfully applied type should be ", _type_to_string(val))
     end
     return base
 end
 
-@nocheck function isBuiltinEqual(tt::CompileType)::Bool
+function isBuiltinEqual(tt::CompileType)::Bool
     if tt.val === (Core.:(===))
         return true
-    elseif tt.val ===(Base.:(!==))
+    elseif tt.val === (Base.:(!==))
         return true
     else
         return false

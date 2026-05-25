@@ -26,7 +26,7 @@ struct Location
     span::SpanInfo
 end
 
-@nocheck function makeConstJuASTVal(val::Any)
+function makeConstJuASTVal(@nospecialize val)
     return JuASTVal(true, val)
 end
 

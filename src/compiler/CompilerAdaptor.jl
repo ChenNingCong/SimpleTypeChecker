@@ -245,11 +245,11 @@ end
 
 # === MethodHandle accessors ===
 
-@nocheck function methodHandleDef(mi::MethodHandle)
+function methodHandleDef(mi::MethodHandle)
     return mi.def
 end
 
-@nocheck function methodHandleModule(mi::MethodHandle)::Core.Module
+function methodHandleModule(mi::MethodHandle)::Core.Module
     v = mi.def
     if v isa Module
         return v
@@ -258,41 +258,41 @@ end
     end
 end
 
-@nocheck function methodHandleSpecTypes(mi::MethodHandle)
+function methodHandleSpecTypes(mi::MethodHandle)
     return mi.specTypes
 end
 
-@nocheck function methodHandleSparamCount(mi::MethodHandle)::Int
+function methodHandleSparamCount(mi::MethodHandle)::Int
     return length(mi.sparam_vals)
 end
 
-@nocheck function methodHandleSparamValue(mi::MethodHandle, i::Int)
+function methodHandleSparamValue(mi::MethodHandle, i::Int)
     return mi.sparam_vals[i]
 end
 
-@nocheck function methodHandleSpecTypesLength(mi::MethodHandle)::Int
+function methodHandleSpecTypesLength(mi::MethodHandle)::Int
     return length(mi.specTypes.parameters)
 end
 
-@nocheck function methodHandleSpecTypesParam(mi::MethodHandle, i::Int)
+function methodHandleSpecTypesParam(mi::MethodHandle, i::Int)
     return mi.specTypes.parameters[i]
 end
 
-@nocheck function makeSparamCompileType(mi::MethodHandle, i::Int)::CompileType
+function makeSparamCompileType(mi::MethodHandle, i::Int)::CompileType
     return makeConstVal(methodHandleSparamValue(mi, i))
 end
 
-@nocheck function makeArgCompileType(mi::MethodHandle, i::Int)::CompileType
+function makeArgCompileType(mi::MethodHandle, i::Int)::CompileType
     return makeType(methodHandleSpecTypesParam(mi, i))
 end
 
 # === MethodDef accessors ===
 
-@nocheck function methodDefSig(meth::MethodDef)
+function methodDefSig(meth::MethodDef)
     return meth.sig
 end
 
-@nocheck function isConcreteMethodDef(meth::MethodDef)::Bool
+function isConcreteMethodDef(meth::MethodDef)::Bool
     z = meth.sig
     if z isa UnionAll
         return false
@@ -312,8 +312,45 @@ end
     Base.code_typed_by_type(meth.sig)[1].first
 end
 
+# Compatibility shim: a no-op `@nospecialize_singlemethod` style entry
+# isn't a real macro yet — the escape-hatch detection lives in
+# `_escapeHatchMask` (Inference.jl) and `_isEscapeHatchMethod`.
+
+# `Method.nospecialize` exposed as a UInt32 bitmask. Bit `(i-1)` set means
+# the i-th user-visible argument (positional index 1 = first user arg,
+# excluding the function itself) is `@nospecialize`d.
+function methodDefNospecializeMask(meth::MethodDef)::UInt32
+    return UInt32(meth.nospecialize)
+end
+
+# Number of positional args (including function slot). `m.nargs` is the
+# Julia field that counts function + positional args.
+function methodDefNargs(meth::MethodDef)::Int
+    return Int(meth.nargs)
+end
+
+# Is this method varargs?
+function methodDefIsVarArg(meth::MethodDef)::Bool
+    return Bool(meth.isva)
+end
+
+# Number of keyword args declared on this method.
+function methodDefNKw(meth::MethodDef)::Int
+    return Int(meth.nkw)
+end
+
+# Look up all the methods on a callable value. Wraps `methods()`.
+@nocheck function methodsOf(@nospecialize(f))::Vector{MethodDef}
+    ms = methods(f)
+    result = MethodDef[]
+    for m in ms
+        push!(result, m::MethodDef)
+    end
+    return result
+end
+
 # === CodeInfo accessor (used by API.jl and the runCheck pipeline) ===
 
-@nocheck function codeInfoMethodHandle(ci)
+function codeInfoMethodHandle(@nospecialize ci)
     return ci.parent
 end

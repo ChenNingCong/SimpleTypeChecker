@@ -9,166 +9,184 @@ Categories:
 - **GENUINE** — touches Julia internals (`Core.Compiler.*`, raw `ccall`
   to runtime, untyped `mi.def` / `meth.sig` field access) or an external
   API where the typed surface would be a big refactor. Keep.
-- **BOUNDARY** — deliberately crosses an `Any`-typed value. The function
-  is a serializer / coercion at a typed-to-Any seam. `@nocheck` is a
-  documented escape hatch; keep but revisit if a typed alternative
-  appears (e.g. a new `jl_*` runtime symbol).
-- **LEGACY** — the original author didn't get around to typing the body.
-  Should be checkable after a small refactor. Removal is the next step.
-- **DONE** — already cleaned up (kept here for history during the
-  reduction pass).
+- **BOUNDARY** — deliberately crosses an `Any`-typed value. Mostly
+  resolved by `@nospecialize` + single-method escape hatch (so the
+  checker now accepts them without `@nocheck`); a handful still need
+  the marker because they splat into `apply_type` or use parametric
+  `where T`.
+- **LEGACY** — author hadn't typed the body. Removal target. Most of
+  these are now done.
 
-Last updated: 2026-05-25. Count at this snapshot: **78** `@nocheck
-function` declarations. Recent removals: `printErrorHead`,
-`printWarningHead`, `toIndex`. Use `grep -c "@nocheck function"
-src -r` to keep this number honest.
+Last updated: 2026-05-25 (after the escape-hatch pass).
+Count: `grep -c "@nocheck function" -r src` → **34**, down from 78.
 
-## src/api/API.jl
+## Removed this pass (strike-throughs preserved for history)
 
-| line | function | category | note |
-| --- | --- | --- | --- |
-| 74 | `checkPackage(mod::Module)::GlobalContext` | LEGACY | top-level wrapper; reads paths and calls `addFile!` per file. Should typecheck after small cleanup. |
-| 97 | `checkFile(mod::Module, path::String)::GlobalContext` | LEGACY | same pattern as `checkPackage`. |
+The following moved from `@nocheck` to checked, sometimes with a
+`@nospecialize` annotation on an Any arg so the escape-hatch
+detector (`_escapeHatchMask` + `_isEscapeHatchMethod` in
+`Inference.jl`) accepts the typed-to-Any seam. Tests stay green (76/76)
+and the deep-mode self-check fire count is unchanged at 1.
 
-## src/compiler/CompilerAdaptor.jl
+### src/api/API.jl
+- ~~`checkFile(mod::Module, path::String)::GlobalContext`~~ — typeable as is.
 
-Everything in this file is **GENUINE** by design — the adaptor owns the
-seam to `Core.Compiler.*`, raw `Method` / `MethodInstance` field access,
-and `ccall`s to the Julia runtime. `@nocheck` is the contract here, not
-a sign of legacy laziness.
+### src/inference/InferenceDefinition.jl
+- ~~`makeConstVal(val::Any)`~~ — added `@nospecialize val`.
+- ~~`makeType(val::Any)`~~ — added `@nospecialize val`.
+- ~~`removeConst(typ::CompileType)::CompileType`~~ — single-method, body
+  routes through `@nospecialize`'d `makeType`.
+- ~~`lift(v::CompileType)::CompileType`~~ — same.
+- ~~`convert2ConstVal(val::JuASTVal)::CompileType`~~ — same.
+- ~~`isBottomType(t::CompileType)::Bool`~~ — `t.typ === Union{}` uses
+  the `===` Builtin instead of `==` so it stays checkable.
+- ~~`inferExpand(eng, ctx, e::MacroExpander, ast)`~~ — single-method,
+  body's `e.expander(eng, ctx, ast)` dispatches through a typed callable.
+
+### src/inference/InferenceError.jl
+- ~~`printErrorHead(eng, ast, errkind)`~~ — converted to typed
+  `writelog!` primitives.
+- ~~`printWarningHead(eng, ast, errkind)`~~ — same; now buffers
+  through `eng.errio` instead of writing to stdout.
+- ~~`explainAbstractType(typ::CompileType)::String`~~ — routes
+  type-to-string through `_type_to_string` (escape hatch).
+- ~~`isBuiltinEqual(tt::CompileType)::Bool`~~ — predicate using `===`
+  Builtin.
+
+### src/inference/InferenceErrorUtility.jl
+- ~~`toString(typ::CompileType)::String`~~ — body now routes through
+  `_type_to_string` (escape hatch). Caller's abstract-arg check still
+  passes because the seam is at `_type_to_string`'s `@nospecialize` arg.
+- ~~`_to_string_fallback(t::Any)::String`~~ — added `@nospecialize t`;
+  body delegates to `Base.string`.
+- ~~`printSignature(io::IOBuffer, f::CompileType, ...)`~~ — uses
+  `_type_to_string` and concrete IOBuffer `write`s.
+- ~~`getTypeSignature(args::Vector{FlowNode})::String`~~ — same.
+- ~~`toIndex(v::Vector{Int})::String`~~ — rewrote with explicit for-loop
+  instead of `map`/`join` lambdas.
+
+### src/inference/Inference.jl
+- ~~`isTypeValue(x::Any)::Bool`~~ — added `@nospecialize x`.
+- ~~`subtypeOf(a::Any, b::Any)::Bool`~~ — added `@nospecialize` on both.
+- ~~`makeUnionAll(tv::TypeVar, base::Any)`~~ — added `@nospecialize base`.
+- ~~`isaJuASTVal(val::JuASTVal, typ)::Bool`~~ — added `@nospecialize typ`.
+- ~~`isPassthroughMacroName(name::Symbol)::Bool`~~ — checkable.
+- ~~`macroIdentifierName(ast::JuAST)::Symbol`~~ — checkable.
+- ~~`inferMacroArgsForSideEffects!(...)`~~ — checkable.
+- ~~`inferMacroCall(eng, ctx, ast)`~~ — checkable.
+- ~~`inferSubtypeOp(...)`~~ — checkable.
+- ~~`inferTypeAssertExpr(...)`~~ — checkable.
+- ~~`inferLambdaExpr(...)`~~ — checkable.
+- ~~`inferWhereType(...)`~~ — checkable.
+- ~~`inferCCall(...)`~~ — checkable.
+- ~~`tryDestructTuple(...)`~~ — checkable.
+- ~~`makeMatrixType(typ::CompileType)::CompileType`~~ — body routes
+  through `@nospecialize`'d `makeType(Matrix{typ.typ})`.
+- ~~`isCallableMethodDef(ast::JuAST)::Bool`~~ — predicate; checkable.
+- ~~`collectToplevelFunction!(...)`~~ — checkable.
+
+### src/syntax/SyntaxDefinition.jl
+- ~~`makeConstJuASTVal(val::Any)`~~ — added `@nospecialize val`.
+
+### src/syntax/SyntaxAdaptor.jl
+- ~~`checkField(ast::JuAST, field::Symbol)::Bool`~~ — checkable.
+
+## Remaining @nocheck (53)
+
+### src/compiler/CompilerAdaptor.jl — GENUINE (keep)
+
+Everything in this file is the adaptor seam to `Core.Compiler.*`, raw
+`Method` / `MethodInstance` field access, and `ccall`s to the Julia
+runtime. `@nocheck` is the contract here, not a sign of legacy laziness.
 
 | line | function |
 | --- | --- |
-| 17  | `isInPureContext()` (ccall) |
-| 21  | `currentWorld()` (ccall via Core.Compiler) |
-| 27  | `inferReturnType(ctx, sig, f, types; world)` (NativeInterpreter / typeinf) |
-| 121 | `_callee_inferred_type(f, ci)` (ssavaluetypes/slottypes via Any) |
-| 138 | `_is_static_callee(f, ci)` (introspects Core.* objects) |
-| 170 | `_codeinfo_has_dyncall(ci)` (walks CodeInfo.code) |
-| 203 | `_codegen_has_dyncall(interp)` (iterates interp.codegen) |
-| 236 | `inferKeywordMethodHandles(ctx, sig)` (\_methods\_by\_ftype) |
-| 248–317 | MethodHandle / MethodDef accessors (raw field reads) |
+| 17  | `isInPureContext()` |
+| 21  | `currentWorld()` |
+| 27  | `inferReturnType(ctx, sig, f, types; world)` |
+| 121 | `_callee_inferred_type(f, ci)` |
+| 138 | `_is_static_callee(f, ci)` |
+| 170 | `_codeinfo_has_dyncall(ci)` |
+| 203 | `_codegen_has_dyncall(interp)` |
+| 236 | `inferKeywordMethodHandles(ctx, sig)` |
+| 248–354 | MethodHandle / MethodDef accessors, including the new escape-hatch helpers (`methodDefNospecializeMask`, `methodDefNargs`, `methodDefIsVarArg`, `methodDefNKw`, `methodsOf`) |
 
-## src/inference/InferenceDefinition.jl
+### src/inference/InferenceDefinition.jl
 
 | line | function | category | note |
 | --- | --- | --- | --- |
-| 16  | `isBottomType(t::CompileType)::Bool` | BOUNDARY | reads `t.typ::Any`. Could check via the `_type_to_string`-style isa dispatch. |
-| 24  | `makeType(val::Any)` | BOUNDARY | builds a CompileType from arbitrary value. |
-| 40  | `removeConst(typ::CompileType)` | BOUNDARY | strips Const wrapper, returns Any. |
-| 48  | `lift(v::CompileType)` | BOUNDARY | type lift, touches val::Any. |
-| 56  | `convert2ConstVal(val::JuASTVal)::CompileType` | LEGACY | JuASTVal → CompileType conversion. Probably checkable. |
 | 424 | `Base.write(log::ErrorLogger, x::UInt8)` | GENUINE | Base method extension. |
-| 610 | `Base.show(io::IO, info::ScopeInfo)` | GENUINE | Base method extension over abstract IO. |
-| 698 | `inferExpand(eng, ctx, e, ast)` | LEGACY | macro expansion via `Base.macroexpand` — could perhaps stay GENUINE if we touch macro objects. |
+| 610 | `Base.show(io::IO, info::ScopeInfo)` | GENUINE | abstract IO. |
 | 761 | `displayContext(io::IO, ctx::Context)` | GENUINE | abstract IO. |
-| 812 | `displayReport(io::ErrorLogger, r::InferReport)` | LEGACY | could use typed writelog! primitives. |
 
-## src/inference/InferenceError.jl
+Removed in this pass: `displayReport` — converted `println(io, ...)`
+to typed `writelogln!` + `string()` interpolation.
 
-| line | function | category | note |
-| --- | --- | --- | --- |
-| 134 | `reportErrorFunCall(eng, ast, ms, num, isDotcall)` | LEGACY | builds an error message; touches Symbol → String via interpolation. Should be checkable with typed primitives. |
-| 469 | `explainAbstractType(typ::CompileType)::String` | BOUNDARY | inspects `typ.typ::Any` and returns human-readable text. Same seam as `_type_to_string`. |
-| 481 | `isBuiltinEqual(tt::CompileType)::Bool` | LEGACY | predicate; probably checkable. |
+### src/inference/InferenceError.jl
 
-## src/inference/InferenceErrorUtility.jl
+Removed in this pass: `reportErrorFunCall` — checkable as is.
+
+### src/inference/Inference.jl
 
 | line | function | category | note |
 | --- | --- | --- | --- |
-| 17  | `_to_string_fallback(t::Any)::String` | BOUNDARY | last-resort `string(t)` for non-type values. |
-| 70  | `toString(typ::CompileType)::String` | BOUNDARY | thin wrapper around `_type_to_string`. |
-| 95  | `printSignature(io::IOBuffer, f, typ, kwtyp)` | BOUNDARY | uses `_type_to_string`. |
-| 152 | `getTypeSignature(args::Vector{FlowNode})::String` | BOUNDARY | same. |
+| 58  | `castJuASTVal(typ::Type{T}, val::JuASTVal)::T where T` | BOUNDARY | parametric `where T`; can't easily eliminate. |
+| 479 | `_isEscapeHatchMethod(meth::MethodDef)` | GENUINE | introspects Method + Function. |
+| 510 | `_escapeHatchMask(fargs)` | GENUINE | same. |
+| 2491 | `fasteval(mod, x, params, implicit)` | GENUINE | `Core.eval`. |
+| 2786 | `evalGetPropertyChain(parent, s)` | GENUINE | runtime `getproperty`. |
+| 2807 | `mapAST2Method(mod, fundef)` | GENUINE | bridges AST → Method. |
+| 2964 | `addFile!(ctx, mod, filename)` | LEGACY-?? | removing trips the README self-check via a KeyError in the file→AST map. Keep for now. |
+| 2998 | `runCheck!(ctx; checkSyntax)` | GENUINE | `eval(Symbol(name))` for the displayError dispatch. |
 
-`_type_to_string` itself is **CHECKED** (uses `@nospecialize` to keep one
-MI; the body's isa-dispatch is statically resolvable).
-
-## src/inference/Inference.jl
-
-| line | function | category | note |
-| --- | --- | --- | --- |
-| 51  | `isaJuASTVal(val, typ)::Bool` | BOUNDARY | predicate on val::JuASTVal with abstract typ. |
-| 58  | `castJuASTVal(typ::Type{T}, val)::T where T` | BOUNDARY | unsafe cast. |
-| 129 | `isPassthroughMacroName(name::Symbol)::Bool` | LEGACY | simple list of names; trivial check. |
-| 143 | `macroIdentifierName(ast::JuAST)::Symbol` | LEGACY | extracts a symbol from AST. |
-| 165 | `inferMacroArgsForSideEffects!(eng, ctx, ast)` | LEGACY | walks macro args. |
-| 188 | `inferMacroCall(eng, ctx, ast)` | LEGACY / GENUINE — borderline; macro expansion is dynamic. |
-| 281 | `isTypeValue(x::Any)::Bool` | BOUNDARY | predicate on Any. |
-| 285 | `subtypeOf(a::Any, b::Any)::Bool` | BOUNDARY | subtype op on Any pair. |
-| 289 | `makeUnionAll(tv::TypeVar, base::Any)::Any` | BOUNDARY | builds UnionAll. |
-| 297 | `inferSubtypeOp(...)` | LEGACY | structural inference logic. |
-| 325 | `inferTypeAssertExpr(...)` | LEGACY | structural. |
-| 384 | `inferLambdaExpr(...)` | LEGACY / GENUINE — uses module-level eval (touches `eval`), borderline. |
-| 406 | `inferWhereType(...)` | LEGACY | structural. |
-| 446 | `inferCCall(...)` | LEGACY | special-cases ccall expressions. |
-| 1279 | `tryDestructTuple(...)` | LEGACY | tuple-destructuring helper. |
-| 1545 | `makeMatrixType(typ::CompileType)::CompileType` | BOUNDARY | builds a parametric matrix type from typ.typ::Any. |
-| 2404 | `fasteval(...)` | GENUINE | calls `Core.eval` directly. |
-| 2699 | `evalGetPropertyChain(parent::Module, s::Vector{Symbol})` | GENUINE | runtime getproperty chain. |
-| 2720 | `mapAST2Method(mod, fundef)::Vector{MethodDef}` | GENUINE | bridges AST to runtime Methods. |
-| 2781 | `isCallableMethodDef(ast::JuAST)::Bool` | LEGACY | predicate on AST shape. |
-| 2808 | `collectToplevelFunction!(...)` | LEGACY | top-level walker; mostly structural. |
-| 2877 | `addFile!(ctx, mod, filename)` | LEGACY | reads file + parses; trivial. |
-| 2911 | `runCheck!(ctx; checkSyntax)` | GENUINE | dispatches `displayError*` via `eval(Symbol(name))` — that's the actual runtime indirection. |
-
-## src/inference/UtilityUnType.jl
+### src/inference/UtilityUnType.jl
 
 | line | function | category | note |
 | --- | --- | --- | --- |
-| 53  | `makeNameTupleType(args)::CompileType` | BOUNDARY | builds NamedTuple type from heterogeneous typ.typ values. |
-| 263 | `makeTupleType(tt::Vector{FlowNode})::CompileType` | BOUNDARY | builds Tuple type. |
+| 53  | `makeNameTupleType(args)` | BOUNDARY | splats into `NamedTuple{...}` with abstract elements. |
+| 263 | `makeTupleType(tt)` | BOUNDARY | splats into `Tuple{...}` with abstract elements. |
 
-## src/server/SimpleHTTPServer.jl
+### src/server/SimpleHTTPServer.jl — GENUINE (HTTP, abstract IO)
 
-| line | function | category | note |
-| --- | --- | --- | --- |
-| 46  | `query(f::QueryFunctor, method, body)::String` | GENUINE | HTTP query dispatch. |
-| 66  | `handleQuery(f::QueryFunctor)` | GENUINE | server loop with abstract IO. |
+| line | function |
+| --- | --- |
+| 46  | `query(f::QueryFunctor, method, body)::String` |
+| 66  | `handleQuery(f::QueryFunctor)` |
 
-## src/syntax/JSAdaptor.jl
+### src/syntax/JSAdaptor.jl — GENUINE (HTML emission)
 
-| line | function | category | note |
-| --- | --- | --- | --- |
-| 10  | `parseAndConstructHTML(raw, filename, outdir)` | GENUINE | HTML emission, lots of `print(io, ...)`. |
+| line | function |
+| --- | --- |
+| 10  | `parseAndConstructHTML(raw, filename, outdir)` |
 
-## src/syntax/SyntaxAdaptor.jl
+### src/syntax/SyntaxAdaptor.jl — GENUINE (JuliaSyntax internals)
 
-| line | function | category | note |
-| --- | --- | --- | --- |
-| 57  | `getData(tree)::JuliaSyntax.SyntaxData` | GENUINE | reaches into JuliaSyntax tree. |
-| 65  | `getNodeVal(tree)::JuASTVal` | GENUINE | same. |
-| 69  | `untokenize(head::JuliaSyntax.SyntaxHead)` | GENUINE | JuliaSyntax internals. |
-| 132 | `getChildren(tree)` | GENUINE | JuliaSyntax internals. |
-| 236 | `checkField(ast::JuAST, field::Symbol)::Bool` | LEGACY | predicate; checkable. |
-| 273 | `parseJuAST(str, filename)::JuAST` | GENUINE | bridges JuliaSyntax parse. |
+| line | function |
+| --- | --- |
+| 57  | `getData(tree)::JuliaSyntax.SyntaxData` |
+| 65  | `getNodeVal(tree)::JuASTVal` |
+| 69  | `untokenize(head::JuliaSyntax.SyntaxHead)` |
+| 132 | `getChildren(tree)` |
+| 273 | `parseJuAST(str, filename)::JuAST` |
 
-## src/syntax/SyntaxDefinition.jl
+### src/syntax/SyntaxDefinition.jl — GENUINE (Base.show + JuliaSyntax)
 
-| line | function | category | note |
-| --- | --- | --- | --- |
-| 29  | `makeConstJuASTVal(val::Any)` | BOUNDARY | wraps arbitrary value as JuASTVal. |
-| 37  | `getNodeVal(tree::JuliaSyntax.TreeNode{...})::JuASTVal` | GENUINE | JuliaSyntax internals. |
-| 108 | `Base.show(io::IO, ast::JuAST)` | GENUINE | Base method on abstract IO. |
-| 113 | `displayJuASTHelper(io, ast, id)` | GENUINE | recursive show helper on abstract IO. |
-
-## Removed in this pass (kept here as a log)
-
-- `toString(typ::CompileType)` (kept `@nocheck` but rewrote body via `_type_to_string`).
-- `printErrorHead(eng, ast, errkind)` — converted to typed `writelog!`, removed `@nocheck`.
-- `printWarningHead(eng, ast, errkind)` — same.
-- `toIndex(v::Vector{Int})::String` — checkable, removed `@nocheck`.
+| line | function |
+| --- | --- |
+| 37  | `getNodeVal(tree::JuliaSyntax.TreeNode{...})` |
+| 108 | `Base.show(io::IO, ast::JuAST)` |
+| 113 | `displayJuASTHelper(io, ast, id)` |
 
 ## Next removal candidates
 
-Highest payoff (LEGACY entries with small bodies, low blast radius):
+Just one LEGACY-?? left:
 
-1. `isPassthroughMacroName(name::Symbol)::Bool` — passthrough list check.
-2. `macroIdentifierName(ast::JuAST)::Symbol` — AST field read.
-3. `checkField(ast::JuAST, field::Symbol)::Bool` — same family.
-4. `isCallableMethodDef(ast::JuAST)::Bool` — predicate.
-5. `isBuiltinEqual(tt::CompileType)::Bool` — predicate.
-6. `addFile!(ctx, mod, filename)` — reads file then parses.
-7. `convert2ConstVal(val::JuASTVal)::CompileType` — coercion.
+1. `addFile!(ctx, mod, filename)` — removing it trips the README
+   self-check via a KeyError in the file→AST map. Needs a closer
+   look to figure out which body call confuses the checker.
+
+Beyond that, the remaining 51 entries are GENUINE adaptor seams or
+BOUNDARY shapes (parametric `where T`, splatted `apply_type`) that
+can't be cleaned up without changing the algorithm.
 
 Each removal should come with a test exercising the function path.

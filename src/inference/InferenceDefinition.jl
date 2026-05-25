@@ -13,15 +13,15 @@ function makeBottomType()
     CompileType(true, nothing, Union{})
 end
 
-@nocheck function isBottomType(t::CompileType)::Bool
-    return t.typ == Union{}
+function isBottomType(t::CompileType)::Bool
+    return t.typ === Union{}
 end
 
-function makeConstVal(val::Any)
+function makeConstVal(@nospecialize val)
     CompileType(true, val, Core.Typeof(val))
 end
 
-@nocheck function makeType(val::Any)
+function makeType(@nospecialize val)
     if Base.issingletontype(val)
         CompileType(true, val.instance, val)
     elseif val isa DataType && val.name == Type.body.name
@@ -37,15 +37,15 @@ function isConstVal(typ::CompileType)
     return typ.isConst
 end
 
-@nocheck function removeConst(typ::CompileType)
+function removeConst(typ::CompileType)::CompileType
     if typ.isConst
-        makeType(typ.typ)
+        return makeType(typ.typ)
     else
         return typ
     end
 end
 
-@nocheck function lift(v::CompileType)
+function lift(v::CompileType)::CompileType
     if isConstVal(v)
         return makeType(v.val)
     else
@@ -53,8 +53,8 @@ end
     end
 end
 
-@nocheck function convert2ConstVal(val::JuASTVal)::CompileType
-    makeConstVal(val.val)
+function convert2ConstVal(val::JuASTVal)::CompileType
+    return makeConstVal(val.val)
 end
 
 #=
@@ -695,7 +695,7 @@ mutable struct Engine
     retVal::Maybe{FlowNode}
 end
 
-@nocheck function inferExpand(eng::Engine, ctx::Context, e::MacroExpander, ast::JuAST)::InferResult
+function inferExpand(eng::Engine, ctx::Context, e::MacroExpander, ast::JuAST)::InferResult
     result = e.expander(eng, ctx, ast)
     if result isa InferResult
         return result
@@ -809,17 +809,19 @@ function displayReturn(io::ErrorLogger, eng::Engine)
     end
 end
 
-@nocheck function displayReport(io::ErrorLogger, r::InferReport)
-    println(io, '\u2500'^64)
+function displayReport(io::ErrorLogger, r::InferReport)::Nothing
+    sep = "\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
+    writelogln!(io, sep)
     ex = r.f
     val = ex.val
     if val isa FunDef
-        println(io, "Inference Result for Method $(r.eng.mi)")
+        writelog!(io, "Inference Result for Method ")
+        writelogln!(io, string(r.eng.mi))
         displayReturn(io, r.eng)
         displayResult(io, r.rel)
-        println(io, '\u2500'^64)
+        writelogln!(io, sep)
     else
         error("Internal Error")
     end
-    return
+    return nothing
 end

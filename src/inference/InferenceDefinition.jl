@@ -481,6 +481,10 @@ mutable struct GlobalContext
     queue::Vector{KwFunCall}
     hasChecked::Dict{MethodHandle, Vector{Pair{KeywordSortList, Any}}}
     cache::Dict{Any, Vector{CompileType}}
+    # Parallel cache: did Julia's inferencer find any dynamic dispatch in the
+    # transitive call tree rooted at this sig? Populated alongside `cache` by
+    # inferReturnType. Keyed by the same sig tuple `cache` uses.
+    dynDispatchCache::Dict{Any, Bool}
     const expanders::Dict{CompileType, MacroExpander}
 end
 
@@ -491,6 +495,7 @@ function GlobalContext()
                   KwFunCall[],
                   Dict{MethodHandle, Vector{Pair{KeywordSortList, Any}}}(),
                   Dict{Any, Vector{CompileType}}(),
+                  Dict{Any, Bool}(),
                   Dict{CompileType, MacroExpander}())
 end
 

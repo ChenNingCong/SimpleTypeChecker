@@ -36,6 +36,8 @@ end
         argtypes = Any[Base.to_tuple_type(types).parameters...]
         rt = Core.Compiler.builtin_tfunction(interp, f, argtypes, nothing)
         rt = Core.Compiler.ignorelimited(rt)
+        # Builtins lower directly — no dispatch chain to walk.
+        ctx.dynDispatchCache[sig] = false
         if rt isa Core.Compiler.Const
             return CompileType[makeConstVal(rt.val)]
         else
@@ -43,6 +45,11 @@ end
         end
     end
     rts = CompileType[]
+    # If we ever fail to materialize a frame for one of the matches, we can't
+    # see into that callee — treat that as equivalent to dynamic dispatch
+    # (Julia's trim would reject it for the same reason: no IR to verify).
+    unableToInfer = false
+    hasDyn = false
     for match in Base._methods_by_ftype(sig, -1, world)::Vector
         match = match::Core.MethodMatch
         mi = Core.Compiler.specialize_method(match.method, match.spec_types, match.sparams)::MethodHandle
@@ -51,6 +58,7 @@ end
         if frame === nothing
             # Source unavailable (e.g. generated function source we can't materialize)
             push!(rts, makeType(Any))
+            unableToInfer = true
             continue
         end
         Core.Compiler.typeinf(interp, frame)
@@ -64,6 +72,18 @@ end
                 push!(rts, makeType(Core.Compiler.widenconst(ty)))
             end
         end
+        # The seed match's IR lives in `result.src`. interp.codegen only
+        # captures *freshly* inferred MIs (i.e. ones not already cached in
+        # the system image), so the seed itself often isn't there — we must
+        # walk result.src too. This is what catches dynamic dispatch when
+        # the user calls something like `println(::String)` whose IR has a
+        # `:call Base.print` that survives optimization because `stdout`
+        # widens to abstract `IO`.
+        if !hasDyn && result.src isa Core.CodeInfo
+            if _codeinfo_has_dyncall(result.src)
+                hasDyn = true
+            end
+        end
     end
     # Julia 1.12: completed inference results live in `interp.codegen` as
     # CodeInstance → CodeInfo entries. Each CodeInstance.def is a MethodHandle.
@@ -75,7 +95,114 @@ end
             push!(ctx.queue, KwFunCall(mi_))
         end
     end
+    # Walk every CodeInfo the inferencer produced for this call's transitive
+    # tree, looking for any `:call` (post-inference) that isn't a builtin /
+    # intrinsic — that's dynamic dispatch deep in the chain. Statically
+    # resolved calls become `:invoke`; remaining `:call`s with a non-Builtin
+    # callee are the trim-killing kind.
+    ctx.dynDispatchCache[sig] = unableToInfer || hasDyn || _codegen_has_dyncall(interp)
     return rts
+end
+
+# A post-inference call statement is "statically resolved" iff its head is
+# `:invoke` (Julia turned the dispatch into a known MethodInstance) OR its head
+# is `:call` and the callee is a Builtin / IntrinsicFunction (these lower
+# directly without going through the method table). Anything else with head
+# `:call` is dynamic dispatch — unless the inferencer was able to constprop
+# the whole call to a Const result, in which case there is no real runtime
+# dispatch happening (the value is folded at compile time).
+@nocheck function _callee_inferred_type(f, ci::Core.CodeInfo)
+    if f isa Core.SSAValue
+        if f.id <= length(ci.ssavaluetypes)
+            return ci.ssavaluetypes[f.id]
+        end
+    elseif f isa Core.SlotNumber
+        if f.id <= length(ci.slottypes)
+            return ci.slottypes[f.id]
+        end
+    elseif f isa Core.Argument
+        if f.n <= length(ci.slottypes)
+            return ci.slottypes[f.n]
+        end
+    end
+    return nothing
+end
+
+@nocheck function _is_static_callee(f, ci::Core.CodeInfo)::Bool
+    if f isa Core.IntrinsicFunction || f isa Core.Builtin
+        return true
+    end
+    if f isa GlobalRef
+        if isdefined(f.mod, f.name)
+            v = getfield(f.mod, f.name)
+            if v isa Core.IntrinsicFunction || v isa Core.Builtin
+                return true
+            end
+        end
+        return false
+    end
+    if f isa QuoteNode
+        v = f.value
+        return v isa Core.IntrinsicFunction || v isa Core.Builtin
+    end
+    # SSA / slot / argument callee: only static if the inferred callee value
+    # itself is a Builtin/Intrinsic. A Const-known *user* function still
+    # requires method-table lookup against the inferred arg types — if the
+    # optimizer didn't rewrite to :invoke, dispatch couldn't be uniquely
+    # resolved, so it's dynamic.
+    t = _callee_inferred_type(f, ci)
+    if t isa Core.Const
+        v = t.val
+        if v isa Core.IntrinsicFunction || v isa Core.Builtin
+            return true
+        end
+    end
+    return false
+end
+
+@nocheck function _codeinfo_has_dyncall(ci::Core.CodeInfo)::Bool
+    code = ci.code
+    ssatypes = ci.ssavaluetypes
+    for i in 1:length(code)
+        stmt = code[i]
+        if !(stmt isa Expr)
+            continue
+        end
+        h = stmt.head
+        # `:invoke`, `:foreigncall` (ccall), `:new`, `:gc_preserve_*`, etc.
+        # are all statically resolved.
+        if h !== :call
+            continue
+        end
+        if length(stmt.args) == 0
+            continue
+        end
+        # If the call's result is a Const, the inferencer fully folded the
+        # dispatch at compile time — there's no runtime method-table lookup
+        # left. This eliminates a false positive on calls Julia constprop'd
+        # (e.g. `zero(Vec3{Float64})` lowers to `:call %2` whose result is
+        # `Core.Const([0.0, 0.0, 0.0])`).
+        if i <= length(ssatypes) && ssatypes[i] isa Core.Const
+            continue
+        end
+        if _is_static_callee(stmt.args[1], ci)
+            continue
+        end
+        return true
+    end
+    return false
+end
+
+@nocheck function _codegen_has_dyncall(interp)::Bool
+    for codeinst in keys(interp.codegen)
+        src = interp.codegen[codeinst]
+        if src isa Core.CodeInfo
+            if _codeinfo_has_dyncall(src)
+                return true
+            end
+        end
+    end
+    return false
 end
 
 function inferReturnType(ctx::GlobalContext, sig)::Vector{CompileType}

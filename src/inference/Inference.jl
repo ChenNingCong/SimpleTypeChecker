@@ -621,12 +621,13 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
         if isBottomType(tt) && checkConstructor
             reportErrorNoConstructor(eng, ast, ms)
         end
-        # All args at this site are concrete (checked above), but Julia's
-        # inferencer widened the return type to Any — that means dispatch
-        # INSIDE the callee is dynamic. This top-level call is the user-
-        # actionable cause; the deeper blame lives in Base/dep code the user
-        # can't fix. Surface that distinction here.
-        if tt.typ === Any
+        # All args at this site are concrete (checked above). If Julia's
+        # inferencer found any dynamic dispatch anywhere in the transitive
+        # call tree — regardless of the return type at this site — this
+        # top-level call is the user-actionable cause. Deeper blame lives in
+        # the callee (likely Base / a third-party package) where the user
+        # can't fix it. Trim would reject this call for the same reason.
+        if hasDynamicDispatchForCall(eng, ms)
             reportErrorTopLevelDispatch(eng, ast, ms, isDotcall)
         end
     end

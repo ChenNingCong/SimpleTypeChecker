@@ -81,6 +81,20 @@ function extractUniqueMatch(v)::CompileType
     v[1]
 end
 
+# Mirrors getMethodMatches' sig-building logic so we look up the dyn-dispatch
+# flag under the exact key inferReturnType stored it under. Must run AFTER
+# getMethodMatches (the cache is populated as a side-effect of that call).
+function hasDynamicDispatchForCall(eng::Engine, ms::MethodCallStruct)::Bool
+    args = ms.fargs
+    kwargs = ms.kwargs
+    sig = Tuple{[i.typ.typ for i in args]...}
+    if length(kwargs) > 0
+        tup = NamedTuple{tuple([i.first for i in kwargs]...), Tuple{[i.second.typ.typ for i in kwargs]...}}
+        sig = Tuple{typeof(Core.kwcall), tup, sig.parameters...}
+    end
+    return get(eng.globalCtx.dynDispatchCache, sig, false)
+end
+
 function checkFieldCompatibility(dest::CompileType, src::CompileType)::Bool
     return src.typ <: dest.typ
 end

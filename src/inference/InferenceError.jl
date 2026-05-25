@@ -516,11 +516,13 @@ function displayErrorFunCallArgs(err::InferenceErrorFunCallArgs)::Nothing
     end
 end
 
-# Emitted when the call-site args are all concrete, but Julia's inferencer
-# bailed to `Any` for the return type. That means dispatch INSIDE the callee
-# is dynamic — the call won't trim, and this top-level site is the user-
-# actionable point to fix it (deeper blame would land in Base, where the user
-# can't change anything).
+# Emitted when the call-site args are all concrete, but the inferencer found
+# dynamic dispatch *somewhere* in the transitive call tree — at any depth, for
+# any return type. Detected by walking every CodeInfo Julia produced for this
+# call and looking for post-inference `:call` statements whose callee isn't a
+# Builtin / IntrinsicFunction. Reported at this top-level site because that's
+# the user-actionable point; deeper blame lives in code (Base or a third-party
+# package) the user can't change.
 struct InferenceErrorTopLevelDispatch <: InferenceError
     eng::Engine
     ast::JuAST
@@ -537,11 +539,11 @@ function displayErrorTopLevelDispatch(err::InferenceErrorTopLevelDispatch)::Noth
     ast = err.ast
     ms = err.ms
     if err.isDotcall
-        printErrorHead(eng, ast, "DispatchError: this broadcast call won't trim — internal dispatch goes dynamic")
+        printErrorHead(eng, ast, "DispatchError: this broadcast call won't trim — dynamic dispatch somewhere in the call chain")
     else
-        printErrorHead(eng, ast, "DispatchError: this call won't trim — internal dispatch goes dynamic")
+        printErrorHead(eng, ast, "DispatchError: this call won't trim — dynamic dispatch somewhere in the call chain")
     end
-    println(eng.errio, "  All arguments at this site are concrete, but the callee's body contains dispatch that Julia's inferencer couldn't resolve statically (the return type widened to `Any`).")
+    println(eng.errio, "  All arguments at this site are concrete, but somewhere in the transitive call tree Julia couldn't statically resolve dispatch (a post-inference `:call` survived where `:invoke` was needed).")
     println(eng.errio, "  This top-level call is the user-actionable cause. The deeper blame lives inside the callee (likely Base / a third-party package), where the user can't fix it.")
     println(eng.errio, "  Fix options:")
     println(eng.errio, "    - Use a different concrete-dispatch-friendly callee (e.g. Core.stdout instead of Base.stdout; libc snprintf via ccall instead of string(::Any)).")

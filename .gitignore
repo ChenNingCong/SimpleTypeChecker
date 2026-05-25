@@ -1,0 +1,7 @@
+# Julia coverage instrumentation (`--code-coverage=user`) drops `.cov` files
+# next to each source it touches. Keep them out of the working tree.
+*.cov
+
+# Manifest files — tracked at the top of the worktree only if needed.
+# Leave Project.toml tracked; ignore the per-user Manifest.toml.
+/Manifest.toml

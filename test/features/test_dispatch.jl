@@ -25,6 +25,15 @@ const ABS_ERR = "InferenceErrorFunCallArgs"
     expect_clean("dispatch/struct_field_ok.jl",     :DispatchStructField;   deep=true)
     expect_clean("dispatch/callable_struct_ok.jl",  :DispatchCallableStruct;deep=true)
     expect_clean("dispatch/kwarg_ok.jl",            :DispatchKwargOk;       deep=true)
+    # `isa`, `===`, `typeof` are Builtins — abstract args at these sites
+    # are NOT dispatched through the method table. Verify the checker
+    # suppresses the abstract-arg false positive.
+    expect_clean("dispatch/builtin_isa_ok.jl",      :DispatchBuiltinIsa;    deep=true)
+    # Escape-hatch detection uses per-arity matching (not "single method
+    # total"): a function with multiple methods qualifies at a call site
+    # if exactly one method matches the call's arity and that method is
+    # @nospecialize. Mirrors `Base.rethrow` shape.
+    expect_clean("dispatch/multimethod_escape_ok.jl", :DispatchMultimethodEscape; deep=true)
     # Negative control: looks suspicious (multi-arg string), but this exact
     # specialization resolves statically — make sure the checker doesn't
     # false-positive even in deep mode.

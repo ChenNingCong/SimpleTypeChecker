@@ -2,6 +2,7 @@ using ..SyntaxDefinition
 using ..Utility
 import ..Utility
 import JuliaSyntax
+using FunctionWrappers: FunctionWrapper
 
 struct CompileType
     isConst::Bool
@@ -421,8 +422,8 @@ struct ErrorLogger <: IO
     io::IOBuffer
 end
 
-@nocheck function Base.write(log::ErrorLogger, x::UInt8)
-    write(log.io, x)
+function Base.write(log::ErrorLogger, x::UInt8)::Int
+    return write(log.io, x)
 end
 
 # Typed StringBuilder-style writers — bypass the open-world `print` /
@@ -521,8 +522,18 @@ function KwFunCall(mi::MethodHandle)
     KwFunCall(mi, KeywordSortList())
 end
 
+# MacroExpander stores a typed handle to a `(Engine, Context, JuAST) ->
+# InferResult` callable. We can't name those types here (Engine and
+# Context are defined later in this file — circular if we tried), so the
+# wrapper itself is typed `Any`-in/`Any`-out at the C ABI level.
+# FunctionWrapper.jl gives a concrete wrapper type — calling
+# `wrapper(args...)` dispatches statically to a single FunctionWrapper
+# method that ccalls the C trampoline, so the abstract-callee fire goes
+# away.
+const ExpanderCallable = FunctionWrapper{Any, Tuple{Any, Any, Any}}
+
 struct MacroExpander
-    expander::Any
+    expander::ExpanderCallable
 end
 
 mutable struct GlobalContext
@@ -540,6 +551,12 @@ mutable struct GlobalContext
     # ONLY when `deepDispatchCheck` is enabled. Keyed by the same sig tuple
     # `cache` uses.
     dynDispatchCache::Dict{Any, Bool}
+    # Parallel trace store. When `printDispatchTrace` is on, every dyncall
+    # detected during `inferReturnType` is stringified to a single line
+    # ("method @ file:line — callee") and pushed to the vector keyed by
+    # the same sig as `dynDispatchCache`. Empty / absent vector means no
+    # dyncall was found.
+    dynDispatchTraceCache::Dict{Any, Vector{String}}
     # Switch between two modes of top-level dispatch detection:
     #   - false (default): shallow — only flag when Julia widened the return
     #     type to `Any`. Cheap, low false-positive rate, but misses dyn
@@ -553,6 +570,11 @@ mutable struct GlobalContext
     #     module-level eval erases captured-var types) and on the checker's
     #     own diagnostic-printing path (println via abstract IO).
     deepDispatchCheck::Bool
+    # When true, attach the deep-walk trace (offending statement + callee
+    # inside each transitive method) to every InferenceErrorTopLevelDispatch
+    # message. Adds O(n) work per inferred frame, so opt-in. Use this when
+    # you've hit a "won't trim" fire and want to know WHERE in the chain.
+    printDispatchTrace::Bool
     const expanders::Dict{CompileType, MacroExpander}
 end
 
@@ -564,6 +586,8 @@ function GlobalContext()
                   Dict{MethodHandle, Vector{Pair{KeywordSortList, Any}}}(),
                   Dict{Any, Vector{CompileType}}(),
                   Dict{Any, Bool}(),
+                  Dict{Any, Vector{String}}(),
+                  false,
                   false,
                   Dict{CompileType, MacroExpander}())
 end
@@ -696,17 +720,22 @@ mutable struct Engine
 end
 
 function inferExpand(eng::Engine, ctx::Context, e::MacroExpander, ast::JuAST)::InferResult
+    # `e.expander` is a `FunctionWrapper{Any, Tuple{Any, Any, Any}}` —
+    # a concrete struct type, so this call dispatches statically. The
+    # wrapper ccalls into a C trampoline that re-enters Julia at the
+    # real expander, so we still get the heterogeneous dispatch table
+    # behavior; the static-dispatch check just no longer flags it.
     result = e.expander(eng, ctx, ast)
     if result isa InferResult
         return result
     else
-        error("Macto expand must return a InferResult")
+        error("Macro expand must return an InferResult")
     end
 end
 
 const GlobalExpanders = Dict{CompileType, MacroExpander}()
 function addGlobalExpander!(mod::Module, symbol::Symbol, f)
-    GlobalExpanders[makeConstVal(getproperty(mod, symbol))] = MacroExpander(f)
+    GlobalExpanders[makeConstVal(getproperty(mod, symbol))] = MacroExpander(ExpanderCallable(f))
     return
 end
 
@@ -809,19 +838,3 @@ function displayReturn(io::ErrorLogger, eng::Engine)
     end
 end
 
-function displayReport(io::ErrorLogger, r::InferReport)::Nothing
-    sep = "\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
-    writelogln!(io, sep)
-    ex = r.f
-    val = ex.val
-    if val isa FunDef
-        writelog!(io, "Inference Result for Method ")
-        writelogln!(io, string(r.eng.mi))
-        displayReturn(io, r.eng)
-        displayResult(io, r.rel)
-        writelogln!(io, sep)
-    else
-        error("Internal Error")
-    end
-    return nothing
-end

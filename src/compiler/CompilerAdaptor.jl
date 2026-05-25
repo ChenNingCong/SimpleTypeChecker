@@ -14,11 +14,11 @@
 
 # === Runtime status ===
 
-@nocheck function isInPureContext()::Bool
+function isInPureContext()::Bool
     return ccall(:jl_is_in_pure_context, Bool, ())
 end
 
-@nocheck function currentWorld()::UInt
+function currentWorld()::UInt
     return Core.Compiler.get_world_counter()
 end
 
@@ -52,6 +52,11 @@ end
     # (Julia's trim would reject it for the same reason: no IR to verify).
     unableToInfer = false
     hasDyn = false
+    # Seed-frame CodeInfos (one per matched method). Tracked so that when
+    # the user opts into `printDispatchTrace`, we can walk these in addition
+    # to interp.codegen — the seed's IR is the most likely place the user
+    # call's dispatch issues show up.
+    seedCIs = Any[]
     for match in Base._methods_by_ftype(sig, -1, world)::Vector
         match = match::Core.MethodMatch
         mi = Core.Compiler.specialize_method(match.method, match.spec_types, match.sparams)::MethodHandle
@@ -82,8 +87,9 @@ end
         # `:call Base.print` that survives optimization because `stdout`
         # widens to abstract `IO`. Skipped when deep mode is off — the
         # walk is the expensive part of this function.
-        if ctx.deepDispatchCheck && !hasDyn && result.src isa Core.CodeInfo
-            if _codeinfo_has_dyncall(result.src)
+        if ctx.deepDispatchCheck && result.src isa Core.CodeInfo
+            push!(seedCIs, result.src)
+            if !hasDyn && _codeinfo_has_dyncall(result.src)
                 hasDyn = true
             end
         end
@@ -106,7 +112,18 @@ end
     # shallow mode the cache stays empty and inferFunCall falls back to
     # the `tt.typ === Any` heuristic.
     if ctx.deepDispatchCheck
-        ctx.dynDispatchCache[sig] = unableToInfer || hasDyn || _codegen_has_dyncall(interp)
+        hadDyn = unableToInfer || hasDyn || _codegen_has_dyncall(interp)
+        ctx.dynDispatchCache[sig] = hadDyn
+        if hadDyn && ctx.printDispatchTrace
+            traceLines = String[]
+            for ci in seedCIs
+                if ci isa Core.CodeInfo
+                    _codeinfo_collect_dyncalls!(traceLines, ci)
+                end
+            end
+            _codegen_collect_dyncalls_into!(traceLines, interp)
+            ctx.dynDispatchTraceCache[sig] = traceLines
+        end
     end
     return rts
 end
@@ -118,7 +135,7 @@ end
 # `:call` is dynamic dispatch — unless the inferencer was able to constprop
 # the whole call to a Const result, in which case there is no real runtime
 # dispatch happening (the value is folded at compile time).
-@nocheck function _callee_inferred_type(f, ci::Core.CodeInfo)
+function _callee_inferred_type(@nospecialize(f), ci::Core.CodeInfo)
     if f isa Core.SSAValue
         if f.id <= length(ci.ssavaluetypes)
             return ci.ssavaluetypes[f.id]
@@ -135,7 +152,7 @@ end
     return nothing
 end
 
-@nocheck function _is_static_callee(f, ci::Core.CodeInfo)::Bool
+function _is_static_callee(@nospecialize(f), ci::Core.CodeInfo)::Bool
     if f isa Core.IntrinsicFunction || f isa Core.Builtin
         return true
     end
@@ -212,6 +229,138 @@ end
     return false
 end
 
+# Trace-collecting variants. When the user opts into `printDispatchTrace`
+# we walk the same IR but instead of short-circuiting on first dyncall
+# we accumulate every offending statement into `out` as one human-readable
+# line per site. Format: "<method-name> @ <file>:<line> — <callee>(...)"
+# or "<method-name> — <callee>(...)" when no source line is recorded.
+@nocheck function _stringify_callee(f, ci::Core.CodeInfo)::String
+    if f isa GlobalRef
+        return string(f.mod, '.', f.name)
+    elseif f isa QuoteNode
+        return string(f.value)
+    elseif f isa Core.SSAValue || f isa Core.SlotNumber || f isa Core.Argument
+        t = _callee_inferred_type(f, ci)
+        if t isa Core.Const
+            return string(t.val)
+        elseif t === nothing
+            return "<unknown>"
+        else
+            return string("::", t)
+        end
+    end
+    return string(f)
+end
+
+@nocheck function _stringify_stmt(stmt::Expr, ci::Core.CodeInfo)::String
+    parts = String[]
+    push!(parts, _stringify_callee(stmt.args[1], ci))
+    push!(parts, "(")
+    n = length(stmt.args)
+    for i in 2:n
+        a = stmt.args[i]
+        push!(parts, _stringify_callee(a, ci))
+        if i != n
+            push!(parts, ", ")
+        end
+    end
+    push!(parts, ")")
+    return join(parts)
+end
+
+# Try to recover a (file, line) for statement `i` in `ci`. CodeInfo carries
+# a `codelocs::Vector{Int32}` of indices into `linetable::Vector{LineInfoNode}`
+# (Julia 1.10–1.12). If anything's not in the expected shape, return ("", 0).
+@nocheck function _stmt_source_loc(ci::Core.CodeInfo, i::Int)::Tuple{String, Int}
+    if !isdefined(ci, :codelocs) || !isdefined(ci, :linetable)
+        return ("", 0)
+    end
+    locs = ci.codelocs
+    lt = ci.linetable
+    if !(locs isa Vector) || !(lt isa Vector)
+        return ("", 0)
+    end
+    if i > length(locs)
+        return ("", 0)
+    end
+    idx = Int(locs[i])
+    if idx <= 0 || idx > length(lt)
+        return ("", 0)
+    end
+    info = lt[idx]
+    file_str::String = ""
+    line_num::Int = 0
+    if isdefined(info, :file)
+        f = info.file
+        if f isa Symbol
+            file_str = String(f)
+        elseif f isa String
+            file_str = f
+        end
+    end
+    if isdefined(info, :line)
+        l = info.line
+        if l isa Int32 || l isa Int64
+            line_num = Int(l)
+        end
+    end
+    return (file_str, line_num)
+end
+
+@nocheck function _method_label(ci::Core.CodeInfo)::String
+    if isdefined(ci, :parent)
+        p = ci.parent
+        if p isa Core.MethodInstance
+            d = p.def
+            if d isa Core.Method
+                return string(d.module, '.', d.name)
+            elseif d isa Module
+                return string(d, ".<toplevel>")
+            end
+        end
+    end
+    return "<anonymous>"
+end
+
+@nocheck function _codeinfo_collect_dyncalls!(out::Vector{String}, ci::Core.CodeInfo)::Nothing
+    code = ci.code
+    ssatypes = ci.ssavaluetypes
+    label = _method_label(ci)
+    for i in 1:length(code)
+        stmt = code[i]
+        if !(stmt isa Expr) ; continue ; end
+        h = stmt.head
+        if h !== :call ; continue ; end
+        if length(stmt.args) == 0 ; continue ; end
+        if i <= length(ssatypes) && ssatypes[i] isa Core.Const ; continue ; end
+        if _is_static_callee(stmt.args[1], ci) ; continue ; end
+        floc = _stmt_source_loc(ci, i)
+        stmt_str = _stringify_stmt(stmt, ci)
+        if floc[2] == 0
+            push!(out, string(label, " — ", stmt_str))
+        else
+            push!(out, string(label, " @ ", floc[1], ":", floc[2], " — ", stmt_str))
+        end
+    end
+    return nothing
+end
+
+@nocheck function _codegen_collect_dyncalls(interp)::Vector{String}
+    out = String[]
+    _codegen_collect_dyncalls_into!(out, interp)
+    return out
+end
+
+@nocheck function _codegen_collect_dyncalls_into!(out::Vector{String}, interp)::Nothing
+    for codeinst in keys(interp.codegen)
+        src = interp.codegen[codeinst]
+        if src isa Core.CodeInfo
+            _codeinfo_collect_dyncalls!(out, src)
+        end
+    end
+    return nothing
+end
+
 function inferReturnType(ctx::GlobalContext, sig)::Vector{CompileType}
     param1 = sig.parameters[1]
     if param1 <: Type
@@ -270,12 +419,26 @@ function methodHandleSparamValue(mi::MethodHandle, i::Int)
     return mi.sparam_vals[i]
 end
 
+# Single-method @nospecialize escape hatches. `mi.specTypes::Any` (the
+# declared field type on MethodInstance), but at runtime always either a
+# concrete Tuple-shaped DataType (post-specialization) or a UnionAll
+# wrapper. The typeassert below narrows the runtime value to DataType,
+# after which `.parameters::Core.SimpleVector` and SimpleVector
+# `getindex` are statically typed.
+function _specTypesLength(@nospecialize st)::Int
+    return length((st::DataType).parameters)
+end
+
+function _specTypesParam(@nospecialize(st), i::Int)
+    return (st::DataType).parameters[i]
+end
+
 function methodHandleSpecTypesLength(mi::MethodHandle)::Int
-    return length(mi.specTypes.parameters)
+    return _specTypesLength(mi.specTypes)
 end
 
 function methodHandleSpecTypesParam(mi::MethodHandle, i::Int)
-    return mi.specTypes.parameters[i]
+    return _specTypesParam(mi.specTypes, i)
 end
 
 function makeSparamCompileType(mi::MethodHandle, i::Int)::CompileType
@@ -340,7 +503,9 @@ function methodDefNKw(meth::MethodDef)::Int
 end
 
 # Look up all the methods on a callable value. Wraps `methods()`.
-@nocheck function methodsOf(@nospecialize(f))::Vector{MethodDef}
+# Single-method `@nospecialize` escape hatch: `methods(::Any)` returns a
+# `Base.MethodList`; we copy into a typed Vector{MethodDef}.
+function methodsOf(@nospecialize(f))::Vector{MethodDef}
     ms = methods(f)
     result = MethodDef[]
     for m in ms

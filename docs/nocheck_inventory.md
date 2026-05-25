@@ -17,8 +17,35 @@ Categories:
 - **LEGACY** — author hadn't typed the body. Removal target. Most of
   these are now done.
 
-Last updated: 2026-05-25 (after the escape-hatch pass).
-Count: `grep -c "@nocheck function" -r src` → **34**, down from 78.
+Last updated: 2026-05-25 (after the try/catch-merge + Builtin /
+per-arity-escape-hatch / FunctionWrapper pass).
+Count: `grep -c "@nocheck function" -r src` → **29**, down from 78.
+
+Breakdown of the remaining 29:
+- `src/compiler/CompilerAdaptor.jl`: **12** — adaptor seam to
+  `Core.Compiler.*`, `MethodInstance`/`Method` field access, trace
+  helpers. Kept by design (core-compiler component to be trimmed
+  separately).
+- Application-level (17 across the rest):
+  - **abstract IO interface contract** (4): `Base.show(::IO, ::JuAST)`,
+    `displayJuASTHelper`, `Base.show(::IO, ::ScopeInfo)`,
+    `displayContext(::IO, ::Context)`. `io::IO` is the public
+    `Base.show` contract — can't tighten without breaking the
+    interface.
+  - **`apply_type` splat over `Vector{Any}`** (3):
+    `makeNameTupleType`, `dispatchTraceForCall`, `makeTupleType`.
+    Splatting a `Vector{Any}` into a parametric Tuple/NamedTuple is
+    exactly the case Julia's type system can't infer statically.
+  - **external API with keyword args** (2): `untokenize`,
+    `parseJuAST` — JuliaSyntax callers, kwarg dispatch is dynamic.
+  - **by-design runtime evaluation** (4): `fasteval`,
+    `mapAST2Method`, `addFile!`, `runCheck!` — `Core.eval`, AST
+    walking, file I/O.
+  - **HTTP server** (2): `query`, `handleQuery`. Abstract IO; never
+    trimmed.
+  - **walkdir** (1): `checkPackage` — abstract iterator from
+    `walkdir`. Could be eliminated with a small refactor.
+  - **HTML debug helper** (1): `parseAndConstructHTML`.
 
 ## Removed this pass (strike-throughs preserved for history)
 

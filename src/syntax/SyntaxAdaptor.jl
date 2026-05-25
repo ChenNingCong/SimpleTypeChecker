@@ -54,16 +54,22 @@ function convert2MutableGreenNode!(spanMapping::Dict{SpanInfo, Vector{MutableGre
     return node
 end
 
-@nocheck function getData(tree)::JuliaSyntax.SyntaxData
+function getData(tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData})::JuliaSyntax.SyntaxData
     data = tree.data
-    if data isa Nothing
+    if data isa JuliaSyntax.SyntaxData
+        return data
+    else
         error("JuliaSyntax.TreeNode has no associated green node")
     end
-    return data
 end
 
-@nocheck function getNodeVal(tree)::JuASTVal
-    makeConstJuASTVal(tree.data.val)
+function getNodeVal(tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData})::JuASTVal
+    d = tree.data
+    if d isa JuliaSyntax.SyntaxData
+        return makeConstJuASTVal(d.val)
+    else
+        error("TreeNode has no associated SyntaxData")
+    end
 end
 
 @nocheck function untokenize(head::JuliaSyntax.SyntaxHead)
@@ -108,7 +114,6 @@ function convert2JuAST!(tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData},
         # string macro
         ~JuliaSyntax.DOTOP_FLAG & # dotted op
         ~0x0040) != 0 # ! call
-        println(tree, head)
         error("Bad flag : $(formatLocation(loc)) $(head.kind) : $flag $(untokenize(head))")
     end
     # TODO : we need to handle more strange syntax here...
@@ -129,12 +134,13 @@ function convert2JuAST!(tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData},
     return ast
 end
 
-@nocheck function getChildren(tree)
+function getChildren(tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData})::Vector{JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData}}
     child = tree.children
-    if child isa Nothing
+    if child isa Vector{JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData}}
+        return child
+    else
         error("Mismatched shape : green node and ast should both have no children here")
     end
-    return child
 end
 
 function fastCompareGreenNode(node::JuliaSyntax.GreenNode{JuliaSyntax.SyntaxHead}, mnode::MutableGreenNode)::Bool

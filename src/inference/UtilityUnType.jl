@@ -95,6 +95,21 @@ function hasDynamicDispatchForCall(eng::Engine, ms::MethodCallStruct)::Bool
     return get(eng.globalCtx.dynDispatchCache, sig, false)
 end
 
+# Look up the trace strings (one per dyn-dispatch site found in the
+# transitive call tree) that inferReturnType stashed under the same sig.
+# Returns an empty vector when `printDispatchTrace` is off or no trace
+# was recorded.
+@nocheck function dispatchTraceForCall(eng::Engine, ms::MethodCallStruct)::Vector{String}
+    args = ms.fargs
+    kwargs = ms.kwargs
+    sig = Tuple{[i.typ.typ for i in args]...}
+    if length(kwargs) > 0
+        tup = NamedTuple{tuple([i.first for i in kwargs]...), Tuple{[i.second.typ.typ for i in kwargs]...}}
+        sig = Tuple{typeof(Core.kwcall), tup, sig.parameters...}
+    end
+    return get(eng.globalCtx.dynDispatchTraceCache, sig, String[])
+end
+
 function checkFieldCompatibility(dest::CompileType, src::CompileType)::Bool
     return src.typ <: dest.typ
 end
@@ -134,7 +149,7 @@ function tryMergeReturnFlowNode(v1::FlowNode, v2::FlowNode)::Bool
     return tryMergeFlowType(v1, v2)
 end
 
-function collectUnion(x)::Vector{Any}
+function collectUnion(@nospecialize x)::Vector{Any}
     if x isa Union
         return vcat(collectUnion(x.a), collectUnion(x.b))
     else
@@ -154,11 +169,11 @@ function isaType(x::CompileType)::Bool
 end
 
 function isaAny(x::CompileType)::Bool
-    x.typ == Any
+    x.typ === Any
 end
 
 function isaBool(x::CompileType)::Bool
-    x.typ == Bool
+    x.typ === Bool
 end
 
 function isaUnion(x::CompileType)::Bool
@@ -169,8 +184,17 @@ function isaTuple(x::CompileType)::Bool
     x.typ <: Tuple
 end
 
+# Single-method `@nospecialize` escape hatch: the caller's typed
+# `CompileType.typ::Any` field flows in, dynamic-typed at the seam.
+# Body asserts DataType (typeassert is a Builtin, not dyn dispatch) then
+# reads the typed `.parameters::SimpleVector` field. runCheck! skips
+# checking this body via `_isEscapeHatchMethod`.
+function _firstTypeParam(@nospecialize t)
+    return (t::DataType).parameters[1]
+end
+
 function getFirstParameter(x::CompileType)::CompileType
-    return makeType(x.typ.parameters[1])
+    return makeType(_firstTypeParam(x.typ))
 end
 
 function tryMergeConstVal(v1::CompileType, v2::CompileType)::Bool
@@ -203,7 +227,7 @@ function tryMergeVarDefFlowNode(eng::Engine, ast::JuAST, v::Vector{FlowNode}, al
         v1 = tmptyp.typ
         v2 = v[i].typ.typ
         if !allowUnion
-            if v1 != v2
+            if !(v1 === v2)
                 reportErrorIfEnlargeType(eng, v[1], v[i])
             end
         end
@@ -243,7 +267,7 @@ function tryMergeFlowNode(eng::Engine, ast::JuAST, v::Vector{FlowNode}, allowUni
         v1 = tmptyp.typ
         v2 = v[i].typ.typ
         if !allowUnion
-            if v1 != v2
+            if !(v1 === v2)
                 reportErrorIfEnlargeType(eng, v[1], v[i])
             end
         end

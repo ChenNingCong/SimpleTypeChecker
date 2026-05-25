@@ -555,6 +555,14 @@ function displayErrorTopLevelDispatch(err::InferenceErrorTopLevelDispatch)::Noth
     writelogln!(eng.errio, "    - Use a different concrete-dispatch-friendly callee (e.g. Core.stdout instead of Base.stdout; libc snprintf via ccall instead of string(::Any)).")
     writelogln!(eng.errio, "    - Wrap the callee with a type-stable callable struct or FunctionWrapper.")
     writelogln!(eng.errio, "    - Mark the enclosing function @nocheck if this dispatch is intentional.")
+    trace = dispatchTraceForCall(eng, ms)
+    if length(trace) > 0
+        writelogln!(eng.errio, "  Dispatch trace (transitive `:call` survivors, set ctx.printDispatchTrace=true to enable):")
+        for line in trace
+            writelog!(eng.errio, "    · ")
+            writelogln!(eng.errio, line)
+        end
+    end
 end
 
 struct InferenceErrorNoConstructor <: InferenceError

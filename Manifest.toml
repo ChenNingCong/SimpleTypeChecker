@@ -2,7 +2,12 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "9a9ee055a2adf2ea5ee0e26e0d3154ff32482dd7"
+project_hash = "ee2183ff909ec6032bea1e76eef20e15b0f0270d"
+
+[[deps.FunctionWrappers]]
+git-tree-sha1 = "d62485945ce5ae9c0c48f124a84998d755bae00e"
+uuid = "069b7b12-0de2-55c6-9aab-29f3d0a68a2e"
+version = "1.1.3"
 
 [[deps.JuliaSyntax]]
 git-tree-sha1 = "db2bdeda30e452485863799be4515f6305431a46"
@@ -10,7 +15,7 @@ uuid = "70703baa-626e-46a2-a12c-08ffd08c73b4"
 version = "0.3.2"
 
 [[deps.SimpleTypeChecker]]
-deps = ["JuliaSyntax", "Sockets"]
+deps = ["FunctionWrappers", "JuliaSyntax", "Sockets"]
 path = "."
 uuid = "99a2e2af-0434-418a-b0f0-416ee7147db6"
 version = "0.1.0"

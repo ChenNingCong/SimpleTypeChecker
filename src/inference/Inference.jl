@@ -482,7 +482,7 @@ end
 # positional slot AND has no kwargs/varargs/optional args. When true,
 # `runCheck!` skips checking the body — the user has explicitly opted out
 # at the typed-to-Any seam.
-@nocheck function _isEscapeHatchMethod(meth::MethodDef)::Bool
+function _isEscapeHatchMethod(meth::MethodDef)::Bool
     if methodDefNKw(meth) != 0 || methodDefIsVarArg(meth)
         return false
     end
@@ -499,7 +499,7 @@ end
     if !(fval isa Function)
         return false
     end
-    return length(methods(fval)) == 1
+    return length(methodsOf(fval)) == 1
 end
 
 # Detects "escape-hatch" callees — a function that the user has
@@ -513,7 +513,7 @@ end
 #   4. The method has `@nospecialize` on at least one positional arg.
 # Returns `(true, mask)` if escape-hatch, else `(false, 0)`. The mask
 # is `Method.nospecialize` — bit `i-1` set ⇒ user-arg `i` is @nospecialize.
-@nocheck function _escapeHatchMask(fargs::Vector{FlowNode})::Tuple{Bool, UInt32}
+function _escapeHatchMask(fargs::Vector{FlowNode})::Tuple{Bool, UInt32}
     f = fargs[1]
     if !isConstVal(f.typ)
         return (false, UInt32(0))
@@ -522,25 +522,52 @@ end
     if !(fval isa Function)
         return (false, UInt32(0))
     end
+    # Find methods on this function that could match the call's arity.
+    # A method matches if it's not varargs, not kwargs, and has exactly
+    # `length(fargs)` positional slots (function + user args). If exactly
+    # one such method exists and it has `@nospecialize` on at least one
+    # slot, treat it as an escape hatch. This generalizes the previous
+    # "single method total" rule, so functions like `Base.rethrow` (one
+    # zero-arg method + one 1-arg `@nospecialize` method) qualify at the
+    # 1-arg call site.
     ms = methodsOf(fval)
-    if length(ms) != 1
+    arity = length(fargs)
+    matchIdx = 0
+    matchCount = 0
+    for i in 1:length(ms)
+        m = ms[i]
+        if methodDefNKw(m) != 0 || methodDefIsVarArg(m)
+            continue
+        end
+        if methodDefNargs(m) != arity
+            continue
+        end
+        matchIdx = i
+        matchCount += 1
+    end
+    if matchCount != 1
         return (false, UInt32(0))
     end
-    m = ms[1]
-    if methodDefNKw(m) != 0 || methodDefIsVarArg(m)
-        return (false, UInt32(0))
-    end
-    # `nargs` counts the function slot + positional args. The call site's
-    # `fargs` also includes the function slot — they must match for the
-    # arity to be a clean fit (no missing/extra optional args).
-    if methodDefNargs(m) != length(fargs)
-        return (false, UInt32(0))
-    end
+    m = ms[matchIdx]
     mask = methodDefNospecializeMask(m)
     if mask == UInt32(0)
         return (false, UInt32(0))
     end
     return (true, mask)
+end
+
+# Builtin / IntrinsicFunction callees (isa, ===, typeof, getfield, tuple,
+# etc.) dispatch via low-level intrinsics, NOT through Julia's method
+# table. An abstract arg at one of these sites is harmless: there is no
+# method-table lookup to resolve. Use this to suppress false-positive
+# "argument N is abstract" complaints.
+function _isBuiltinCallee(fargs::Vector{FlowNode})::Bool
+    f = fargs[1]
+    if !isConstVal(f.typ)
+        return false
+    end
+    v = f.typ.val
+    return v isa Core.Builtin || v isa Core.IntrinsicFunction
 end
 
 function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::InferResult
@@ -674,6 +701,22 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
             end
             imprecise = kept
         end
+    end
+
+    # Builtin / IntrinsicFunction callees (isa, ===, typeof, getfield,
+    # tuple, ...) lower to intrinsics — they don't dispatch through the
+    # method table, so an abstract arg here doesn't cause runtime
+    # dispatch. Drop user-arg imprecise entries (keep slot 1 = the
+    # callee itself, which must still be statically known).
+    if length(imprecise) > 0 && _isBuiltinCallee(fargs)
+        kept = Int[]
+        for i in imprecise
+            if i >= 2
+                continue
+            end
+            push!(kept, i)
+        end
+        imprecise = kept
     end
 
     if length(imprecise) > 0 || length(kwimprecise) > 0
@@ -1526,6 +1569,43 @@ function inferBlock(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     return InferResult(ret.ctx, newnode)
 end
 
+# Merge the post-try and post-catch contexts when both branches fall
+# through. For each variable seen in either ctx:
+#   - If both branches have it `mustInitialized`, take the Union of the
+#     two current-types.
+#   - If only one branch has it initialized (or the other is missing),
+#     fall back to the pre-try binding so the variable doesn't
+#     silently spread an unsafe assumption.
+#   - Variables not in `prectx` and not initialized in BOTH branches are
+#     not propagated.
+function _mergeTryCatchContexts(eng::Engine, ast::JuAST, prectx::Context, try_ctx::Context, catch_ctx::Context)::Context
+    newmap = Dict{Symbol, ContextValue}()
+    seen = Set{Symbol}()
+    for k in keys(try_ctx.mapping.data)
+        push!(seen, k)
+    end
+    for k in keys(catch_ctx.mapping.data)
+        push!(seen, k)
+    end
+    for v in seen
+        inTry = hasVar(try_ctx, v)
+        inCatch = hasVar(catch_ctx, v)
+        if inTry && inCatch
+            tv = lookup(try_ctx, v)
+            cv = lookup(catch_ctx, v)
+            if mustInitialized(tv.curtyp) && mustInitialized(cv.curtyp)
+                merged = tryMergeFlowNode(eng, ast, FlowNode[tv.curtyp, cv.curtyp], true)
+                newmap[v] = ContextValue(tv.typ, merged)
+                continue
+            end
+        end
+        if hasVar(prectx, v)
+            newmap[v] = lookup(prectx, v)
+        end
+    end
+    return Context(ImmutableDict(newmap))
+end
+
 function inferTryStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     assertASTKind(ast, :try)
     # JuliaSyntax `try` AST has 5 args:
@@ -1540,18 +1620,13 @@ function inferTryStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     else_body = ast.args[4]
     finally_body = ast.args[5]
 
-    # IMPORTANT: variables assigned inside any of the four sub-blocks are
-    # LOCAL to that block — an exception can fire partway, so a binding
-    # the assignment WOULD have created might never actually exist after
-    # the try. We walk each block in a derived context purely for type
-    # checking, then drop the resulting ctx — the enclosing context is
-    # whatever came in.
-
-    # Try body: walk for checks, capture its return type, drop its ctx.
+    # Walk the try body, capturing its post-context.
     try_rel = inferExpr(eng, ctx, try_body)
 
-    # Catch body: bind the catch variable (local to the catch block) to
-    # Any, then walk. Discard its ctx.
+    # Decide which context propagates past the try/catch block. Inline
+    # the catch-body walk here so the checker sees `catch_rel` is
+    # assigned on every path that reads it.
+    local merged_ctx::Context = ctx
     if catch_body.head == :block
         catch_ctx = ctx
         if catch_var.head == :identifier
@@ -1559,7 +1634,26 @@ function inferTryStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
             anynode = makeParamFlowNode(catch_var, makeType(Any))
             catch_ctx = update(catch_ctx, name, ContextValue(anynode, anynode))
         end
-        inferExpr(eng, catch_ctx, catch_body)
+        catch_rel = inferExpr(eng, catch_ctx, catch_body)
+
+        # Three cases when there's a catch block:
+        #   - Catch's body is Bottom (every path returns / throws /
+        #     rethrows): reaching code AFTER the try/catch implies the
+        #     try completed without throwing, so try's post-context is
+        #     sound to propagate.
+        #   - Try's body is Bottom: the only path past the block is
+        #     via the catch.
+        #   - Both branches fall through: merge variables that are
+        #     `mustInitialized` in BOTH branches (mirrors the if/else
+        #     merger). Variables present in only one branch fall back
+        #     to the pre-try binding if any.
+        if isBottomType(catch_rel.node.typ)
+            merged_ctx = try_rel.ctx
+        elseif isBottomType(try_rel.node.typ)
+            merged_ctx = catch_rel.ctx
+        else
+            merged_ctx = _mergeTryCatchContexts(eng, ast, ctx, try_rel.ctx, catch_rel.ctx)
+        end
     end
 
     # Else / finally — walk for side effects in the pre-try context.
@@ -1570,12 +1664,9 @@ function inferTryStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         inferExpr(eng, ctx, finally_body)
     end
 
-    # Resulting value comes from the try body (when no exception fired).
-    # The resulting context is the pre-try `ctx` — no sub-block bindings
-    # propagate.
     node = makeBlockFlowNode(ast, try_rel.node)
     addFlowMapping!(eng, ast, node)
-    return InferResult(ctx, node)
+    return InferResult(merged_ctx, node)
 end
 
 function inferLet(eng::Engine, ctx::Context, ast::JuAST)::InferResult
@@ -2500,11 +2591,17 @@ end
         if haskey(params, var)
             return params[var]
         end
-        return getproperty(mod, var)
+        return getglobal(mod, var)
     elseif x.head == :literal
         return x.val.val
     elseif x.head == :(.)
-        return getproperty(fasteval(mod, x.args[1], params, implicit), cast2Symbol(x.args[2].args[1].val))
+        parent = fasteval(mod, x.args[1], params, implicit)
+        sym = cast2Symbol(x.args[2].args[1].val)
+        if parent isa Module
+            return getglobal(parent, sym)
+        else
+            error("Dot-access in type expression: left side did not resolve to a Module")
+        end
     elseif x.head == :curly
         newimplicit = Vector{TypeVar}()
         ty = fasteval(mod, x.args[1], params, implicit)
@@ -2773,7 +2870,6 @@ function checkToplevelFunction(eng::Engine,
         eng.retVal = Just(newnode)
     else
         if !tryMergeReturnFlowNode(castJust(engn), newnode)
-            println(newnode.typ)
             reportErrorReturnEnlargeType(eng, castJust(engn), newnode)
         end
     end
@@ -2789,10 +2885,21 @@ function evalMods(parent::Core.Module, s::Vector{Symbol})::Core.Module
     end
 end
 
-@nocheck function evalGetPropertyChain(parent::Core.Module, s::Vector{Symbol})
+# Walk a chain of module-level names: A.B.C resolves by repeatedly
+# reading the named global at each step. `getglobal` is a Builtin (so
+# the body is statically resolved even though intermediate `base`
+# widens to Any) and walks the module's full binding table including
+# self-references and imports — unlike `getfield` which only sees real
+# fields. Used both for module navigation (caller checks the result
+# isa Module) and for function lookup (caller uses the value directly).
+function evalGetPropertyChain(parent::Core.Module, s::Vector{Symbol})
     base = parent
     for i in s
-        base = getproperty(base, i)
+        if base isa Module
+            base = getglobal(base, i)
+        else
+            error("intermediate value in module chain is not a Module")
+        end
     end
     return base
 end
@@ -2958,7 +3065,10 @@ function collectToplevelFunction!(ctx::GlobalContext, rel::Dict{Vector{Symbol}, 
             push!(rel[mod], def)
         catch e
             if e isa SyntaxError
-                println("At $(formatLocation(e.ast.loc))\n", e.msg)
+                writelog!(ctx.errio, "At ")
+                writelog!(ctx.errio, formatLocation(e.ast.loc))
+                writelogln!(ctx.errio)
+                writelogln!(ctx.errio, e.msg)
             else
                 rethrow(e)
             end

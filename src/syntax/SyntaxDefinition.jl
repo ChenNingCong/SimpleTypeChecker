@@ -34,8 +34,13 @@ function makeEmptyJuASTVal()
     return JuASTVal(false, nothing)
 end
 
-@nocheck function getNodeVal(tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData})::JuASTVal
-    makeConstJuASTVal(tree.data.val)
+function getNodeVal(tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData})::JuASTVal
+    d = tree.data
+    if d isa JuliaSyntax.SyntaxData
+        return makeConstJuASTVal(d.val)
+    else
+        error("TreeNode has no associated SyntaxData")
+    end
 end
 
 # Identical to JuliaSyntax.GreenNode{JuliaSyntax.SyntaxHead}
@@ -96,13 +101,20 @@ function formatLocation(loc::Location)::String
     file = loc.file
     span = loc.span
     start = convert2line(file.line_starts, Int(span[1]))
-    ff = file.filename 
+    ff = file.filename
+    local filename::String
     if ff isa Nothing
         filename = "(none)"
     else
         filename = ff
     end
-    return filename * ':' *string(start[1]) * ':'* string(start[2])
+    io = IOBuffer()
+    write(io, filename)
+    write(io, ':')
+    write(io, string(start[1]))
+    write(io, ':')
+    write(io, string(start[2]))
+    return String(take!(io))
 end
 
 @nocheck function Base.show(io::IO, ast::JuAST)

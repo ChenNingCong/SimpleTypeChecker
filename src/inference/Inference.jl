@@ -305,6 +305,39 @@ end
     return InferResult(ctx, node)
 end
 
+# Anonymous functions / lambdas: `x -> body`, `(x, y) -> body`, and the
+# anonymous-`function ... end` form.
+#
+# Implementation: eval the lambda's underlying Expr in the target module to
+# obtain the concrete singleton function value. This gives downstream code
+# (`map`, `filter`, `sort(by=...)`) a CONCRETE function type to dispatch on,
+# avoiding the "abstract argument" error that a generic `Function` widen
+# would trigger. The eval has a real side effect — Julia creates a fresh
+# anonymous-function struct + method in the target module — but the user's
+# source already declared that lambda, so the type would have been created
+# at runtime anyway.
+#
+# We do NOT recurse into the body for type-checking. Body analysis would
+# require knowing the parameter types from the caller (e.g. inside `map`),
+# which is a deep higher-order analysis. Skipping it loses some checks but
+# keeps the feature shippable.
+@nocheck function inferLambdaExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
+    local result_ct::CompileType
+    try
+        lam_expr = Expr(ast.tree)
+        fn = Core.eval(eng.mod, lam_expr)
+        result_ct = makeConstVal(fn)
+    catch _e
+        # If eval fails for any reason, fall back to opaque Function — the
+        # caller may still hit "abstract argument", but the lambda itself
+        # doesn't trip the unsupported-AST hard error anymore.
+        result_ct = makeType(Function)
+    end
+    node = makeCurlyCallFlowNode(ast, FlowNode[], result_ct)
+    addFlowMapping!(eng, ast, node)
+    return InferResult(ctx, node)
+end
+
 # `T where U` as a standalone expression. The binder U is brought into scope
 # as a constant TypeVar before inferring the base type T (so identifiers
 # referring to U inside T resolve correctly). Constructs a UnionAll when the
@@ -576,7 +609,7 @@ function inferExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     elseif ast.head == :(::)
         return inferTypeAssertExpr(eng, ctx, ast)
     elseif ast.head == :function || ast.head == :(->)
-        reportUnimplementedASTError(eng, ast, "Nested function is unsupported")
+        return inferLambdaExpr(eng, ctx, ast)
     elseif ast.head == :comparison
         return inferComparison(eng, ctx, ast)
     else

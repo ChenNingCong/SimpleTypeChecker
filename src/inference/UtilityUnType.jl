@@ -53,16 +53,15 @@ function cacheLookup(eng::Engine, sig)::Vector{CompileType}
     end
 end
 
-@nocheck function makeNameTupleType(args::Vector{Pair{Symbol, CompileType}})::CompileType
-    return makeType(NamedTuple{tuple([i.first for i in args]...), Tuple{[i.second.typ for i in args]...}})
-end
-
 function getMethodMatches(eng::Engine, ms::MethodCallStruct)::Vector{CompileType}
     args = ms.fargs
     kwargs = ms.kwargs
-    sig = Tuple{[i.typ.typ for i in args]...}
+    rtctx = eng.globalCtx.rtctx
+    arg_types  = CompileType[fn.typ for fn in args]
+    kwarg_types_for_lookup = Pair{Symbol, CompileType}[]
     if length(kwargs) > 0
-        mis = inferKeywordMethodHandles(eng.globalCtx, sig)
+        positional_sig = rtctx.makeCallSig(arg_types, kwarg_types_for_lookup)
+        mis = inferKeywordMethodHandles(eng.globalCtx, positional_sig)
         if length(mis) == 0
             error("No method instance for keyword call")
         end
@@ -73,9 +72,11 @@ function getMethodMatches(eng::Engine, ms::MethodCallStruct)::Vector{CompileType
             end
             push!(eng.globalCtx.queue, KwFunCall(i, kwargs_))
         end
-        tup = NamedTuple{tuple([i.first for i in kwargs]...), Tuple{[i.second.typ.typ for i in kwargs]...}}
-        sig = Tuple{typeof(Core.kwcall), tup, sig.parameters...}
+        for (k, node) in kwargs
+            push!(kwarg_types_for_lookup, k => node.typ)
+        end
     end
+    sig = rtctx.makeCallSig(arg_types, kwarg_types_for_lookup)
     result = cacheLookup(eng, sig)
     return result
 end
@@ -88,13 +89,9 @@ end
 # flag under the exact key inferReturnType stored it under. Must run AFTER
 # getMethodMatches (the cache is populated as a side-effect of that call).
 function hasDynamicDispatchForCall(eng::Engine, ms::MethodCallStruct)::Bool
-    args = ms.fargs
-    kwargs = ms.kwargs
-    sig = Tuple{[i.typ.typ for i in args]...}
-    if length(kwargs) > 0
-        tup = NamedTuple{tuple([i.first for i in kwargs]...), Tuple{[i.second.typ.typ for i in kwargs]...}}
-        sig = Tuple{typeof(Core.kwcall), tup, sig.parameters...}
-    end
+    arg_types   = CompileType[fn.typ for fn in ms.fargs]
+    kwarg_types = Pair{Symbol, CompileType}[k => node.typ for (k, node) in ms.kwargs]
+    sig = eng.globalCtx.rtctx.makeCallSig(arg_types, kwarg_types)
     return get(eng.globalCtx.dynDispatchCache, sig, false)
 end
 
@@ -102,14 +99,10 @@ end
 # transitive call tree) that inferReturnType stashed under the same sig.
 # Returns an empty vector when `printDispatchTrace` is off or no trace
 # was recorded.
-@nocheck function dispatchTraceForCall(eng::Engine, ms::MethodCallStruct)::Vector{String}
-    args = ms.fargs
-    kwargs = ms.kwargs
-    sig = Tuple{[i.typ.typ for i in args]...}
-    if length(kwargs) > 0
-        tup = NamedTuple{tuple([i.first for i in kwargs]...), Tuple{[i.second.typ.typ for i in kwargs]...}}
-        sig = Tuple{typeof(Core.kwcall), tup, sig.parameters...}
-    end
+function dispatchTraceForCall(eng::Engine, ms::MethodCallStruct)::Vector{String}
+    arg_types   = CompileType[fn.typ for fn in ms.fargs]
+    kwarg_types = Pair{Symbol, CompileType}[k => node.typ for (k, node) in ms.kwargs]
+    sig = eng.globalCtx.rtctx.makeCallSig(arg_types, kwarg_types)
     return get(eng.globalCtx.dynDispatchTraceCache, sig, String[])
 end
 
@@ -287,6 +280,3 @@ function tryMergeFlowNode(eng::Engine, ast::JuAST, v::Vector{FlowNode}, allowUni
     return makePhiFlowNode(ast, v, tmptyp)
 end
 
-@nocheck function makeTupleType(tt::Vector{FlowNode})::CompileType
-    makeType(Tuple{[i.typ.typ for i in tt]...})
-end

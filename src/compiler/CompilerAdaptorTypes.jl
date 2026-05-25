@@ -32,8 +32,19 @@ const MethodDef    = Core.Method
 # Mirrors the MacroExpander pattern already in InferenceDefinition.jl.
 const MethodsOfFn        = FunctionWrapper{Vector{MethodDef}, Tuple{Any}}
 const InferReturnTypeFn  = FunctionWrapper{Any,               Tuple{Any, Any}}
+# Type-construction ops. Inputs are Vector{CompileType} (or pair-vector for
+# kwargs) — typed Any here because CompileType is defined in a later file.
+# Outputs:
+#   makeCallSig  -> a Julia Tuple type used as a method-lookup signature
+#                   (kwarg case: Tuple{typeof(Core.kwcall), NamedTuple{...}, ...})
+#   makeTupleType -> a CompileType wrapping the constructed Tuple type for
+#                    value-position tuple expressions in the source.
+const MakeCallSigFn      = FunctionWrapper{Any,               Tuple{Any, Any}}
+const MakeTupleTypeFn    = FunctionWrapper{Any,               Tuple{Any}}
 
 struct RuntimeContext
     methodsOf::MethodsOfFn
     inferReturnType::InferReturnTypeFn
+    makeCallSig::MakeCallSigFn
+    makeTupleType::MakeTupleTypeFn
 end

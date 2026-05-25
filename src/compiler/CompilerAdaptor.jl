@@ -526,12 +526,39 @@ end
 # JIT — i.e. behavior identical to before the isolation refactor.
 # Tests / alternative drivers construct their own RuntimeContext with
 # different fields. See `docs/isolation.md`.
+# Build the call signature used for method lookup. Driver-side because
+# the splatted `Tuple{...}` apply_type with Any-typed elements is
+# fundamentally untrimmable — keeping this on the driver side is
+# what lets the inferencer stay clean. The @nocheck here is at the
+# right place: it's the adaptor seam to Core.apply_type, not legacy
+# laziness in the inference logic.
+@nocheck function makeCallSig(fargs::Vector{CompileType},
+                              kwargs::Vector{Pair{Symbol, CompileType}})
+    positional = Tuple{[ct.typ for ct in fargs]...}
+    if length(kwargs) == 0
+        return positional
+    end
+    keys = tuple([p.first for p in kwargs]...)
+    valtypes = Tuple{[p.second.typ for p in kwargs]...}
+    tup = NamedTuple{keys, valtypes}
+    return Tuple{typeof(Core.kwcall), tup, positional.parameters...}
+end
+
+# Build a CompileType wrapping the Tuple type of a value-position tuple
+# expression. Same untrimmable splat, same reason it lives here.
+@nocheck function makeTupleTypeOf(args::Vector{CompileType})::CompileType
+    return makeType(Tuple{[ct.typ for ct in args]...})
+end
+
 # Per-field kwargs default to the live-JIT driver. Tests pass only the
 # fields they want to override; adding a new field to RuntimeContext
 # does not break existing call sites.
 function defaultRuntimeContext(;
     methodsOfFn::MethodsOfFn               = MethodsOfFn(methodsOf),
     inferReturnTypeFn::InferReturnTypeFn   = InferReturnTypeFn(inferReturnType),
+    makeCallSigFn::MakeCallSigFn           = MakeCallSigFn(makeCallSig),
+    makeTupleTypeFn::MakeTupleTypeFn       = MakeTupleTypeFn(makeTupleTypeOf),
 )::RuntimeContext
-    return RuntimeContext(methodsOfFn, inferReturnTypeFn)
+    return RuntimeContext(methodsOfFn, inferReturnTypeFn,
+                          makeCallSigFn, makeTupleTypeFn)
 end

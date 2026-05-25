@@ -87,6 +87,45 @@ end
         @test true  # placeholder — function-call arity errors are tested elsewhere
     end
 
+    @testset "`::` as standalone expression (type assertion)" begin
+        # Value already has the asserted type — no error.
+        ok = run_feature_check(
+"""
+module TaOk
+function f()::Int
+    x = 1
+    y = x::Int
+    return y + 1
+end
+end
+""", :TaOk)
+        @test !any_error(ok)
+
+        # Asserted type incompatible with the value's static type.
+        bad = run_feature_check(
+"""
+module TaBad
+function f(x::Float64)
+    y = x::Int
+    return y
+end
+end
+""", :TaBad)
+        @test has_error_matching(bad, "AssignInitIncompatible")
+
+        # The asserted "type" is actually a runtime value, not a Type.
+        nontype = run_feature_check(
+"""
+module TaNonType
+function f(x::Int)
+    nottype = 42
+    return x::nottype
+end
+end
+""", :TaNonType)
+        @test has_error_matching(nontype, "ApplyTypeNonconst")
+    end
+
     @testset "`where` in expression context" begin
         # T where U should produce a constant UnionAll when usable.
         out = run_feature_check(

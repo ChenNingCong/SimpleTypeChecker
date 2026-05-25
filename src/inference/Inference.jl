@@ -225,6 +225,45 @@ end
     return InferResult(ctx, node)
 end
 
+# `x::T` as a standalone expression — a typed cast. Asserts that x is a T at
+# runtime; for the type checker, narrows x's type to T. The asserted type T
+# must resolve to a known Type. If x's inferred type is incompatible with T,
+# emit a same-error path used by other "incompatible" sites.
+@nocheck function inferTypeAssertExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
+    assertASTKind(ast, :(::))
+    if length(ast.args) != 2
+        reportASTError(eng, ast, ":: requires exactly two arguments (value and asserted type)")
+    end
+    relval = inferExpr(eng, ctx, ast.args[1])
+    ctx = relval.ctx
+    reltyp = inferExpr(eng, ctx, ast.args[2])
+    ctx = reltyp.ctx
+    vnode = relval.node
+    tnode = reltyp.node
+    # Asserted type must be a constant Type value.
+    if !(isConstVal(tnode.typ) && isTypeValue(tnode.typ.val))
+        reportErrorApplyTypeNonconst(eng, ast, Int[2])
+    end
+    asserted = tnode.typ.val
+    # Value type must be compatible with the assertion. If we know the value
+    # type and it's not <: asserted, the assertion can never hold.
+    valtyp = vnode.typ.typ
+    if isTypeValue(valtyp) && !subtypeOf(valtyp, asserted)
+        # Reuse the assign-init-incompatible error — same shape as `local x::Int = 1.0`.
+        reportErrorAssignInitIncompatible(eng, ast, tnode.typ, vnode.typ)
+    end
+    # Result has the asserted type, preserving constness if the value was const.
+    local result_ct::CompileType
+    if isConstVal(vnode.typ)
+        result_ct = vnode.typ
+    else
+        result_ct = makeType(asserted)
+    end
+    node = makeCurlyCallFlowNode(ast, FlowNode[vnode, tnode], result_ct)
+    addFlowMapping!(eng, ast, node)
+    return InferResult(ctx, node)
+end
+
 # `T where U` as a standalone expression. The binder U is brought into scope
 # as a constant TypeVar before inferring the base type T (so identifiers
 # referring to U inside T resolve correctly). Constructs a UnionAll when the
@@ -494,7 +533,7 @@ function inferExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     elseif ast.head == :where
         return inferWhereType(eng, ctx, ast)
     elseif ast.head == :(::)
-        reportUnimplementedASTError(eng, ast, "type assertion is unsupported")
+        return inferTypeAssertExpr(eng, ctx, ast)
     elseif ast.head == :function || ast.head == :(->)
         reportUnimplementedASTError(eng, ast, "Nested function is unsupported")
     elseif ast.head == :comparison

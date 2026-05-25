@@ -802,7 +802,7 @@ function inferReturn(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         eng.retVal = Just(rettnode)
     else
         engnn = castJust(engn)
-        if !tryMergeReturnFlowNode(engnn, rettnode)
+        if !tryMergeReturnFlowNode(eng.globalCtx.rtctx, engnn, rettnode)
             reportErrorReturnEnlargeType(eng, engnn, rettnode)
         end
     end
@@ -1201,7 +1201,7 @@ function inferAssignLHSVar(eng::Engine, ctx::Context, ast::JuAST, rhsnode::FlowN
         oldval = lookup(ctx, varid)
         if !isDeclarationFlowNode(oldval.curtyp)
             # storage type is unchanged, update current type 
-            if !tryMergeFlowType(oldval.typ, rhsnode)
+            if !tryMergeFlowType(eng.globalCtx.rtctx, oldval.typ, rhsnode)
                 reportErrorAssignIncompatible(eng, oldval.typ, rhsnode)
             end
             newnode = makeAssignLHSVarFlowNode(ast, rhsnode, op)
@@ -1340,7 +1340,7 @@ function inferAssignLHSSetField(eng::Engine, ctx::Context, ast::JuAST, rhsnode::
     # TODO : this is incorrect...
     # ms should be setproperty!(x, v, i)
     ms = MethodCallStruct(opnode, FlowNode[xnode, rhsnode])
-    if !checkFieldCompatibility(ft, rhsnode.typ)
+    if !checkFieldCompatibility(eng.globalCtx.rtctx, ft, rhsnode.typ)
         reportErrorSetFieldTypeIncompatible(eng, ast, xnode, rhsnode, ft, p)
     end
     newnode = makeSetPropertyFlowNode(ast, xnode, rhsnode, rhsnode.typ)
@@ -1370,7 +1370,7 @@ function inferAssignLHSTypedAssert(eng::Engine, ctx::Context, ast::JuAST, mrhsno
                 return InferResult(ctx, node)
             else
                 rhsnode = castJust(mrhsnode)
-                if !tryMergeCompileValue(declaretyp, rhsnode.typ)
+                if !tryMergeCompileValue(eng.globalCtx.rtctx, declaretyp, rhsnode.typ)
                     reportErrorAssignInitIncompatible(eng, ast, declaretyp, rhsnode.typ)
                 end
                 node1 = makeAssignLHSVarAssertFlowNode(ast, rhsnode, declaretyp, true)
@@ -1761,14 +1761,14 @@ function inferCat(eng::Engine, ctx::Context, ast::JuAST)::InferResult
                         pnode = castJust(prinType)
                         if istyped
                             pnodetyp = lift(pnode.typ)
-                            if !(tryMergeCompileValue(pnodetyp, node.typ) && 
-                                tryMergeCompileValue(node.typ, pnodetyp))
+                            if !(tryMergeCompileValue(eng.globalCtx.rtctx, pnodetyp, node.typ) &&
+                                tryMergeCompileValue(eng.globalCtx.rtctx, node.typ, pnodetyp))
                                 # todo : improve error reporting here
                                 reportErrorElementNonSameType(eng, ast, pnode, node, true)
-                            end 
+                            end
                         else
-                            if !(tryMergeCompileValue(pnode.typ, node.typ) && 
-                                tryMergeCompileValue(node.typ, pnode.typ))
+                            if !(tryMergeCompileValue(eng.globalCtx.rtctx, pnode.typ, node.typ) &&
+                                tryMergeCompileValue(eng.globalCtx.rtctx, node.typ, pnode.typ))
                                 reportErrorElementNonSameType(eng, ast, pnode, node, false)
                             end
                         end
@@ -1829,14 +1829,14 @@ function inferCatHelper(eng::Engine, ctx::Context, ast::JuAST, fnode::FlowNode, 
             pnode = castJust(prinType)
             if istyped
                 pnodetyp = lift(pnode.typ)
-                if !(tryMergeCompileValue(pnodetyp, node.typ) && 
-                    tryMergeCompileValue(node.typ, pnodetyp))
+                if !(tryMergeCompileValue(eng.globalCtx.rtctx, pnodetyp, node.typ) &&
+                    tryMergeCompileValue(eng.globalCtx.rtctx, node.typ, pnodetyp))
                     # todo : improve error reporting here
                     reportErrorElementNonSameType(eng, ast, pnode, node, true)
                 end
             else
-                if !(tryMergeCompileValue(pnode.typ, node.typ) && 
-                    tryMergeCompileValue(node.typ, pnode.typ))
+                if !(tryMergeCompileValue(eng.globalCtx.rtctx, pnode.typ, node.typ) &&
+                    tryMergeCompileValue(eng.globalCtx.rtctx, node.typ, pnode.typ))
                     reportErrorElementNonSameType(eng, ast, pnode, node, false)
                 end
             end
@@ -2015,7 +2015,7 @@ function tryNarrowType(eng::Engine, ctx::Context, ast::JuAST)::Pair{InferResult,
                     ctx = rel.ctx
                     xnode = rel.node
                     # rhs must be a subtype of lhs
-                    if !tryMergeCompileValue(xnode.typ, rhstt)
+                    if !tryMergeCompileValue(eng.globalCtx.rtctx, xnode.typ, rhstt)
                         reportErrorMismatchedSplit(eng, ast, xnode, rhsnode)
                     end
                     ms = MethodCallStruct(FlowNode[isanode, xnode, rhsnode])
@@ -2800,7 +2800,7 @@ function checkToplevelFunction(eng::Engine,
             typnode = rel.node
             ctx = rel.ctx
             ttt = lift(typnode.typ)
-            if !tryMergeCompileValue(ttt, initnode.typ)
+            if !tryMergeCompileValue(eng.globalCtx.rtctx, ttt, initnode.typ)
                 reportErrorAssignInitIncompatible(eng, ast, ttt, initnode.typ)
             end
         end
@@ -2829,7 +2829,7 @@ function checkToplevelFunction(eng::Engine,
             if !isNone(mtypnode)
                 typnode = castJust(mtypnode)
                 ttt = lift(typnode.typ)
-                if !tryMergeCompileValue(ttt, inputtyp)
+                if !tryMergeCompileValue(eng.globalCtx.rtctx, ttt, inputtyp)
                     reportErrorAssignInitIncompatible(eng, ast, ttt, inputtyp)
                 end
             end
@@ -2842,7 +2842,7 @@ function checkToplevelFunction(eng::Engine,
                 if !isNone(mtypnode)
                     typnode = castJust(mtypnode)
                     ttt = lift(typnode.typ)
-                    if !tryMergeCompileValue(ttt, initnode.typ)
+                    if !tryMergeCompileValue(eng.globalCtx.rtctx, ttt, initnode.typ)
                         reportErrorAssignInitIncompatible(eng, ast, ttt, initnode.typ)
                     end
                 end
@@ -2867,7 +2867,7 @@ function checkToplevelFunction(eng::Engine,
     if isNone(engn)
         eng.retVal = Just(newnode)
     else
-        if !tryMergeReturnFlowNode(castJust(engn), newnode)
+        if !tryMergeReturnFlowNode(eng.globalCtx.rtctx, castJust(engn), newnode)
             reportErrorReturnEnlargeType(eng, castJust(engn), newnode)
         end
     end

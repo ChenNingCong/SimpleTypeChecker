@@ -106,8 +106,8 @@ function dispatchTraceForCall(eng::Engine, ms::MethodCallStruct)::Vector{String}
     return get(eng.globalCtx.dynDispatchTraceCache, sig, String[])
 end
 
-function checkFieldCompatibility(dest::CompileType, src::CompileType)::Bool
-    return src.typ <: dest.typ
+function checkFieldCompatibility(rtctx::RuntimeContext, dest::CompileType, src::CompileType)::Bool
+    return rtctx.subtypeOf(src, dest)
 end
 
 function isConstructor(v::CompileType)::Bool
@@ -127,22 +127,20 @@ end
 #=
     Untility for merging flow type
 =#
-function tryMergeFlowType(v1::FlowNode, v2::FlowNode)
-    v1typ = v1.typ
-    v2typ = v2.typ
-    if v2typ.typ <: v1typ.typ
+function tryMergeFlowType(rtctx::RuntimeContext, v1::FlowNode, v2::FlowNode)
+    if rtctx.subtypeOf(v2.typ, v1.typ)
         return true
     else
         return false
     end
 end
 
-function tryMergeCompileValue(v1::CompileType, v2::CompileType)::Bool
-    return v2.typ <: v1.typ
+function tryMergeCompileValue(rtctx::RuntimeContext, v1::CompileType, v2::CompileType)::Bool
+    return rtctx.subtypeOf(v2, v1)
 end
 
-function tryMergeReturnFlowNode(v1::FlowNode, v2::FlowNode)::Bool
-    return tryMergeFlowType(v1, v2)
+function tryMergeReturnFlowNode(rtctx::RuntimeContext, v1::FlowNode, v2::FlowNode)::Bool
+    return tryMergeFlowType(rtctx, v1, v2)
 end
 
 function collectUnion(@nospecialize x)::Vector{Any}

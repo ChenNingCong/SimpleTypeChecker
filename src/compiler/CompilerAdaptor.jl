@@ -550,6 +550,13 @@ end
     return makeType(Tuple{[ct.typ for ct in args]...})
 end
 
+# Subtype query — driver-side because it peeks `.typ` on both sides of the
+# `<:` and because `<:` itself is a runtime-type op. The opaque CompileType
+# values stay sealed for callers; only the adaptor cracks them.
+@nocheck function subtypeOf(a::CompileType, b::CompileType)::Bool
+    return a.typ <: b.typ
+end
+
 # Per-field kwargs default to the live-JIT driver. Tests pass only the
 # fields they want to override; adding a new field to RuntimeContext
 # does not break existing call sites.
@@ -558,7 +565,9 @@ function defaultRuntimeContext(;
     inferReturnTypeFn::InferReturnTypeFn   = InferReturnTypeFn(inferReturnType),
     makeCallSigFn::MakeCallSigFn           = MakeCallSigFn(makeCallSig),
     makeTupleTypeFn::MakeTupleTypeFn       = MakeTupleTypeFn(makeTupleTypeOf),
+    subtypeOfFn::SubtypeOfFn               = SubtypeOfFn(subtypeOf),
 )::RuntimeContext
     return RuntimeContext(methodsOfFn, inferReturnTypeFn,
-                          makeCallSigFn, makeTupleTypeFn)
+                          makeCallSigFn, makeTupleTypeFn,
+                          subtypeOfFn)
 end

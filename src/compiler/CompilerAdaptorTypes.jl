@@ -41,10 +41,16 @@ const InferReturnTypeFn  = FunctionWrapper{Any,               Tuple{Any, Any}}
 #                    value-position tuple expressions in the source.
 const MakeCallSigFn      = FunctionWrapper{Any,               Tuple{Any, Any}}
 const MakeTupleTypeFn    = FunctionWrapper{Any,               Tuple{Any}}
+# Type-query op. Both args are opaque CompileType (typed Any here for the
+# same forward-ref reason as above). Returns whether the FIRST arg's
+# underlying type is a subtype of the SECOND's — i.e. `subtypeOf(a, b)`
+# answers `a.typ <: b.typ`. Driver-side because `<:` peeks `.typ`.
+const SubtypeOfFn        = FunctionWrapper{Bool,              Tuple{Any, Any}}
 
 struct RuntimeContext
     methodsOf::MethodsOfFn
     inferReturnType::InferReturnTypeFn
     makeCallSig::MakeCallSigFn
     makeTupleType::MakeTupleTypeFn
+    subtypeOf::SubtypeOfFn
 end

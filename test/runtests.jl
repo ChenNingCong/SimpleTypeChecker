@@ -34,6 +34,29 @@ using SimpleTypeChecker
         @test true
     end
 
+    @testset "Smoke — real-world numerical simulation" begin
+        # Exercises the language features added during the May 2026 round:
+        # untyped vector literals, lambdas, @inbounds passthrough, ::, <:,
+        # and where in expression position. Should produce NO errors.
+        sim_path = abspath(joinpath(@__DIR__, "realworld", "numerical_sim.jl"))
+        smoke_mod = Module(:NumericalSimSmoke)
+        Base.include(smoke_mod, sim_path)
+        ctx = SimpleTypeChecker.Inference.GlobalContext()
+        SimpleTypeChecker.API.addFile!(ctx, smoke_mod.NumericalSim, sim_path)
+        captured_failures = 0
+        for (_mi, entries) in ctx.hasChecked
+        end
+        SimpleTypeChecker.API.runCheck!(ctx)
+        for (_mi, entries) in ctx.hasChecked
+            for (_kw, exc) in entries
+                if exc !== nothing
+                    captured_failures += 1
+                end
+            end
+        end
+        @test captured_failures == 0
+    end
+
     @testset "Smoke — README self-check runs to completion" begin
         path = abspath(joinpath(splitdir(pathof(SimpleTypeChecker))[1], ".."))
         ctx = SimpleTypeChecker.Inference.GlobalContext()

@@ -317,6 +317,14 @@ end
 # source already declared that lambda, so the type would have been created
 # at runtime anyway.
 #
+# Known limitation: lambdas that capture local variables from the enclosing
+# function (e.g. `factor` in `map(s -> s * factor, xs)`) lose precision in
+# the *result* type because Julia's inferencer treats the closure variables
+# as untyped globals at eval time. The lambda still type-checks and is
+# acceptable as a function argument; only the downstream return type of
+# higher-order calls widens. Workaround: hoist captured variables into
+# explicit lambda parameters, or annotate the result type at the call site.
+#
 # We do NOT recurse into the body for type-checking. Body analysis would
 # require knowing the parameter types from the caller (e.g. inside `map`),
 # which is a deep higher-order analysis. Skipping it loses some checks but

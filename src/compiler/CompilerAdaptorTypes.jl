@@ -13,6 +13,18 @@ using FunctionWrappers: FunctionWrapper
 const MethodHandle = Core.MethodInstance
 const MethodDef    = Core.Method
 
+# Opaque-handle marker for values that cross the RuntimeContext seam.
+#
+# Semantically this is NOT the analyzer's `Any` — the inferencer's world
+# does not contain `Any` as a type. Conceptually each value crossing the
+# seam is an iddict-resolved handle owned by the driver runtime; the
+# inferencer never inspects it. We use Julia's `Any` slot here only
+# because Julia has no nominal `OpaqueHandle` type and FunctionWrapper
+# requires a concrete element type. When we move to a real handle scheme
+# (UInt64 keys into a driver-side IdDict pin table), only this alias
+# changes — call sites stay untouched.
+const OpaqueHandle = Any
+
 # RuntimeContext — the runtime-isolation seam. Every operation that
 # reaches into the live JIT (method lookup, return-type inference,
 # `Core.eval`, etc.) eventually moves behind a field here. Phase A
@@ -30,22 +42,22 @@ const MethodDef    = Core.Method
 # stays static — the Any only shows up as the trampoline's reported
 # return value, which Julia eliminates after the call-site assertion.
 # Mirrors the MacroExpander pattern already in InferenceDefinition.jl.
-const MethodsOfFn        = FunctionWrapper{Vector{MethodDef}, Tuple{Any}}
-const InferReturnTypeFn  = FunctionWrapper{Any,               Tuple{Any, Any}}
+const MethodsOfFn        = FunctionWrapper{Vector{MethodDef}, Tuple{OpaqueHandle}}
+const InferReturnTypeFn  = FunctionWrapper{OpaqueHandle,      Tuple{OpaqueHandle, OpaqueHandle}}
 # Type-construction ops. Inputs are Vector{CompileType} (or pair-vector for
-# kwargs) — typed Any here because CompileType is defined in a later file.
+# kwargs); both vectors arrive across the seam as opaque handles.
 # Outputs:
 #   makeCallSig  -> a Julia Tuple type used as a method-lookup signature
 #                   (kwarg case: Tuple{typeof(Core.kwcall), NamedTuple{...}, ...})
 #   makeTupleType -> a CompileType wrapping the constructed Tuple type for
 #                    value-position tuple expressions in the source.
-const MakeCallSigFn      = FunctionWrapper{Any,               Tuple{Any, Any}}
-const MakeTupleTypeFn    = FunctionWrapper{Any,               Tuple{Any}}
-# Type-query op. Both args are opaque CompileType (typed Any here for the
-# same forward-ref reason as above). Returns whether the FIRST arg's
-# underlying type is a subtype of the SECOND's — i.e. `subtypeOf(a, b)`
-# answers `a.typ <: b.typ`. Driver-side because `<:` peeks `.typ`.
-const SubtypeOfFn        = FunctionWrapper{Bool,              Tuple{Any, Any}}
+const MakeCallSigFn      = FunctionWrapper{OpaqueHandle,      Tuple{OpaqueHandle, OpaqueHandle}}
+const MakeTupleTypeFn    = FunctionWrapper{OpaqueHandle,      Tuple{OpaqueHandle}}
+# Type-query op. Both args are opaque CompileType handles. Returns whether
+# the FIRST arg's underlying type is a subtype of the SECOND's — i.e.
+# `subtypeOf(a, b)` answers `a.typ <: b.typ`. Driver-side because `<:`
+# peeks `.typ`.
+const SubtypeOfFn        = FunctionWrapper{Bool,              Tuple{OpaqueHandle, OpaqueHandle}}
 
 struct RuntimeContext
     methodsOf::MethodsOfFn

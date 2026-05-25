@@ -87,10 +87,11 @@ const IsBottomFn   = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
 # Field-shape ops on a CompileType:
 #   hasFieldOf       -> hasfield(t.typ, name)
 #   getFieldTypeOf   -> makeType(fieldtype(t.typ, name))  (wrapped back as a handle)
-# Name args cross the seam as plain Symbols — Symbols are interned in the
-# driver runtime and shared by reference, so they don't need a handle wrap.
-const HasFieldOfFn     = FunctionWrapper{Bool,                       Tuple{OpaqueHandle{CompileTypeK}, Symbol}}
-const GetFieldTypeOfFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}, Symbol}}
+# Name args cross the seam as Strings. Symbols are interned per-runtime —
+# a Symbol from one runtime is not `===` to a Symbol from another. The
+# driver does `Symbol(s)` on its side to look up by name.
+const HasFieldOfFn     = FunctionWrapper{Bool,                       Tuple{OpaqueHandle{CompileTypeK}, String}}
+const GetFieldTypeOfFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}, String}}
 
 # ─── Constant-inspection ops ─────────────────────────────────────────────────
 #
@@ -114,8 +115,8 @@ const ConstIsModuleFn          = FunctionWrapper{Bool, Tuple{OpaqueHandle{Compil
 # the opaque `.val`. `constModuleIsDefined` asks `isdefined(mod, sym)`;
 # `constModuleGetField` returns a fresh CompileType handle (const if the
 # binding is const, type-value Any otherwise).
-const ConstModuleIsDefinedFn   = FunctionWrapper{Bool,                       Tuple{OpaqueHandle{CompileTypeK}, Symbol}}
-const ConstModuleGetFieldFn    = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}, Symbol}}
+const ConstModuleIsDefinedFn   = FunctionWrapper{Bool,                       Tuple{OpaqueHandle{CompileTypeK}, String}}
+const ConstModuleGetFieldFn    = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}, String}}
 const ConstIsFunctionFn        = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
 const ConstIsBuiltinOrIntrinFn = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
 const ConstEqualsBuiltinEqFn   = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
@@ -132,7 +133,7 @@ const GetCallableFromConstFn   = FunctionWrapper{OpaqueHandle{CallableK},    Tup
 #   typeEq        -> `a.typ === b.typ` (driver-runtime type identity)
 #   makeUnionOf   -> `makeType(Union{a.typ, b.typ})` (driver-runtime union construction)
 const ApplyTypeOfFn   = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeVecK}}}
-const MakeTypeVarOfFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{Symbol}}
+const MakeTypeVarOfFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{String}}
 const MakeUnionAllOfFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}, OpaqueHandle{CompileTypeK}}}
 const TypeEqFn        = FunctionWrapper{Bool,                       Tuple{OpaqueHandle{CompileTypeK}, OpaqueHandle{CompileTypeK}}}
 const MakeUnionOfFn   = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}, OpaqueHandle{CompileTypeK}}}
@@ -150,6 +151,60 @@ const SplitUnionOfFn  = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{Opaque
 #   constToString -> repr of `.val` (a const value, may not be a Type)
 const TypeToStringFn  = FunctionWrapper{String, Tuple{OpaqueHandle{CompileTypeK}}}
 const ConstToStringFn = FunctionWrapper{String, Tuple{OpaqueHandle{CompileTypeK}}}
+
+# ─── Type-constant ops ──────────────────────────────────────────────────────
+#
+# The inferencer's `Any` is not the target runtime's `Any` — same name, two
+# different Type tables. Each well-known type constant the inferencer wants
+# to widen to / compare against has a dedicated membrane op that returns a
+# CompileType wrapping the target-runtime Type. The inferencer never spells
+# `Any`, `Bool`, `Nothing`, etc. literally.
+const MakeAnyTypeFn      = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}}
+const MakeBoolTypeFn     = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}}
+const MakeNothingTypeFn  = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}}
+const MakeExprTypeFn     = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}}
+const MakeIntTypeFn      = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}}
+const MakeTypeTypeFn     = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}}
+const MakeFunctionTypeFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}}
+const MakeBottomTypeOfFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}}
+
+# ─── Literal-wrap ops ───────────────────────────────────────────────────────
+#
+# Primitive AST literal values cross the seam as primitives. The driver
+# constructs the target-runtime CompileType via `makeConstVal` on its side.
+# Symbols cross as Strings — driver interns into its own Symbol table.
+const WrapLiteralBoolFn       = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{Bool}}
+const WrapLiteralIntFn        = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{Int}}
+const WrapLiteralFloat64Fn    = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{Float64}}
+const WrapLiteralStringFn     = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{String}}
+const WrapLiteralCharFn       = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{Char}}
+const WrapLiteralSymbolNameFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{String}}
+const WrapLiteralNothingFn    = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}}
+
+# ─── Built-in global lookups ────────────────────────────────────────────────
+#
+# Specific well-known target-runtime values the inferencer needs to compare
+# against or use as literals: Base.identity, the `isa` callable, `&` / `|`
+# bit ops, the `Any` const-as-value. Each is a dedicated op so the seam
+# stays explicit (no generic "lookup any global").
+const LookupBaseIdentityFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}}
+const LookupIsaFn          = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}}
+const LookupBitAndFn       = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}}
+const LookupBitOrFn        = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}}
+const LookupAnyValueFn     = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}}
+
+# ─── Composite type derivation ──────────────────────────────────────────────
+#
+# `makeMatrixOf(eltype)` -> `makeType(Matrix{eltype.typ})` — replaces an
+#   inferencer-side `Matrix{typ.typ}` peek (currently a self-check fire).
+# `getFirstParameterOf(h)` -> `makeType(t.parameters[1])` for a DataType.
+# `getTypeParameterOf(h, i)` -> `makeType(t.parameters[i])` (variable index;
+#   used in tuple-destructure to wrap each element type).
+# `removeConstOf(h)` -> `makeType(t.typ)` if isConst else t itself.
+const MakeMatrixOfFn         = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}}}
+const GetFirstParameterOfFn  = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}}}
+const GetTypeParameterOfFn   = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}, Int}}
+const RemoveConstOfFn        = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}}}
 
 struct RuntimeContext
     methodsOf::MethodsOfFn
@@ -187,4 +242,32 @@ struct RuntimeContext
     # Display cluster
     typeToString::TypeToStringFn
     constToString::ConstToStringFn
+    # Type-constant cluster
+    makeAnyType::MakeAnyTypeFn
+    makeBoolType::MakeBoolTypeFn
+    makeNothingType::MakeNothingTypeFn
+    makeExprType::MakeExprTypeFn
+    makeIntType::MakeIntTypeFn
+    makeTypeType::MakeTypeTypeFn
+    makeFunctionType::MakeFunctionTypeFn
+    makeBottomTypeOf::MakeBottomTypeOfFn
+    # Literal-wrap cluster
+    wrapLiteralBool::WrapLiteralBoolFn
+    wrapLiteralInt::WrapLiteralIntFn
+    wrapLiteralFloat64::WrapLiteralFloat64Fn
+    wrapLiteralString::WrapLiteralStringFn
+    wrapLiteralChar::WrapLiteralCharFn
+    wrapLiteralSymbolName::WrapLiteralSymbolNameFn
+    wrapLiteralNothing::WrapLiteralNothingFn
+    # Built-in global lookups
+    lookupBaseIdentity::LookupBaseIdentityFn
+    lookupIsa::LookupIsaFn
+    lookupBitAnd::LookupBitAndFn
+    lookupBitOr::LookupBitOrFn
+    lookupAnyValue::LookupAnyValueFn
+    # Composite type derivation
+    makeMatrixOf::MakeMatrixOfFn
+    getFirstParameterOf::GetFirstParameterOfFn
+    getTypeParameterOf::GetTypeParameterOfFn
+    removeConstOf::RemoveConstOfFn
 end

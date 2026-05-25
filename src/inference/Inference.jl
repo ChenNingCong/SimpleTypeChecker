@@ -431,7 +431,7 @@ function inferWhereType(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         tvname = cast2Symbol(binder.val)
         # Driver-side TypeVar construction — returns a const CompileType
         # wrapping the fresh TypeVar.
-        tv_ct = unwrap(rtctx.makeTypeVarOf(tvname), CompileType)
+        tv_ct = unwrap(rtctx.makeTypeVarOf(String(tvname)), CompileType)
         tv_node = makeSparamFlowNode(binder, tv_ct)
         scoped_ctx = update(ctx, tvname, ContextValue(tv_node, tv_node))
         rel = inferExpr(eng, scoped_ctx, ast.args[1])

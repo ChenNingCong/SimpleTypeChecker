@@ -617,12 +617,12 @@ end
 # Field-shape ops. Both peek `.typ`; getFieldTypeOf additionally
 # constructs a fresh CompileType (driver-side because `fieldtype` is a
 # runtime-type op and `makeType` wraps a target-runtime value).
-@nocheck function hasFieldOf(h::OpaqueHandle{CompileTypeK}, p::Symbol)::Bool
-    return hasfield(unwrap(h, CompileType).typ, p)
+@nocheck function hasFieldOf(h::OpaqueHandle{CompileTypeK}, p::String)::Bool
+    return hasfield(unwrap(h, CompileType).typ, Symbol(p))
 end
 
-@nocheck function getFieldTypeOf(h::OpaqueHandle{CompileTypeK}, p::Symbol)::CompileType
-    return makeType(fieldtype(unwrap(h, CompileType).typ, p))
+@nocheck function getFieldTypeOf(h::OpaqueHandle{CompileTypeK}, p::String)::CompileType
+    return makeType(fieldtype(unwrap(h, CompileType).typ, Symbol(p)))
 end
 
 # ─── Constant-inspection cluster ────────────────────────────────────────────
@@ -638,15 +638,16 @@ end
     return unwrap(h, CompileType).val isa Module
 end
 
-@nocheck function constModuleIsDefined(h::OpaqueHandle{CompileTypeK}, p::Symbol)::Bool
+@nocheck function constModuleIsDefined(h::OpaqueHandle{CompileTypeK}, p::String)::Bool
     mod = unwrap(h, CompileType).val::Module
-    return isdefined(mod, p)
+    return isdefined(mod, Symbol(p))
 end
 
-@nocheck function constModuleGetField(h::OpaqueHandle{CompileTypeK}, p::Symbol)::CompileType
+@nocheck function constModuleGetField(h::OpaqueHandle{CompileTypeK}, p::String)::CompileType
     mod = unwrap(h, CompileType).val::Module
-    if isconst(mod, p)
-        return makeConstVal(getproperty(mod, p))
+    psym = Symbol(p)
+    if isconst(mod, psym)
+        return makeConstVal(getproperty(mod, psym))
     else
         return makeType(Any)
     end
@@ -706,8 +707,9 @@ end
 end
 
 # `makeConstVal(TypeVar(name))` — used by `where` binding construction.
-@nocheck function makeTypeVarOf(name::Symbol)::CompileType
-    return makeConstVal(TypeVar(name))
+# Name crosses the seam as String — driver interns into its own Symbol.
+@nocheck function makeTypeVarOf(name::String)::CompileType
+    return makeConstVal(TypeVar(Symbol(name)))
 end
 
 # `makeConstVal(UnionAll(tv.val, base.val))` — UnionAll construction from a
@@ -773,6 +775,84 @@ end
     end
 end
 
+# ─── Type-constant ops ──────────────────────────────────────────────────────
+#
+# Each returns a CompileType wrapping a driver-runtime Type constant. The
+# inferencer NEVER references `Any` / `Bool` / `Nothing` etc. by name — every
+# such use goes through one of these ops so the Type value comes from the
+# target runtime, not the analyzer's.
+
+makeAnyType()::CompileType      = makeType(Any)
+makeBoolType()::CompileType     = makeType(Bool)
+makeNothingType()::CompileType  = makeType(Nothing)
+makeExprType()::CompileType     = makeType(Expr)
+makeIntType()::CompileType      = makeType(Int)
+makeTypeType()::CompileType     = makeType(Type)
+makeFunctionType()::CompileType = makeType(Function)
+makeBottomTypeOf()::CompileType = makeBottomType()
+
+# ─── Literal-wrap ops ───────────────────────────────────────────────────────
+#
+# Primitives cross the seam by value; the driver wraps them as const
+# CompileTypes here.
+
+wrapLiteralBool(b::Bool)::CompileType       = makeConstVal(b)
+wrapLiteralInt(i::Int)::CompileType         = makeConstVal(i)
+wrapLiteralFloat64(f::Float64)::CompileType = makeConstVal(f)
+wrapLiteralString(s::String)::CompileType   = makeConstVal(s)
+wrapLiteralChar(c::Char)::CompileType       = makeConstVal(c)
+wrapLiteralNothing()::CompileType           = makeConstVal(nothing)
+# Symbols cross as Strings — driver re-interns into ITS Symbol table.
+wrapLiteralSymbolName(s::String)::CompileType = makeConstVal(Symbol(s))
+
+# ─── Built-in global lookups ────────────────────────────────────────────────
+#
+# Specific target-runtime constants the inferencer needs to reference (for
+# expanding `&&` / `||` to `&` / `|`, for the `isa` callable in narrowing,
+# for `Base.identity` as the default operand, etc.). Each is a dedicated
+# op — no generic "resolve any global" that would defeat the seam.
+
+lookupBaseIdentity()::CompileType = makeConstVal(Base.identity)
+lookupIsa()::CompileType          = makeConstVal(isa)
+lookupBitAnd()::CompileType       = makeConstVal(&)
+lookupBitOr()::CompileType        = makeConstVal(|)
+lookupAnyValue()::CompileType     = makeConstVal(Any)
+
+# ─── Composite type derivation ──────────────────────────────────────────────
+
+# `makeMatrixOf(eltype) = makeType(Matrix{eltype.typ})`. Driver-side because
+# the parametric apply on `Matrix` peeks `eltype.typ` (target-runtime).
+@nocheck function makeMatrixOf(h::OpaqueHandle{CompileTypeK})::CompileType
+    elt = unwrap(h, CompileType).typ
+    return makeType(Matrix{elt})
+end
+
+# `getFirstParameterOf(h) = makeType(t.parameters[1])` for a DataType.
+# Used to extract the element type from `Vector{T}`, etc.
+@nocheck function getFirstParameterOf(h::OpaqueHandle{CompileTypeK})::CompileType
+    t = unwrap(h, CompileType).typ
+    return makeType((t::DataType).parameters[1])
+end
+
+# `getTypeParameterOf(h, i) = makeType(t.parameters[i])`. Variable index
+# used for tuple-destructure: walks each element type of a Tuple{...} sig.
+@nocheck function getTypeParameterOf(h::OpaqueHandle{CompileTypeK}, i::Int)::CompileType
+    t = unwrap(h, CompileType).typ
+    return makeType((t::DataType).parameters[i])
+end
+
+# `removeConstOf(h) = isConst ? makeType(.typ) : h` — strip constness while
+# keeping the type-value form. Used when the inferencer wants the "value
+# type" without locking to a specific const.
+@nocheck function removeConstOf(h::OpaqueHandle{CompileTypeK})::CompileType
+    ct = unwrap(h, CompileType)
+    if ct.isConst
+        return makeType(ct.typ)
+    else
+        return ct
+    end
+end
+
 # Per-field kwargs default to the live-JIT driver. Tests pass only the
 # fields they want to override; adding a new field to RuntimeContext
 # does not break existing call sites.
@@ -809,6 +889,34 @@ function defaultRuntimeContext(;
     splitUnionOfFn::SplitUnionOfFn                 = SplitUnionOfFn(splitUnionOf),
     typeToStringFn::TypeToStringFn                 = TypeToStringFn(typeToString),
     constToStringFn::ConstToStringFn               = ConstToStringFn(constToString),
+    # Type-constant cluster
+    makeAnyTypeFn::MakeAnyTypeFn                   = MakeAnyTypeFn(makeAnyType),
+    makeBoolTypeFn::MakeBoolTypeFn                 = MakeBoolTypeFn(makeBoolType),
+    makeNothingTypeFn::MakeNothingTypeFn           = MakeNothingTypeFn(makeNothingType),
+    makeExprTypeFn::MakeExprTypeFn                 = MakeExprTypeFn(makeExprType),
+    makeIntTypeFn::MakeIntTypeFn                   = MakeIntTypeFn(makeIntType),
+    makeTypeTypeFn::MakeTypeTypeFn                 = MakeTypeTypeFn(makeTypeType),
+    makeFunctionTypeFn::MakeFunctionTypeFn         = MakeFunctionTypeFn(makeFunctionType),
+    makeBottomTypeOfFn::MakeBottomTypeOfFn         = MakeBottomTypeOfFn(makeBottomTypeOf),
+    # Literal-wrap cluster
+    wrapLiteralBoolFn::WrapLiteralBoolFn           = WrapLiteralBoolFn(wrapLiteralBool),
+    wrapLiteralIntFn::WrapLiteralIntFn             = WrapLiteralIntFn(wrapLiteralInt),
+    wrapLiteralFloat64Fn::WrapLiteralFloat64Fn     = WrapLiteralFloat64Fn(wrapLiteralFloat64),
+    wrapLiteralStringFn::WrapLiteralStringFn       = WrapLiteralStringFn(wrapLiteralString),
+    wrapLiteralCharFn::WrapLiteralCharFn           = WrapLiteralCharFn(wrapLiteralChar),
+    wrapLiteralSymbolNameFn::WrapLiteralSymbolNameFn = WrapLiteralSymbolNameFn(wrapLiteralSymbolName),
+    wrapLiteralNothingFn::WrapLiteralNothingFn     = WrapLiteralNothingFn(wrapLiteralNothing),
+    # Built-in global lookups
+    lookupBaseIdentityFn::LookupBaseIdentityFn     = LookupBaseIdentityFn(lookupBaseIdentity),
+    lookupIsaFn::LookupIsaFn                       = LookupIsaFn(lookupIsa),
+    lookupBitAndFn::LookupBitAndFn                 = LookupBitAndFn(lookupBitAnd),
+    lookupBitOrFn::LookupBitOrFn                   = LookupBitOrFn(lookupBitOr),
+    lookupAnyValueFn::LookupAnyValueFn             = LookupAnyValueFn(lookupAnyValue),
+    # Composite type derivation
+    makeMatrixOfFn::MakeMatrixOfFn                 = MakeMatrixOfFn(makeMatrixOf),
+    getFirstParameterOfFn::GetFirstParameterOfFn   = GetFirstParameterOfFn(getFirstParameterOf),
+    getTypeParameterOfFn::GetTypeParameterOfFn     = GetTypeParameterOfFn(getTypeParameterOf),
+    removeConstOfFn::RemoveConstOfFn               = RemoveConstOfFn(removeConstOf),
 )::RuntimeContext
     return RuntimeContext(methodsOfFn, inferReturnTypeFn,
                           makeCallSigFn, makeTupleTypeFn,
@@ -825,5 +933,16 @@ function defaultRuntimeContext(;
                           applyTypeOfFn, makeTypeVarOfFn,
                           makeUnionAllOfFn, typeEqFn, makeUnionOfFn,
                           splitUnionOfFn,
-                          typeToStringFn, constToStringFn)
+                          typeToStringFn, constToStringFn,
+                          makeAnyTypeFn, makeBoolTypeFn, makeNothingTypeFn,
+                          makeExprTypeFn, makeIntTypeFn, makeTypeTypeFn,
+                          makeFunctionTypeFn, makeBottomTypeOfFn,
+                          wrapLiteralBoolFn, wrapLiteralIntFn,
+                          wrapLiteralFloat64Fn, wrapLiteralStringFn,
+                          wrapLiteralCharFn, wrapLiteralSymbolNameFn,
+                          wrapLiteralNothingFn,
+                          lookupBaseIdentityFn, lookupIsaFn,
+                          lookupBitAndFn, lookupBitOrFn, lookupAnyValueFn,
+                          makeMatrixOfFn, getFirstParameterOfFn,
+                          getTypeParameterOfFn, removeConstOfFn)
 end

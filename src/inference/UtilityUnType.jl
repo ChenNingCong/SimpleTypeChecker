@@ -1,5 +1,7 @@
 function hasField(rtctx::RuntimeContext, ft::CompileType, p::Symbol)::Bool
-    return rtctx.hasFieldOf(ft, p)
+    # Symbols are interned per-runtime — pass as String so the driver can
+    # intern into its own Symbol table on its side.
+    return rtctx.hasFieldOf(ft, String(p))
 end
 
 function isConcreteType(rtctx::RuntimeContext, ft::CompileType)::Bool
@@ -7,8 +9,9 @@ function isConcreteType(rtctx::RuntimeContext, ft::CompileType)::Bool
 end
 
 function getFieldType(rtctx::RuntimeContext, ft::CompileType, p::Symbol)::CompileType
-    if rtctx.hasFieldOf(ft, p)
-        return unwrap(rtctx.getFieldTypeOf(ft, p), CompileType)
+    pstr = String(p)
+    if rtctx.hasFieldOf(ft, pstr)
+        return unwrap(rtctx.getFieldTypeOf(ft, pstr), CompileType)
     else
         error("Internal error : getFieldType not checked")
     end
@@ -35,11 +38,11 @@ end
 # Module) instead of a raw Module reference. Used by inferGetProperty so
 # the Module value never crosses into the inferencer.
 function constModuleIsDefined(rtctx::RuntimeContext, modct::CompileType, p::Symbol)::Bool
-    return rtctx.constModuleIsDefined(modct, p)
+    return rtctx.constModuleIsDefined(modct, String(p))
 end
 
 function constModuleGetField(rtctx::RuntimeContext, modct::CompileType, p::Symbol)::CompileType
-    return unwrap(rtctx.constModuleGetField(modct, p), CompileType)
+    return unwrap(rtctx.constModuleGetField(modct, String(p)), CompileType)
 end
 
 

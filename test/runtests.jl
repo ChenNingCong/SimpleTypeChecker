@@ -9,6 +9,10 @@ using SimpleTypeChecker
         include("compiler_adaptor/test_compiler_adaptor.jl")
     end
 
+    @testset "Language features" begin
+        include("features/test_features.jl")
+    end
+
     # End-to-end smoke tests. These exercise the whole pipeline by checking
     # known sample programs; assertions are coarse ("doesn't crash"). The
     # detailed correctness checks belong in the per-interface testsets above.

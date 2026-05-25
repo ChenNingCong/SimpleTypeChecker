@@ -181,6 +181,88 @@ function inferDotCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     return inferFunCall(eng, ctx, ast, true)
 end
 
+# Helpers wrapping `isa Type` and `<:` on values of static type Any. These are
+# `@nocheck` so the checker doesn't recurse into their bodies — `isa Type`
+# against Any-typed values would trigger IsaBadForm, and the checker's whole
+# point of the helpers is to ride past that.
+@nocheck function isTypeValue(x::Any)::Bool
+    return x isa Type
+end
+
+@nocheck function subtypeOf(a::Any, b::Any)::Bool
+    return a <: b
+end
+
+@nocheck function makeUnionAll(tv::TypeVar, base::Any)::Any
+    return UnionAll(tv, base)
+end
+
+# `T1 <: T2` as a standalone expression. Produces a Bool — constant when both
+# sides resolve to concrete Type values, abstract Bool otherwise.
+# @nocheck because it inspects Any-typed values (.val) at runtime to decide
+# whether constant propagation through subtyping is possible.
+@nocheck function inferSubtypeOp(eng::Engine, ctx::Context, ast::JuAST)::InferResult
+    assertASTKind(ast, :(<:))
+    if length(ast.args) != 2
+        reportASTError(eng, ast, "<: requires exactly two arguments")
+    end
+    rel_l = inferExpr(eng, ctx, ast.args[1])
+    ctx = rel_l.ctx
+    rel_r = inferExpr(eng, ctx, ast.args[2])
+    ctx = rel_r.ctx
+    lnode = rel_l.node
+    rnode = rel_r.node
+    args = FlowNode[lnode, rnode]
+    local result_ct::CompileType
+    if isConstVal(lnode.typ) && isConstVal(rnode.typ) &&
+       isTypeValue(lnode.typ.val) && isTypeValue(rnode.typ.val)
+        result_ct = makeConstVal(subtypeOf(lnode.typ.val, rnode.typ.val))
+    else
+        result_ct = makeType(Bool)
+    end
+    node = makeCurlyCallFlowNode(ast, args, result_ct)
+    addFlowMapping!(eng, ast, node)
+    return InferResult(ctx, node)
+end
+
+# `T where U` as a standalone expression. The binder U is brought into scope
+# as a constant TypeVar before inferring the base type T (so identifiers
+# referring to U inside T resolve correctly). Constructs a UnionAll when the
+# base resolves to a known Type. Bound binders (`T where U<:Number`) are not
+# supported yet — they fall through to the widened branch.
+@nocheck function inferWhereType(eng::Engine, ctx::Context, ast::JuAST)::InferResult
+    assertASTKind(ast, :where)
+    if length(ast.args) != 2
+        reportASTError(eng, ast, "where requires exactly two arguments (base type and TypeVar binder)")
+    end
+    binder = ast.args[2]
+    local result_ct::CompileType
+    local base::FlowNode
+    if binder.head == :identifier
+        tvname = cast2Symbol(binder.val)
+        tv = TypeVar(tvname)
+        tv_ct = makeConstVal(tv)
+        tv_node = makeSparamFlowNode(binder, tv_ct)
+        scoped_ctx = update(ctx, tvname, ContextValue(tv_node, tv_node))
+        rel = inferExpr(eng, scoped_ctx, ast.args[1])
+        base = rel.node
+        if isConstVal(base.typ) && isTypeValue(base.typ.val)
+            result_ct = makeConstVal(makeUnionAll(tv, base.typ.val))
+        else
+            result_ct = makeType(Type)
+        end
+    else
+        rel = inferExpr(eng, ctx, ast.args[1])
+        base = rel.node
+        result_ct = makeType(Type)
+    end
+    args = FlowNode[base]
+    node = makeCurlyCallFlowNode(ast, args, result_ct)
+    addFlowMapping!(eng, ast, node)
+    # Return the outer ctx — the TypeVar binding is scoped to the where expression.
+    return InferResult(ctx, node)
+end
+
 function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::InferResult
     # This function doesn't handle function definition
     args = ast.args
@@ -407,8 +489,10 @@ function inferExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         return inferLet(eng, ctx, ast)
     elseif ast.head == :while
         return inferWhileStmt(eng, ctx, ast)
-    elseif ast.head == :(<:) || ast.head == :where
-        reportUnimplementedASTError(eng, ast, "Unsupported type construction <: or where")
+    elseif ast.head == :(<:)
+        return inferSubtypeOp(eng, ctx, ast)
+    elseif ast.head == :where
+        return inferWhereType(eng, ctx, ast)
     elseif ast.head == :(::)
         reportUnimplementedASTError(eng, ast, "type assertion is unsupported")
     elseif ast.head == :function || ast.head == :(->)
@@ -1238,7 +1322,14 @@ function inferCat(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         # TODO : fix this...
         return InferResult(ctx, FlowNode(ast, FlowNode[], ttt, nothing))
     elseif ast.head == :vect
-        return reportASTError(eng, ast, "Don't use untyped array construction. Use Type[...] instead of [...]")
+        # [a, b, c] — infer eltype from elements. Elements must all have the
+        # same concrete type (no implicit promotion); use Type[...] if you
+        # want a different element type than what the elements infer to.
+        if length(ast.args) == 0
+            reportErrorEmptyAnyArray(eng, ast)
+        end
+        fnode = makeLiteralFlowNode(ast, makeConstJuASTVal(Base.vect))
+        return inferCatHelper(eng, ctx, ast, fnode, None(FlowNode))
     elseif ast.head == :hcat
         fnode = makeLiteralFlowNode(ast, makeConstJuASTVal(Base.hcat))
         return inferCatHelper(eng, ctx, ast, fnode, None(FlowNode))

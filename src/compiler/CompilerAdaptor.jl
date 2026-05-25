@@ -625,24 +625,154 @@ end
     return makeType(fieldtype(unwrap(h, CompileType).typ, p))
 end
 
+# ─── Constant-inspection cluster ────────────────────────────────────────────
+#
+# Each op cracks `.val` and asks ONE question. The inferencer never sees the
+# raw value — only the Bool / re-wrapped handle.
+
+@nocheck function constIsTypeValue(h::OpaqueHandle{CompileTypeK})::Bool
+    return unwrap(h, CompileType).val isa Type
+end
+
+@nocheck function constIsModule(h::OpaqueHandle{CompileTypeK})::Bool
+    return unwrap(h, CompileType).val isa Module
+end
+
+@nocheck function constIsFunction(h::OpaqueHandle{CompileTypeK})::Bool
+    return unwrap(h, CompileType).val isa Function
+end
+
+@nocheck function constIsBuiltinOrIntrin(h::OpaqueHandle{CompileTypeK})::Bool
+    v = unwrap(h, CompileType).val
+    return v isa Core.Builtin || v isa Core.IntrinsicFunction
+end
+
+# Used in the dispatch-failure note: if the called function is `===` or `!==`,
+# suggest using `isa Nothing` instead. Hardcoded targets are driver-runtime
+# constants — same Builtin instance the user's program would reference.
+@nocheck function constEqualsBuiltinEq(h::OpaqueHandle{CompileTypeK})::Bool
+    v = unwrap(h, CompileType).val
+    return v === (Core.:(===)) || v === (Base.:(!==))
+end
+
+# `a.val === b.val` — used by const-merging in tryMergeConstVal. Both sides
+# cracked driver-side so the `===` is between two driver-runtime values.
+@nocheck function constEqualsConst(a_h::OpaqueHandle{CompileTypeK}, b_h::OpaqueHandle{CompileTypeK})::Bool
+    return unwrap(a_h, CompileType).val === unwrap(b_h, CompileType).val
+end
+
+# `makeType(ct.val)` — converts a const value that IS a Type into the
+# corresponding type-value CompileType. Mirrors the old `lift()` helper but
+# the peek happens driver-side.
+@nocheck function liftConstToType(h::OpaqueHandle{CompileTypeK})::CompileType
+    return makeType(unwrap(h, CompileType).val)
+end
+
+# Re-wrap a const CompileType's `.val` as a CallableK handle so the rewrapped
+# value can be passed to `methodsOf`. The `.val` here is the function/callable
+# itself — `methodsOf` will dynamic-dispatch on it via @nospecialize.
+@nocheck function getCallableFromConst(h::OpaqueHandle{CompileTypeK})
+    return OpaqueHandle{CallableK}(unwrap(h, CompileType).val)
+end
+
+# ─── Type-construction cluster ──────────────────────────────────────────────
+
+# `Core.apply_type(args[1].val, args[2].val, ...)` wrapped as a const
+# CompileType handle. Failure (caught from Core.apply_type) is reported as
+# a bottom-CompileType handle — caller checks via `isBottom` membrane op.
+@nocheck function applyTypeOf(args_h::OpaqueHandle{CompileTypeVecK})::CompileType
+    args = unwrap(args_h, Vector{CompileType})
+    f = args[1].val
+    try
+        tt = Core.apply_type(f, (args[i].val for i in 2:length(args))...)
+        return makeConstVal(tt)
+    catch
+        return makeBottomType()
+    end
+end
+
+# `makeConstVal(TypeVar(name))` — used by `where` binding construction.
+@nocheck function makeTypeVarOf(name::Symbol)::CompileType
+    return makeConstVal(TypeVar(name))
+end
+
+# `makeConstVal(UnionAll(tv.val, base.val))` — UnionAll construction from a
+# TypeVar const + a Type const.
+@nocheck function makeUnionAllOf(tv_h::OpaqueHandle{CompileTypeK}, base_h::OpaqueHandle{CompileTypeK})::CompileType
+    tv = unwrap(tv_h, CompileType).val
+    base = unwrap(base_h, CompileType).val
+    return makeConstVal(UnionAll(tv, base))
+end
+
+# `a.typ === b.typ` — driver-runtime type identity. Used in tryMergeFlowNode
+# to detect when two branches agree on type exactly.
+@nocheck function typeEq(a_h::OpaqueHandle{CompileTypeK}, b_h::OpaqueHandle{CompileTypeK})::Bool
+    return unwrap(a_h, CompileType).typ === unwrap(b_h, CompileType).typ
+end
+
+# `makeType(Union{a.typ, b.typ})` — driver-runtime Union construction.
+@nocheck function makeUnionOf(a_h::OpaqueHandle{CompileTypeK}, b_h::OpaqueHandle{CompileTypeK})::CompileType
+    a = unwrap(a_h, CompileType).typ
+    b = unwrap(b_h, CompileType).typ
+    return makeType(Union{a, b})
+end
+
+# ─── Display cluster ────────────────────────────────────────────────────────
+#
+# All `repr` / `string` / `show` of `.val` / `.typ` happens driver-side.
+# The inferencer receives a String. Strings cross the seam by value (immutable
+# heap-allocated bytes — safe to copy across).
+#
+# `_type_to_string` and friends live in InferenceErrorUtility.jl. They're
+# isa-dispatched and trim-safe (single-method `@nospecialize` entry then
+# manual branching by `isa`). We call them here from the driver side.
+
+@nocheck function typeToString(h::OpaqueHandle{CompileTypeK})::String
+    return _type_to_string(unwrap(h, CompileType).typ)
+end
+
+@nocheck function constToString(h::OpaqueHandle{CompileTypeK})::String
+    ct = unwrap(h, CompileType)
+    if ct.isConst
+        return repr(ct.val)
+    else
+        return _type_to_string(ct.typ)
+    end
+end
+
 # Per-field kwargs default to the live-JIT driver. Tests pass only the
 # fields they want to override; adding a new field to RuntimeContext
 # does not break existing call sites.
 function defaultRuntimeContext(;
-    methodsOfFn::MethodsOfFn               = MethodsOfFn(methodsOf),
-    inferReturnTypeFn::InferReturnTypeFn   = InferReturnTypeFn(inferReturnType),
-    makeCallSigFn::MakeCallSigFn           = MakeCallSigFn(makeCallSig),
-    makeTupleTypeFn::MakeTupleTypeFn       = MakeTupleTypeFn(makeTupleTypeOf),
-    subtypeOfFn::SubtypeOfFn               = SubtypeOfFn(subtypeOf),
-    isAnyFn::IsAnyFn                       = IsAnyFn(isAny),
-    isBoolFn::IsBoolFn                     = IsBoolFn(isBool),
-    isTypeValueFn::IsTypeValueFn           = IsTypeValueFn(isTypeValue),
-    isUnionFn::IsUnionFn                   = IsUnionFn(isUnion),
-    isTupleTypeFn::IsTupleTypeFn           = IsTupleTypeFn(isTupleType),
-    isConcreteFn::IsConcreteFn             = IsConcreteFn(isConcrete),
-    isBottomFn::IsBottomFn                 = IsBottomFn(isBottom),
-    hasFieldOfFn::HasFieldOfFn             = HasFieldOfFn(hasFieldOf),
-    getFieldTypeOfFn::GetFieldTypeOfFn     = GetFieldTypeOfFn(getFieldTypeOf),
+    methodsOfFn::MethodsOfFn                       = MethodsOfFn(methodsOf),
+    inferReturnTypeFn::InferReturnTypeFn           = InferReturnTypeFn(inferReturnType),
+    makeCallSigFn::MakeCallSigFn                   = MakeCallSigFn(makeCallSig),
+    makeTupleTypeFn::MakeTupleTypeFn               = MakeTupleTypeFn(makeTupleTypeOf),
+    subtypeOfFn::SubtypeOfFn                       = SubtypeOfFn(subtypeOf),
+    isAnyFn::IsAnyFn                               = IsAnyFn(isAny),
+    isBoolFn::IsBoolFn                             = IsBoolFn(isBool),
+    isTypeValueFn::IsTypeValueFn                   = IsTypeValueFn(isTypeValue),
+    isUnionFn::IsUnionFn                           = IsUnionFn(isUnion),
+    isTupleTypeFn::IsTupleTypeFn                   = IsTupleTypeFn(isTupleType),
+    isConcreteFn::IsConcreteFn                     = IsConcreteFn(isConcrete),
+    isBottomFn::IsBottomFn                         = IsBottomFn(isBottom),
+    hasFieldOfFn::HasFieldOfFn                     = HasFieldOfFn(hasFieldOf),
+    getFieldTypeOfFn::GetFieldTypeOfFn             = GetFieldTypeOfFn(getFieldTypeOf),
+    constIsTypeValueFn::ConstIsTypeValueFn         = ConstIsTypeValueFn(constIsTypeValue),
+    constIsModuleFn::ConstIsModuleFn               = ConstIsModuleFn(constIsModule),
+    constIsFunctionFn::ConstIsFunctionFn           = ConstIsFunctionFn(constIsFunction),
+    constIsBuiltinOrIntrinFn::ConstIsBuiltinOrIntrinFn = ConstIsBuiltinOrIntrinFn(constIsBuiltinOrIntrin),
+    constEqualsBuiltinEqFn::ConstEqualsBuiltinEqFn = ConstEqualsBuiltinEqFn(constEqualsBuiltinEq),
+    constEqualsConstFn::ConstEqualsConstFn         = ConstEqualsConstFn(constEqualsConst),
+    liftConstToTypeFn::LiftConstToTypeFn           = LiftConstToTypeFn(liftConstToType),
+    getCallableFromConstFn::GetCallableFromConstFn = GetCallableFromConstFn(getCallableFromConst),
+    applyTypeOfFn::ApplyTypeOfFn                   = ApplyTypeOfFn(applyTypeOf),
+    makeTypeVarOfFn::MakeTypeVarOfFn               = MakeTypeVarOfFn(makeTypeVarOf),
+    makeUnionAllOfFn::MakeUnionAllOfFn             = MakeUnionAllOfFn(makeUnionAllOf),
+    typeEqFn::TypeEqFn                             = TypeEqFn(typeEq),
+    makeUnionOfFn::MakeUnionOfFn                   = MakeUnionOfFn(makeUnionOf),
+    typeToStringFn::TypeToStringFn                 = TypeToStringFn(typeToString),
+    constToStringFn::ConstToStringFn               = ConstToStringFn(constToString),
 )::RuntimeContext
     return RuntimeContext(methodsOfFn, inferReturnTypeFn,
                           makeCallSigFn, makeTupleTypeFn,
@@ -650,5 +780,12 @@ function defaultRuntimeContext(;
                           isAnyFn, isBoolFn, isTypeValueFn,
                           isUnionFn, isTupleTypeFn,
                           isConcreteFn, isBottomFn,
-                          hasFieldOfFn, getFieldTypeOfFn)
+                          hasFieldOfFn, getFieldTypeOfFn,
+                          constIsTypeValueFn, constIsModuleFn,
+                          constIsFunctionFn, constIsBuiltinOrIntrinFn,
+                          constEqualsBuiltinEqFn, constEqualsConstFn,
+                          liftConstToTypeFn, getCallableFromConstFn,
+                          applyTypeOfFn, makeTypeVarOfFn,
+                          makeUnionAllOfFn, typeEqFn, makeUnionOfFn,
+                          typeToStringFn, constToStringFn)
 end

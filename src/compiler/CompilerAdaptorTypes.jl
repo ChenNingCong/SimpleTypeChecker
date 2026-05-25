@@ -92,6 +92,54 @@ const IsBottomFn   = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
 const HasFieldOfFn     = FunctionWrapper{Bool,                       Tuple{OpaqueHandle{CompileTypeK}, Symbol}}
 const GetFieldTypeOfFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}, Symbol}}
 
+# ─── Constant-inspection ops ─────────────────────────────────────────────────
+#
+# Each consumer of `CompileType.val` gets a specific membrane op — never
+# expose a generic `getConstVal::Any` (that would defeat the no-dyn-dispatch
+# rule the inferencer is being scrubbed for). Every op below cracks `.val`
+# in the driver runtime and returns a primitive (Bool / OpaqueHandle / etc.).
+#
+#   constIsTypeValue       -> `.val isa Type`
+#   constIsModule          -> `.val isa Module`
+#   constIsFunction        -> `.val isa Function`
+#   constIsBuiltinOrIntrin -> `.val isa Core.Builtin || .val isa Core.IntrinsicFunction`
+#   constEqualsBuiltinEq   -> `.val === ===` || `.val === !==` (used in diagnostics)
+#   constEqualsConst       -> `a.val === b.val` (const-value equality)
+#   liftConstToType        -> `makeType(.val)` (const Type-value → type-value handle)
+#   getCallableFromConst   -> rewrap `.val` as a CallableK handle for methodsOf
+const ConstIsTypeValueFn       = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
+const ConstIsModuleFn          = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
+const ConstIsFunctionFn        = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
+const ConstIsBuiltinOrIntrinFn = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
+const ConstEqualsBuiltinEqFn   = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
+const ConstEqualsConstFn       = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}, OpaqueHandle{CompileTypeK}}}
+const LiftConstToTypeFn        = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}}}
+const GetCallableFromConstFn   = FunctionWrapper{OpaqueHandle{CallableK},    Tuple{OpaqueHandle{CompileTypeK}}}
+
+# ─── Type-construction ops ───────────────────────────────────────────────────
+#
+#   applyTypeOf   -> `Core.apply_type(args...)` wrapped as a const CompileType handle.
+#                    Returns a bottom-CompileType handle on failure (caller checks via isBottom).
+#   makeTypeVarOf -> `makeConstVal(TypeVar(name))` (used in `where` binding)
+#   makeUnionAllOf -> `makeConstVal(UnionAll(tv.val, base.val))`
+#   typeEq        -> `a.typ === b.typ` (driver-runtime type identity)
+#   makeUnionOf   -> `makeType(Union{a.typ, b.typ})` (driver-runtime union construction)
+const ApplyTypeOfFn   = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeVecK}}}
+const MakeTypeVarOfFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{Symbol}}
+const MakeUnionAllOfFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}, OpaqueHandle{CompileTypeK}}}
+const TypeEqFn        = FunctionWrapper{Bool,                       Tuple{OpaqueHandle{CompileTypeK}, OpaqueHandle{CompileTypeK}}}
+const MakeUnionOfFn   = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}, OpaqueHandle{CompileTypeK}}}
+
+# ─── Display ops ─────────────────────────────────────────────────────────────
+#
+# The driver owns all `Base.show` / `string` / `repr` calls on `.val` / `.typ`.
+# The inferencer receives a `String` back — Strings cross the seam by value.
+#
+#   typeToString  -> repr of `.typ` (a Type)
+#   constToString -> repr of `.val` (a const value, may not be a Type)
+const TypeToStringFn  = FunctionWrapper{String, Tuple{OpaqueHandle{CompileTypeK}}}
+const ConstToStringFn = FunctionWrapper{String, Tuple{OpaqueHandle{CompileTypeK}}}
+
 struct RuntimeContext
     methodsOf::MethodsOfFn
     inferReturnType::InferReturnTypeFn
@@ -107,4 +155,22 @@ struct RuntimeContext
     isBottom::IsBottomFn
     hasFieldOf::HasFieldOfFn
     getFieldTypeOf::GetFieldTypeOfFn
+    # Constant-inspection cluster
+    constIsTypeValue::ConstIsTypeValueFn
+    constIsModule::ConstIsModuleFn
+    constIsFunction::ConstIsFunctionFn
+    constIsBuiltinOrIntrin::ConstIsBuiltinOrIntrinFn
+    constEqualsBuiltinEq::ConstEqualsBuiltinEqFn
+    constEqualsConst::ConstEqualsConstFn
+    liftConstToType::LiftConstToTypeFn
+    getCallableFromConst::GetCallableFromConstFn
+    # Type-construction cluster
+    applyTypeOf::ApplyTypeOfFn
+    makeTypeVarOf::MakeTypeVarOfFn
+    makeUnionAllOf::MakeUnionAllOfFn
+    typeEq::TypeEqFn
+    makeUnionOf::MakeUnionOfFn
+    # Display cluster
+    typeToString::TypeToStringFn
+    constToString::ConstToStringFn
 end

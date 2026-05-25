@@ -138,6 +138,21 @@ end
         @test !any_error(out)
     end
 
+    @testset "passthrough macros (@inbounds, @views, @inline, @fastmath, ...)" begin
+        out = run_feature_check(
+"""
+module MacroOk
+function f(xs::Vector{Int})::Int
+    a = @inbounds xs[1]
+    b = @inline a + 1
+    c = @fastmath Float64(b) * 2.0
+    return Int(c)
+end
+end
+""", :MacroOk)
+        @test !any_error(out)
+    end
+
     @testset "untyped vector literal [a, b, c]" begin
         # Homogeneous: should produce NO error.
         homo = run_feature_check(

@@ -122,8 +122,41 @@ function inferQuoteLiteral(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     return InferResult(ctx, node)
 end
 
+# Common single-argument macros that act as passthroughs: the type-level
+# result of `@m expr` is identical to the result of inferring `expr`.
+# This is an explicit whitelist (rather than a Set, to keep the dispatch
+# checkable by the type checker itself).
+@nocheck function isPassthroughMacroName(name::Symbol)::Bool
+    return name === Symbol("@inbounds")    ||
+           name === Symbol("@views")       ||
+           name === Symbol("@view")        ||
+           name === Symbol("@inline")      ||
+           name === Symbol("@noinline")    ||
+           name === Symbol("@simd")        ||
+           name === Symbol("@fastmath")    ||
+           name === Symbol("@boundscheck") ||
+           name === Symbol("@propagate_inbounds") ||
+           name === Symbol("@nospecialize") ||
+           name === Symbol("@specialize")
+end
+
+@nocheck function macroIdentifierName(ast::JuAST)::Symbol
+    # ast.args[1] is the macro identifier — either an :identifier with a
+    # Symbol val (`@foo`) or a :(.) qualified access (`Mod.@foo`). For the
+    # qualified case the trailing symbol is what we whitelist against.
+    head = ast.args[1].head
+    if head == :identifier
+        return cast2Symbol(ast.args[1].val)
+    elseif head == :(.) && length(ast.args[1].args) == 2
+        last = ast.args[1].args[2]
+        if last.head == :quote && length(last.args) == 1 && last.args[1].head == :identifier
+            return cast2Symbol(last.args[1].val)
+        end
+    end
+    return Symbol("")
+end
+
 function inferMacroCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
-    #= TODO : add a macro explander here !!!=#
     assertASTKind(ast, :macrocall)
     rel = inferExpr(eng, ctx, ast.args[1])
     ctx = rel.ctx
@@ -134,6 +167,14 @@ function inferMacroCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
             rel = inferExpand(eng, ctx, eng.globalCtx.expanders[typ], ast.args[2])
             ctx = rel.ctx
             node = rel.node
+        elseif isPassthroughMacroName(macroIdentifierName(ast)) && length(ast.args) >= 2
+            # `@m expr` — treat as if it were `expr`. Common single-arg
+            # passthrough macros (@inbounds, @views, @inline, ...) emit
+            # expressions whose runtime type matches the inner expression.
+            inner_rel = inferExpr(eng, ctx, ast.args[2])
+            ctx = inner_rel.ctx
+            node = inner_rel.node
+            addFlowMapping!(eng, ast, node)
         else
             reportWarning(eng, ast, "Macro is not implemented. Inferred as a nothing")
             node = makeMacroCallFlowNode(ast)

@@ -868,7 +868,7 @@ end
 function displayReturn(io::ErrorLogger, eng::Engine)
     val = eng.retVal
     if !isNone(val)
-        println(io, "Return Type : $(toString(castJust(val).typ))")
+        println(io, "Return Type : $(toString(eng.globalCtx.rtctx, castJust(val).typ))")
     end
 end
 

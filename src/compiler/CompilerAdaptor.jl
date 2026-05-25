@@ -775,6 +775,21 @@ end
     end
 end
 
+# Walk a UnionAll's `.body` chain to its non-UnionAll base, then format
+# the full diagnostic suffix. Driver-side because UnionAll peek is target-
+# runtime-only.
+@nocheck function explainAbstractType(h::OpaqueHandle{CompileTypeK})::String
+    base = _type_to_string(unwrap(h, CompileType).typ)
+    val = unwrap(h, CompileType).typ
+    if val isa UnionAll
+        while val isa UnionAll
+            val = val.body
+        end
+        return string(base, ", \nfully applied type should be ", _type_to_string(val))
+    end
+    return base
+end
+
 # ─── Type-constant ops ──────────────────────────────────────────────────────
 #
 # Each returns a CompileType wrapping a driver-runtime Type constant. The
@@ -906,6 +921,7 @@ function defaultRuntimeContext(;
     splitUnionOfFn::SplitUnionOfFn                 = SplitUnionOfFn(splitUnionOf),
     typeToStringFn::TypeToStringFn                 = TypeToStringFn(typeToString),
     constToStringFn::ConstToStringFn               = ConstToStringFn(constToString),
+    explainAbstractTypeFn::ExplainAbstractTypeFn   = ExplainAbstractTypeFn(explainAbstractType),
     # Type-constant cluster
     makeAnyTypeFn::MakeAnyTypeFn                   = MakeAnyTypeFn(makeAnyType),
     makeBoolTypeFn::MakeBoolTypeFn                 = MakeBoolTypeFn(makeBoolType),
@@ -952,6 +968,7 @@ function defaultRuntimeContext(;
                           makeUnionAllOfFn, typeEqFn, makeUnionOfFn,
                           splitUnionOfFn,
                           typeToStringFn, constToStringFn,
+                          explainAbstractTypeFn,
                           makeAnyTypeFn, makeBoolTypeFn, makeNothingTypeFn,
                           makeExprTypeFn, makeIntTypeFn, makeTypeTypeFn,
                           makeFunctionTypeFn, makeBottomTypeOfFn,

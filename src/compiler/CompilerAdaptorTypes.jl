@@ -151,6 +151,10 @@ const SplitUnionOfFn  = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{Opaque
 #   constToString -> repr of `.val` (a const value, may not be a Type)
 const TypeToStringFn  = FunctionWrapper{String, Tuple{OpaqueHandle{CompileTypeK}}}
 const ConstToStringFn = FunctionWrapper{String, Tuple{OpaqueHandle{CompileTypeK}}}
+# `explainAbstractType(typ)` -> diagnostic string. Walks `typ.typ` if it's
+# a UnionAll, unwraps to the body, and appends "fully applied type should
+# be <T>". Lives driver-side because the UnionAll walk peeks `.body`.
+const ExplainAbstractTypeFn = FunctionWrapper{String, Tuple{OpaqueHandle{CompileTypeK}}}
 
 # ─── Type-constant ops ──────────────────────────────────────────────────────
 #
@@ -247,6 +251,7 @@ struct RuntimeContext
     # Display cluster
     typeToString::TypeToStringFn
     constToString::ConstToStringFn
+    explainAbstractType::ExplainAbstractTypeFn
     # Type-constant cluster
     makeAnyType::MakeAnyTypeFn
     makeBoolType::MakeBoolTypeFn

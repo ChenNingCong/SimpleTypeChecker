@@ -69,8 +69,18 @@ function _union_flatten!(parts::Vector{String}, @nospecialize t)::Nothing
     return nothing
 end
 
-function toString(typ::CompileType)::String
-    return _type_to_string(typ.typ)
+# Membrane-aware entry: the driver owns the `_type_to_string` recursion
+# (it peeks `.parameters`, `.a`, `.b`, `.body`, `.var`, `.name` — all
+# target-runtime fields). Inferencer-side `toString` just hands the
+# handle across and receives the String back.
+function toString(rtctx::RuntimeContext, typ::CompileType)::String
+    return rtctx.typeToString(typ)
+end
+
+# Const-value display. Goes through the same seam — driver dispatches on
+# `isConst` and either `repr`s the `.val` or falls back to type display.
+function toConstString(rtctx::RuntimeContext, typ::CompileType)::String
+    return rtctx.constToString(typ)
 end
 
 function printErrorHead(eng::Engine, ast::JuAST, errkind::String)::Nothing
@@ -94,17 +104,18 @@ function printErrorHead(eng::Engine, ast::JuAST, errkind::String)::Nothing
     return nothing
 end
 
-function printSignature(io::IOBuffer, f::CompileType, typ::Vector{CompileType}, kwtyp::Vector{Pair{Symbol, CompileType}})::Nothing
-    if isConstVal(f)
-        write(io, _type_to_string(f.val))
-    else
-        write(io, _type_to_string(f.typ))
-    end
+function printSignature(rtctx::RuntimeContext, io::IOBuffer,
+                        f::CompileType,
+                        typ::Vector{CompileType},
+                        kwtyp::Vector{Pair{Symbol, CompileType}})::Nothing
+    # `toConstString` handles both branches (const-value via `repr`, otherwise
+    # type-display) — the inferencer doesn't need to peek `f.isConst` here.
+    write(io, toConstString(rtctx, f))
     write(io, '(')
     n = length(typ)
     for i in 1:n
         write(io, "::")
-        write(io, _type_to_string(typ[i].typ))
+        write(io, toString(rtctx, typ[i]))
         if i != n
             write(io, ", ")
         elseif length(kwtyp) != 0
@@ -116,14 +127,14 @@ function printSignature(io::IOBuffer, f::CompileType, typ::Vector{CompileType}, 
         kw = kwtyp[j]
         write(io, String(kw.first))
         write(io, "::")
-        write(io, _type_to_string(kw.second.typ))
+        write(io, toString(rtctx, kw.second))
     end
     write(io, ')')
     return nothing
 end
 
 
-function getSignature(ms::MethodCallStruct)::String
+function getSignature(rtctx::RuntimeContext, ms::MethodCallStruct)::String
     io = IOBuffer()
     args = ms.fargs
     argstt = Vector{CompileType}(undef, length(args) - 1)
@@ -134,7 +145,7 @@ function getSignature(ms::MethodCallStruct)::String
     for i in eachindex(kwargstt)
         kwargstt[i] = ms.kwargs[i].first=>ms.kwargs[i].second.typ
     end
-    printSignature(io, args[1].typ, argstt, kwargstt)
+    printSignature(rtctx, io, args[1].typ, argstt, kwargstt)
     return String(take!(io))
 end
 
@@ -151,13 +162,15 @@ function toIndex(v::Vector{Int})::String
 end
 
 
-function getTypeSignature(args::Vector{FlowNode})::String
+function getTypeSignature(rtctx::RuntimeContext, args::Vector{FlowNode})::String
     io = IOBuffer()
-    write(io, _type_to_string(args[1].typ.val))
+    # Each arg's `.typ` is a const Type-value CompileType — `toConstString`
+    # crosses the seam and returns the rendered name.
+    write(io, toConstString(rtctx, args[1].typ))
     write(io, '{')
     n = length(args)
     for i in 2:n
-        write(io, _type_to_string(args[i].typ.val))
+        write(io, toConstString(rtctx, args[i].typ))
         if i != n
             write(io, ", ")
         end

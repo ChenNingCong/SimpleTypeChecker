@@ -1438,13 +1438,13 @@ function tryDestructTuple(eng::Engine, ctx::Context, ast::JuAST, node::FlowNode)
                                  for i in 1:length(ast.args)]
                 return nodes
             else
-                reportErrorFailedToDestruct(eng, ast, "Failed to destruct rhs, not a pair or tuple. Got a $(toString(node.typ))")
+                reportErrorFailedToDestruct(eng, ast, "Failed to destruct rhs, not a pair or tuple. Got a $(toString(eng.globalCtx.rtctx, node.typ))")
             end
         else
             reportErrorFailedToDestruct(eng, ast, "Failed to destruct rhs, length mismatched")
         end
     else
-        reportErrorFailedToDestruct(eng, ast, "Failed to destruct rhs, not a pair or tuple. Got a $(toString(node.typ))")
+        reportErrorFailedToDestruct(eng, ast, "Failed to destruct rhs, not a pair or tuple. Got a $(toString(eng.globalCtx.rtctx, node.typ))")
     end
 end
 

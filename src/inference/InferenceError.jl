@@ -68,8 +68,8 @@ function displayErrorAssignIncompatible(err::InferenceErrorAssignIncompatible)::
     new = err.new
     old = err.old
     new = err.new
-    printErrorHead(eng, new.ast, "AssignError: reassigned type $(toString(new.typ)) is incompatible")
-    writelogln!(eng.errio, "Previous type is $(toString(old.typ)), $(formatLocation(old.ast.loc))")
+    printErrorHead(eng, new.ast, "AssignError: reassigned type $(toString(eng.globalCtx.rtctx, new.typ)) is incompatible")
+    writelogln!(eng.errio, "Previous type is $(toString(eng.globalCtx.rtctx, old.typ)), $(formatLocation(old.ast.loc))")
 end
 
 struct InferenceErrorUnitializedVar <: InferenceError
@@ -141,7 +141,7 @@ function displayErrorFunCall(err::InferenceErrorFunCall)::Nothing
     ms = err.ms
     num = err.num
     isDotcall = err.isDotcall
-    str = getSignature(ms)
+    str = getSignature(eng.globalCtx.rtctx, ms)
     if isDotcall
         m = "broadcast call"
     else
@@ -405,7 +405,7 @@ function displayErrorIndexReturnBottom(err::InferenceErrorIndexReturnBottom)::No
     eng = err.eng
     ast = err.ast
     ms = err.ms
-    str = getSignature(ms)
+    str = getSignature(eng.globalCtx.rtctx, ms)
     printErrorHead(eng, ast, "BottomError: indexing operation $str returns bottom value")
 end
 
@@ -466,17 +466,10 @@ function reportErrorFunCallArgs(eng::Engine, ast::JuAST, ms::MethodCallStruct, i
     throwInferenceError(InferenceErrorFunCallArgs(eng, ast, ms, i, kwi, fargs, kwargs, isDotcall))
 end
 
-function explainAbstractType(typ::CompileType)::String
-    base = toString(typ)
-    val = typ.typ
-    if val isa UnionAll
-        # Unwrap to the fully-applied body for the diagnostic suffix.
-        while val isa UnionAll
-            val = val.body
-        end
-        base = string(base, ", \nfully applied type should be ", _type_to_string(val))
-    end
-    return base
+function explainAbstractType(rtctx::RuntimeContext, typ::CompileType)::String
+    # Driver-side: the entire UnionAll-walk + fully-applied display lives
+    # in the membrane op. Returns the diagnostic suffix already composed.
+    return rtctx.explainAbstractType(typ)
 end
 
 function isBuiltinEqual(rtctx::RuntimeContext, tt::CompileType)::Bool
@@ -492,7 +485,7 @@ function displayErrorFunCallArgs(err::InferenceErrorFunCallArgs)::Nothing
     fargs = err.fargs
     kwargs = err.kwargs
     isDotcall = err.isDotcall
-    str = getSignature(ms)
+    str = getSignature(eng.globalCtx.rtctx, ms)
     if isDotcall
         printErrorHead(eng, ast, "DispatchError: this broadcast call won't statically dispatch (and won't trim)")
     else
@@ -500,14 +493,14 @@ function displayErrorFunCallArgs(err::InferenceErrorFunCallArgs)::Nothing
     end
     for ii in i
         if ii != 1
-            writelogln!(eng.errio, "  argument $(ii-1) is abstract ($(explainAbstractType(fargs[ii].typ)))")
+            writelogln!(eng.errio, "  argument $(ii-1) is abstract ($(explainAbstractType(eng.globalCtx.rtctx, fargs[ii].typ)))")
         else
-            writelogln!(eng.errio, "  the called function itself is abstract ($(explainAbstractType(fargs[ii].typ)))")
+            writelogln!(eng.errio, "  the called function itself is abstract ($(explainAbstractType(eng.globalCtx.rtctx, fargs[ii].typ)))")
         end
     end
     for ii in kwi
         name, node = kwargs[ii]
-        writelogln!(eng.errio, "  keyword argument $(name) is abstract ($(explainAbstractType(node.typ)))")
+        writelogln!(eng.errio, "  keyword argument $(name) is abstract ($(explainAbstractType(eng.globalCtx.rtctx, node.typ)))")
     end
     writelogln!(eng.errio, "  Calls through this site fall into Julia's open-world dispatch and can't be resolved at compile time.")
     writelogln!(eng.errio, "  Fix: make the abstract slot concrete at this site, or wrap it in a parametric struct so the type is carried through the call chain.")
@@ -573,7 +566,7 @@ function displayErrorNoConstructor(err::InferenceErrorNoConstructor)::Nothing
     eng = err.eng
     ast = err.ast
     ms = err.ms
-    str = getSignature(ms)
+    str = getSignature(eng.globalCtx.rtctx, ms)
     printErrorHead(eng, ast, "ConstructorError : constructor $str returns Union{}")
 end
 
@@ -591,7 +584,7 @@ function displayErrorBroadcastBottom(err::InferenceErrorBroadcastBottom)::Nothin
     eng = err.eng
     ast = err.ast
     ms = err.ms
-    str = getSignature(ms)
+    str = getSignature(eng.globalCtx.rtctx, ms)
     printErrorHead(eng, ast, "BroadcastError : broadcast $str returns Union{}")
 end
 
@@ -609,7 +602,7 @@ function displayErrorApplyTypeFailure(err::InferenceErrorApplyTypeFailure)::Noth
     eng = err.eng
     ast = err.ast
     args = err.args
-    str = getTypeSignature(args)
+    str = getTypeSignature(eng.globalCtx.rtctx, args)
     printErrorHead(eng, ast, "TypeError: fail to construct type $str")
 end
 
@@ -630,7 +623,7 @@ function displayErrorFieldType(err::InferenceErrorFieldType)::Nothing
     arg = err.arg
     isSet = err.isSet
     accesstype = ifelse(!isSet, "getproperty", "setproperty!")
-    printErrorHead(eng, ast, "FieldError: calling $accesstype on non-concrete type $(toString(arg.typ))")
+    printErrorHead(eng, ast, "FieldError: calling $accesstype on non-concrete type $(toString(eng.globalCtx.rtctx, arg.typ))")
 end
 
 struct InferenceErrorNoField <: InferenceError
@@ -649,7 +642,7 @@ function displayErrorNoField(err::InferenceErrorNoField)::Nothing
     ast = err.ast
     arg = err.arg
     p = err.p
-    printErrorHead(eng, ast, "FieldError: type $(toString(arg.typ)) has no field $p")
+    printErrorHead(eng, ast, "FieldError: type $(toString(eng.globalCtx.rtctx, arg.typ)) has no field $p")
 end
 
 struct InferenceErrorSetFieldTypeIncompatible <: InferenceError
@@ -672,7 +665,7 @@ function displayErrorSetFieldTypeIncompatible(err::InferenceErrorSetFieldTypeInc
     v = err.v
     ft = err.ft
     p = err.p
-    printErrorHead(eng, ast, "FieldError: assigning value of type $(toString(v.typ)) to $(toString(x.typ)) 's field $p, which has type $(toString(ft))")
+    printErrorHead(eng, ast, "FieldError: assigning value of type $(toString(eng.globalCtx.rtctx, v.typ)) to $(toString(eng.globalCtx.rtctx, x.typ)) 's field $p, which has type $(toString(eng.globalCtx.rtctx, ft))")
 end
 
 struct InferenceErrorAssignInitIncompatible <: InferenceError
@@ -691,7 +684,7 @@ function displayErrorAssignInitIncompatible(err::InferenceErrorAssignInitIncompa
     ast = err.ast
     ass = err.ass
     init = err.init
-    printErrorHead(eng, ast, "AssignError: initializer's type $(toString(init)) is incompatible with asserted type of $(toString(ass))")
+    printErrorHead(eng, ast, "AssignError: initializer's type $(toString(eng.globalCtx.rtctx, init)) is incompatible with asserted type of $(toString(eng.globalCtx.rtctx, ass))")
     writelogln!(eng.errio, "Note implicit conversion is disallowed for assignment.")
 end
 
@@ -710,8 +703,8 @@ function displayErrorReturnEnlargeType(err::InferenceErrorReturnEnlargeType)::No
     r1 = err.r1
     r2 = err.r2
     printErrorHead(eng, r2.ast, "ReturnError: return type is enlarged")
-    writelogln!(eng.errio, "Previous type is $(toString(r1.typ)), $(formatLocation(r1.ast.loc))")
-    writelogln!(eng.errio, "Current type is $(toString(r2.typ)), $(formatLocation(r2.ast.loc))")
+    writelogln!(eng.errio, "Previous type is $(toString(eng.globalCtx.rtctx, r1.typ)), $(formatLocation(r1.ast.loc))")
+    writelogln!(eng.errio, "Current type is $(toString(eng.globalCtx.rtctx, r2.typ)), $(formatLocation(r2.ast.loc))")
 end
 
 struct InferenceErrorIsaLHSBadType <: InferenceError
@@ -728,7 +721,7 @@ function displayErrorIsaLHSBadType(err::InferenceErrorIsaLHSBadType)::Nothing
     eng = err.eng
     ast = err.ast
     val = err.val
-    printErrorHead(eng, ast, "IsaError: rhs $(toString(val)) is not a valid splitted target")
+    printErrorHead(eng, ast, "IsaError: rhs $(toString(eng.globalCtx.rtctx, val)) is not a valid splitted target")
 end
 
 struct InferenceErrorCondNotBool <: InferenceError
@@ -745,7 +738,7 @@ function displayErrorCondNotBool(err::InferenceErrorCondNotBool)::Nothing
     eng = err.eng
     ast = err.ast
     cond = err.cond
-    printErrorHead(eng, cond.ast, "TypeError: non-boolean type $(toString(cond.typ)) used as condition")
+    printErrorHead(eng, cond.ast, "TypeError: non-boolean type $(toString(eng.globalCtx.rtctx, cond.typ)) used as condition")
 end
 
 struct InferenceErrorMismatchedSplit <: InferenceError
@@ -764,7 +757,7 @@ function displayErrorMismatchedSplit(err::InferenceErrorMismatchedSplit)::Nothin
     ast = err.ast
     xnode = err.xnode
     rhsnode = err.rhsnode
-    printErrorHead(eng, ast, "IsaError: can't split type $(toString(xnode.typ)) to $(toString(rhsnode.typ))")
+    printErrorHead(eng, ast, "IsaError: can't split type $(toString(eng.globalCtx.rtctx, xnode.typ)) to $(toString(eng.globalCtx.rtctx, rhsnode.typ))")
 end
 
 struct InferenceErrorIsaBadForm <: InferenceError
@@ -799,8 +792,8 @@ function displayErrorIfEnlargeType(err::InferenceErrorIfEnlargeType)::Nothing
     r1 = err.r1
     r2 = err.r2
     printErrorHead(eng, r2.ast, "IfError: if type is enlarged")
-    writelogln!(eng.errio, "Previous type is $(toString(r1.typ)), $(formatLocation(r1.ast.loc))")
-    writelogln!(eng.errio, "Current type is $(toString(r2.typ)), $(formatLocation(r2.ast.loc))")
+    writelogln!(eng.errio, "Previous type is $(toString(eng.globalCtx.rtctx, r1.typ)), $(formatLocation(r1.ast.loc))")
+    writelogln!(eng.errio, "Current type is $(toString(eng.globalCtx.rtctx, r2.typ)), $(formatLocation(r2.ast.loc))")
 end
 
 struct InferenceErrorFailedToDestruct <: InferenceError
@@ -888,12 +881,12 @@ function displayErrorElementNonSameType(err::InferenceErrorElementNonSameType)::
     typed = err.typed
     if typed
         printErrorHead(eng, ast, "Incompatiable type with typed array")
-        writelogln!(eng.errio, "Previous type is $(toString(lift(eng.globalCtx.rtctx, t1.typ))), $(formatLocation(t1.ast.loc))")
-        writelogln!(eng.errio, "Current type is $(toString(t2.typ)), $(formatLocation(t2.ast.loc))")
+        writelogln!(eng.errio, "Previous type is $(toString(eng.globalCtx.rtctx, lift(eng.globalCtx.rtctx, t1.typ))), $(formatLocation(t1.ast.loc))")
+        writelogln!(eng.errio, "Current type is $(toString(eng.globalCtx.rtctx, t2.typ)), $(formatLocation(t2.ast.loc))")
     else
         printErrorHead(eng, ast, "Array element must have the same type")
-        writelogln!(eng.errio, "Previous type is $(toString(t1.typ)), $(formatLocation(t1.ast.loc))")
-        writelogln!(eng.errio, "Current type is $(toString(t2.typ)), $(formatLocation(t2.ast.loc))")
+        writelogln!(eng.errio, "Previous type is $(toString(eng.globalCtx.rtctx, t1.typ)), $(formatLocation(t1.ast.loc))")
+        writelogln!(eng.errio, "Current type is $(toString(eng.globalCtx.rtctx, t2.typ)), $(formatLocation(t2.ast.loc))")
     end
 end
 

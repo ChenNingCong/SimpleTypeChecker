@@ -1,285 +1,282 @@
 # Isolation / Runtime-context design
 
-A planning doc — not a spec. Captures the target state and what
-work it implies, so future passes can be staged against it.
-
-Originates from the rough proposal in `/isolation.md` at the repo root.
-This file refines that into a concrete target and a checklist of
-current coupling points.
+A living design doc. Captures the goal state, what's landed, and
+what remains. Earlier brainstorming lives in `/isolation.md` (repo
+root) — this file is the working spec.
 
 ## Why isolate
 
-Today SimpleTypeChecker is *inseparable* from the Julia JIT runtime
-it's analyzing. Every reasoning step about a callee, a type, or a
-method reaches into `Core.*` of the live process:
+SimpleTypeChecker used to be *inseparable* from the live Julia JIT
+runtime it was analyzing. Every reasoning step about a callee, a
+type, or a method reached into `Core.*` of the live process:
 
 - Method lookup (`methodsOf`, `inferReturnType`)
-- Type inference for return types of recursive / sub-calls
+- Return-type inference for sub-calls
 - `Core.eval` for evaluating type-level expressions during checking
 - `Core.Typeof`, `Core.apply_type` for type construction
-- `Core.Builtin`, `Core.IntrinsicFunction` for callee categorization
-- `getproperty(module, symbol)` for resolving module-qualified names
+- `Core.Builtin` / `Core.IntrinsicFunction` isa-checks
+- `getproperty(module, symbol)` for module-qualified name resolution
 
 This coupling has three concrete costs:
 
-1. **We can't trim the checker into a static binary.** The compiler
-   adaptor seam pulls in the full Julia compiler stack — which is
-   the whole reason `CompilerAdaptor.jl` is `@nocheck` and `untrimmable_calls.md`
-   exists. Even the work to migrate to `Base.JuliaSyntax` (Phase 11)
-   only closed the *parser* side of this — the checker proper is
-   still JIT-tied.
+1. **We can't trim the checker into a static binary** — the compiler
+   adaptor pulls in the full Julia compiler stack.
 2. **We can't run the checker against a snapshot of another world.**
-   We're always asking about *this* process's methods, *this*
-   process's loaded modules. There's no way to point the checker
-   at a frozen view (e.g. for offline CI, or for analyzing code
-   without loading it).
+   It only asks about *this* process's methods, *this* process's
+   loaded modules.
 3. **We can't substitute drivers.** Patching, tracing, mocking,
-   record-and-replay — every one of these wants a seam to intercept
-   the "ask the runtime" call. There isn't one today; the calls
-   are inlined throughout `Inference.jl`.
+   record-and-replay all want a single seam to intercept.
 
-## Target shape
+## Target shape — two-runtime model
 
-Introduce a `RuntimeContext`: an opaque value, passed explicitly,
-carrying a vtable of function pointers (or Julia callable struct,
-or C function pointers — TBD) for every operation that today
-reaches into the live runtime.
+Conceptually, there are **two distinct Julia runtimes**:
 
-(Named `RuntimeContext` rather than `Context` because the inference
-side already has its own `Context` for variable bindings. Casual
-references in prose use "runtime context" lowercase.)
+- **Analyzer runtime** — where the inferencer's code runs. Owns
+  `JuAST`, `FlowNode`, `Engine`, `Context`. Sees only primitives
+  (`Bool`, `Int`, `Float64`, `String`, `Char`) and opaque handles.
+- **Driver runtime** — where the user's program lives. Owns `Module`,
+  `Function`, `DataType`, `Method`, `MethodInstance`, the entire
+  type lattice. Reachable only through the `RuntimeContext` seam.
+
+These two runtimes have **separate Type tables, separate Symbol
+interning, separate object heaps**. A `Symbol` in one is not `===`
+to a `Symbol` in the other. The analyzer's `Any` is not the
+driver's `Any`. Values cannot freely cross.
+
+### The membrane: `RuntimeContext`
+
+`RuntimeContext` is a struct of typed `FunctionWrapper` fields —
+every operation that reaches into the driver runtime goes through
+one of them. `FunctionWrapper{Out, Tuple{In...}}` is a concrete
+struct holding a C function pointer trampoline; calls dispatch
+statically (no method-table lookup at the analyzer side, no
+abstract callee).
 
 ```
-run_inference(program_text_collection, rtctx)
-    -> construct engine (carries `rtctx`)
-    -> parse text into AST (via rtctx.parse, OR directly if
-       JuliaSyntax stays compile-friendly — open question)
-    -> Run type inference, asking the runtime context any time
-       we'd normally reach into Core.*:
-         rtctx.infer_return_type(sig)
-         rtctx.methods_of(f)
-         rtctx.method_codeinfo(m)
-         rtctx.eval_type_expr(mod, expr)
-         rtctx.get_property(mod, sym)
-         rtctx.is_builtin(v)
-         ...
+struct RuntimeContext
+    # method lookup
+    methodsOf::MethodsOfFn
+    inferReturnType::InferReturnTypeFn
+
+    # type construction
+    makeCallSig::MakeCallSigFn
+    makeTupleType::MakeTupleTypeFn
+    applyTypeOf::ApplyTypeOfFn
+    makeTypeVarOf::MakeTypeVarOfFn
+    makeUnionAllOf::MakeUnionAllOfFn
+    makeUnionOf::MakeUnionOfFn
+    splitUnionOf::SplitUnionOfFn
+
+    # type-query
+    subtypeOf::SubtypeOfFn
+    isAny, isBool, isTypeValue, isUnion, isTupleType, isConcrete, isBottom
+
+    # constant-inspection (no generic getConstVal)
+    constIsTypeValue, constIsModule, constIsFunction, constIsBuiltinOrIntrin
+    constEqualsBuiltinEq, constEqualsConst
+    liftConstToType, getCallableFromConst
+
+    # module accessors (Module stays opaque)
+    constModuleIsDefined, constModuleGetField
+
+    # field-shape
+    hasFieldOf, getFieldTypeOf
+
+    # composite type derivation
+    makeMatrixOf, getFirstParameterOf, getTypeParameterOf
+    removeConstOf, tupleDestructInfo
+
+    # well-known type constants
+    makeAnyType, makeBoolType, makeNothingType, makeExprType
+    makeIntType, makeTypeType, makeFunctionType, makeBottomTypeOf
+
+    # literal wrappers (primitives in, opaque handle out)
+    wrapLiteralBool, wrapLiteralInt, wrapLiteralFloat64, wrapLiteralString
+    wrapLiteralChar, wrapLiteralSymbolName, wrapLiteralNothing
+
+    # specific well-known globals
+    lookupBaseIdentity, lookupIsa, lookupBitAnd, lookupBitOr, lookupAnyValue
+
+    # display ops (return String)
+    typeToString, constToString, explainAbstractType
+end
 ```
 
-A driver is whatever fills in the runtime context. The default
-driver delegates to the live JIT exactly as today. Alternative
-drivers can mock, trace, record, or load from a snapshot file.
+~55 fields total. Cluster discipline: every consumer of `.val` /
+`.typ` peek gets a **specific** op (never a generic `getConstVal`).
+The pressure to add ops is the right pressure — it surfaces every
+hidden coupling.
 
-**Design constraint (load-bearing):** after this rewrite, *the
-inferencer core itself must be trim-compilable*. The runtime
-context is the **only** place dynamic dispatch is allowed. From
-the inferencer's standpoint every `rtctx.foo(...)` call is a
-static dispatch (typed `FunctionWrapper` field → ccall trampoline);
-any genuine open-world dispatch happens *inside* the driver, behind
-that trampoline, where it doesn't pull anything into the
-inferencer's compilation unit. This is what makes the seam
-load-bearing: it's not just a refactor for clarity, it's the
-boundary that splits "compilable" from "not." Field types are
-therefore concrete `FunctionWrapper{Out, Tuple{In...}}` aliases,
-never bare `Function` or `Any`.
+### Opacity rule — what crosses the seam
 
-**Opacity constraint (already paved for us):** types crossing the
-seam — `CompileType`, `MethodDef`, `MethodHandle`, `JuAST` — are
-**opaque**. The codebase already enforces this: there is no place
-that constructs a `CompileType` directly; everything routes through
-`makeType` / `makeConstVal` / `removeConst` / `lift`. Honour this
-when adding `rtctx` fields:
-- A membrane function returns opaque values; the inferencer treats
-  them as black boxes and uses the same constructors / accessors
-  it uses today.
-- A membrane function *never* takes a primitive peek-inside arg
-  like `t.typ` or `t.val`. Accept the opaque value and let the
-  driver crack it open.
-- Where a return type can't be named at `RuntimeContext` definition
-  time (because it lives in a later-loaded file), the field's
-  output slot is `Any`. Narrow with `::T` at the call site — the
-  `Any` only appears in the trampoline's reported return; downstream
-  code stays typed.
+Three kinds of values cross:
 
-Two benefits the user called out, restated in our vocabulary:
+1. **Primitives** that have bit-identical representations both
+   sides: `Bool`, `Int`, `Float64`, `Char`, `String`.
+2. **Strings**, including those representing names that would be
+   Symbols on the driver side. `Symbol` itself **does not cross** —
+   the inferencer passes a `String`, the driver does `Symbol(s)` to
+   re-intern into its own table.
+3. **Opaque handles**, `OpaqueHandle{K<:HandleKind}`. A phantom-typed
+   wrapper whose `.val::Any` carries a driver-runtime reference the
+   analyzer cannot inspect.
 
-1. **Static control over what we compile.** Once every runtime
-   touch goes through the runtime context, the checker's own
-   code can be statically analyzed (and trimmed) without dragging
-   in the compiler. The runtime context is the only place that
-   needs the compiler — and we keep it small enough to vendor
-   or hand-port.
-2. **Drivers are cheap.** Tracing driver = wrap the default and
-   log each call. Snapshot driver = read from a file. Test driver
-   = answer from a hand-built table. None of these need touching
-   the checker.
+```julia
+abstract type HandleKind end
+struct CompileTypeK        <: HandleKind end
+struct CompileTypeVecK     <: HandleKind end
+struct CompileTypePairVecK <: HandleKind end
+struct CallableK           <: HandleKind end
+struct CallSigK            <: HandleKind end
+struct GlobalContextK      <: HandleKind end
 
-## What's already in good shape
+struct OpaqueHandle{K<:HandleKind}
+    val::Any
+end
+```
 
-The refactor that landed in May 2026 (`project_refactor_plan`)
-already put most of the runtime touches behind two adaptor seams:
+The phantom parameter `K` enforces kind-safety at compile time —
+`OpaqueHandle{CompileTypeK}` ≠ `OpaqueHandle{CallableK}`. Julia
+rejects passing one where the other is expected. `FunctionWrapper`
+auto-`convert`s raw values into handles at the call boundary
+(driver side), so call sites stay clean.
 
-- **`src/syntax/`** — JuliaSyntax wrapper. After the Phase 11
-  migration to `Base.JuliaSyntax`, this is purely textual: text
-  in, our own `JuAST` out. No `Core.*` reachable through this
-  surface. **This part of the runtime context is already conceptually
-  free** — once `Base.JuliaSyntax` is itself trim-friendly
-  (close, but not quite — see `patch.jl`), the parser can ride
-  as-is.
-- **`src/compiler/`** — `CompilerAdaptor.jl` + `CompilerAdaptorTypes.jl`.
-  Every `@nocheck` in the codebase that comes from Core.Compiler
-  poking lives here. The functions in this file *are* essentially
-  the runtime-context vtable already, just inlined as direct calls.
-  See `docs/nocheck_inventory.md` — 12 of the 27 surviving
-  `@nocheck` markers are in this one file, by design.
+### What the analyzer must NOT do
 
-So the seam isn't theoretical — it already exists. What's missing
-is making it *explicit* (an argument passed around, not a fixed
-import) and making it *swappable* (the body of each function is
-"talk to the JIT" today; needs to become "talk to whatever the
-caller plugged in").
+These are violations of the membrane, even when they "work" today
+because both runtimes happen to be the same process:
 
-## What still leaks past the seam
+| Anti-pattern | Why wrong | Correct form |
+|---|---|---|
+| `makeType(Any)` | `Any` is analyzer's Any, not target's | `rtctx.makeAnyType()` |
+| `makeConstVal(nothing)` | `nothing` is analyzer's `Nothing` instance | `rtctx.wrapLiteralNothing()` |
+| `makeConstVal(Base.identity)` | references analyzer's `Base` | `rtctx.lookupBaseIdentity()` |
+| `Matrix{ct.typ}` | parametric apply on `Matrix` peeks `.typ` | `rtctx.makeMatrixOf(ct)` |
+| `t.parameters[i]` | peeks DataType internals | `rtctx.getTypeParameterOf(ct, i)` |
+| `Symbol` argument at seam | symbols don't cross | `String` argument + driver `Symbol(s)` |
+| `ct.val isa Type` | cracks `.val` | `rtctx.constIsTypeValue(ct)` |
+| `repr(ct.val)` | analyzer-side `repr` | `rtctx.constToString(ct)` |
 
-Quick grep for `Core.*` references outside `src/compiler/` (this
-is what would need to be tightened or routed through the runtime
-context):
+### What's true today
 
-| file | what leaks | how to absorb |
-| --- | --- | --- |
-| `inference/UtilityUnType.jl` | `Core.kwcall`, `Core.apply_type` (4 sites) | wrap as `rtctx.apply_type` / `rtctx.kwcall_type` |
-| `inference/Inference.jl:2610,2945,2961` | `Core.apply_type`, `Core.Typeof` | same — these are type-construction calls |
-| `inference/Inference.jl:570` | `Core.Builtin`, `Core.IntrinsicFunction` isa-checks | `rtctx.is_builtin(v)` |
-| `inference/InferenceError.jl:483` | `Core.:(===)` identity | route through Builtin table |
-| `inference/InferenceDefinition.jl:22` | `Core.Typeof` for constant typing | `rtctx.typeof_const` |
+After Phases A/B/C (May 2026):
 
-None of these are deep refactors individually — each is a one- or
-two-line wrap. The discipline is the same one we already enforce
-for `Core.Compiler.*` (cf. `feedback_adaptor_interface`): the
-checker proper shouldn't name `Core.*` directly; that's the
-adaptor's job.
+- **All ~30 `Core.*` touches outside `src/compiler/` are gone** —
+  every reach into the driver runtime goes through `rtctx`.
+- **No inferencer-side `makeType(X)` / `makeConstVal(v)` with
+  analyzer-runtime literals.** All Type constants come from
+  `rtctx.make*Type()`; all literal values come from
+  `rtctx.wrapLiteral*()` or `rtctx.lookup*()`.
+- **Symbols at the seam are Strings.** Five op signatures
+  (`hasFieldOf`, `getFieldTypeOf`, `constModuleIsDefined`,
+  `constModuleGetField`, `makeTypeVarOf`) use `String`. The
+  inferencer does `String(p::Symbol)` at the boundary; the driver
+  does `Symbol(s)` on its side.
+- **`CompileType.val` / `.typ` never peeked from the inferencer.**
+  Every consumer goes through a specific membrane op (e.g.
+  `constIsModule`, `liftConstToType`, `typeToString`).
+- **Display path routes through seam.** `toString(rtctx, ct)`,
+  `printSignature(rtctx, ...)`, etc.
 
-Plus the `Core.eval` site (`fasteval` at Inference.jl:2491) and
-the `getproperty` site (`evalGetPropertyChain` at Inference.jl:2786)
-— these are the two big ones, since they're literally "evaluate
-arbitrary code in a live module." Both are already `@nocheck`'d
-and live in the GENUINE bucket of `nocheck_inventory.md`. They
-become `rtctx.eval_in(mod, expr)` and `rtctx.get_property(mod, sym)`.
+Self-check (the checker checking itself) is still passing with the
+same set of pre-existing fires as before the refactor — no new
+fires introduced. Tests: 82/82.
 
-## Phased plan
+### What still leaks (known TODOs)
 
-Matches the order the user proposed in `/isolation.md` §25–28,
-adapted to what's already done.
+The following are tracked but not yet absorbed:
 
-### Phase A — wire the runtime-context argument through (no behavior change)
+1. **`eng.mod::Core.Module`** — the user's target module flows
+   through `Engine` as a raw `Core.Module` reference. Used by
+   `getFromModule(mod, sym)` / `isModuleDefined(mod, sym)` (5 call
+   sites). The `getproperty` / `isdefined` operations happen
+   driver-side, but the Module reference itself crosses analyzer
+   code. Should wrap as `OpaqueHandle{ModuleK}` or a const
+   `CompileType` wrapping the Module value.
+2. **`Inference.jl:920, 970`** — `JuExpr(Literal(makeConstVal(nothing)), ...)`
+   inside `constructJuExpr`. Syntax-construction code that doesn't
+   have `rtctx` in scope. Likely needs to plumb `rtctx` through
+   `SyntaxBuildResult` or defer the wrap until inference time.
+3. **`inferLambdaExpr`** — calls `Core.eval(eng.mod, lam_expr)`
+   and wraps the returned function via `makeConstVal(fn)`. Genuinely
+   driver-side action (creates a new method in the target module);
+   should be moved into a dedicated membrane op.
+4. **`fasteval`** — `@nocheck` recursive type-expression evaluator.
+   Uses `getglobal`, `Core.apply_type`, `UnionAll`. Known
+   self-check fire; refactor into membrane ops or split into a
+   driver helper.
+5. **`makeMacroCallFlowNode` etc.** — handful of FlowNode
+   constructors still callable without rtctx; should require it
+   uniformly.
 
-Goal: prove the plumbing. The default runtime context is still
-"call into Core.* directly", same as today. But the *path* is
-now `eng.rtctx.thing(args)` instead of `thing(args)`.
+## Implementation history
 
-Steps:
+Three phases landed:
 
-1. Define a `RuntimeContext` struct (in `src/compiler/CompilerAdaptorTypes.jl`,
-   or a new `src/compiler/RuntimeContext.jl`) with fields for each
-   adaptor operation. Initial version uses Julia callables — defer
-   the C-pointer question.
-2. Add a `rtctx::RuntimeContext` field on `GlobalContext` (or wherever
-   the engine state lives).
-3. Pick **one** simple adaptor call (say `methodsOf`) and route it
-   through `rtctx`. Add a test that constructs a `GlobalContext`
-   with a mocked `methodsOf` returning a fixed `Vector{MethodDef}`,
-   and verifies inference uses it.
-4. Run the existing suite — should still be 80/80 since the default
-   `RuntimeContext` is the existing implementation.
+### Phase A — wire RuntimeContext through (Apr–May 2026)
+- `RuntimeContext` struct, `OpaqueHandle{K}` phantom-types
+- Field added to `GlobalContext`; default factory in CompilerAdaptor
+- One call routed (`methodsOf`), MWE test injecting a mock rtctx
 
-This phase is small enough to land in one commit. Exit criterion:
-`RuntimeContext` is a first-class argument, threaded everywhere it
-needs to go, but only one call site uses it.
+### Phase B — type-query / type-construction / display clusters
+- Type-query: subtypeOf, isAny/isBool/isTypeValue/isUnion/isTupleType,
+  isConcrete, isBottom, hasFieldOf, getFieldTypeOf (#43)
+- Constant-inspection: constIsTypeValue/constIsModule/
+  constIsFunction/constIsBuiltinOrIntrin, constEqualsBuiltinEq,
+  constEqualsConst, liftConstToType, getCallableFromConst,
+  constModuleIsDefined, constModuleGetField (#44)
+- Type-construction: makeCallSig, makeTupleType, applyTypeOf,
+  makeTypeVarOf, makeUnionAllOf, typeEq, makeUnionOf, splitUnionOf (#45)
+- Display: typeToString, constToString, explainAbstractType (#46)
 
-### Phase B — relocate every Core.* touch onto the runtime context
-
-Goal: when `git grep 'Core\\.'` is run outside `src/compiler/`,
-nothing comes back.
-
-For each row in the leak table above, add a `RuntimeContext` method,
-move the call, replace the `Core.*` reference. Each row is a small
-commit; the test suite gates each one.
-
-Probably ~10 commits. No new tests strictly required (the existing
-suite covers the call paths), but a test exercising the mocked
-runtime context lands once and gets reused.
-
-### Phase C — split the runtime context from the checker
-
-Goal: build the checker without the default driver. The default
-driver lives in a separate file (or package) and is what a
-`SimpleTypeChecker.jl` user explicitly imports.
-
-This is mostly a packaging change — moving `CompilerAdaptor.jl`'s
-*implementation* (not its types) into a separate include path.
-The checker now reads `RuntimeContext` types from `CompilerAdaptorTypes.jl`
-but the bodies of `methodsOf`, `inferReturnType`, etc. are
-elsewhere and don't get compiled when the checker is built
-without a driver.
-
-This is where the trim win materializes — the checker's static
-analysis no longer has any reason to pull in Core.Compiler.
-
-### Phase D (speculative) — C-pointer runtime context
-
-Goal: drivers in other languages, or drivers in a separate process.
-This is the runtime-context-as-vtable-of-C-fptrs version. Out of
-scope until A–C are done; the design pressure isn't there yet,
-and we might find a pure-Julia runtime context is enough.
+### Phase C — close the analyzer-runtime literal leak (May 2026)
+- Type-constant ops: makeAnyType/makeBoolType/makeNothingType/
+  makeExprType/makeIntType/makeTypeType/makeFunctionType/makeBottomTypeOf (#47)
+- Literal-wrap ops: wrapLiteralBool/Int/Float64/String/Char/
+  SymbolName/Nothing (#48)
+- Symbol→String at the seam (5 ops migrated) (#49)
+- Move makeType/makeConstVal/removeConst/makeMatrixType/
+  getFirstParameter driver-side (#50)
 
 ## Open questions
 
-- **Does JuliaSyntax need to go through the runtime context?**
-  The argument for: keeps a single seam. The argument against:
-  parsing is already trim-friendly post-Phase 11 (modulo `patch.jl`),
-  so there's no compile-coupling cost to leaving it as a direct
-  import. Tentative answer: leave it direct, treat the parser as
-  conceptually part of the checker.
-- **What's the granularity of the runtime context?** Coarse (one
-  method per "ask the runtime a question") is easier to wire;
-  fine (one per primitive op) is easier to mock. Probably
-  coarse-first, refactor if mocking becomes painful.
-- **Does the runtime context need to be mutable?** I.e. can a
-  driver install hooks at runtime, or is it frozen at engine
-  construction? Frozen-at-construction is simpler; we don't have
-  a use case for mutability yet.
-- **How does the runtime context interact with `addFile!` /
-  `mapAST2Method`?** Those bridge AST→Method by querying the live
-  module. They're marked LEGACY-?? in the inventory. They'd
-  naturally become runtime-context calls — but the "what module
-  is this AST attached to" question is genuinely an inference-side
-  concern, not a runtime one. Worth thinking through before
-  Phase B touches them.
-- **Where do recursive-call return types come from in a mocked
-  driver?** A test driver that has no JIT can't do inference.
-  Either (a) the driver fakes return-type queries from a hand
-  table, (b) the driver routes back into the checker recursively,
-  or (c) we accept that some drivers won't support all queries
-  and the checker handles `unsupported` gracefully. (c) might
-  be the right answer for record-replay specifically.
+- **Two-runtime FFI shape.** When the analyzer is genuinely
+  sideloaded into a different JIT session, what's the wire
+  format for `OpaqueHandle.val`? Today it's `::Any`; in the
+  separated world it would be `UInt64` (an iddict key on the
+  driver side) or a raw pointer. The phantom `K` type ensures
+  we can change `val` without touching call sites.
+- **Module references.** Should `Module` cross the seam as an
+  `OpaqueHandle{ModuleK}` (uniform) or as a const `CompileType`
+  (current ad-hoc convention)? The latter saves one handle kind
+  but breaks the "Module is callable-like" symmetry.
+- **`fasteval` / `Core.eval` paths.** These are genuinely
+  driver-side work. Likely need a `rtctx.evalTypeExpr(mod_h, ast)`
+  op that returns a wrapped CompileType — but `ast` is an analyzer-
+  side `JuAST`. May need to serialize the JuAST as a String of
+  source and reparse driver-side.
+- **Mutable runtime context?** I.e. install hooks at runtime, or
+  freeze at engine construction? Frozen is simpler; no use case
+  for mutability yet.
 
-## Non-goals (explicit)
+## Non-goals
 
 - Not rewriting the inference algorithm — only re-routing its
-  calls.
-- Not changing `JuAST` or the syntax adaptor shape.
+  external calls.
+- Not changing `JuAST` or the syntax adaptor shape (`Base.JuliaSyntax`
+  stays as today).
 - Not introducing a new package; this is internal restructuring.
-- Not breaking the existing `checkFile` / `checkDirectory` user
-  surface — those keep working with the default (JIT) runtime context.
+- Not breaking `checkFile` / `checkDirectory` user surface — those
+  keep working with the default (live-JIT) driver.
 
 ## Anchors / related docs
 
-- `/isolation.md` (root) — the original brainstorming this
-  refines.
-- `docs/nocheck_inventory.md` — which functions are already
-  acting as adaptor-seam (12 in `CompilerAdaptor.jl` are
-  GENUINE-keep) vs which leak past it.
-- `docs/untrimmable_calls.md` — the trim verifier's view of
-  what still pulls in Core.Compiler.
-- `feedback_adaptor_interface` (memory) — the existing rule
-  that nothing outside `CompilerAdaptor.jl` touches `Core.Compiler.*`.
-  This doc is "extend the same discipline to `Core.*` writ large."
+- `/isolation.md` (root) — original brainstorming.
+- `docs/nocheck_inventory.md` — which functions are at the adaptor
+  seam (GENUINE-keep) vs. which leak past it.
+- `docs/untrimmable_calls.md` — trim-verifier's view.
+- `feedback_adaptor_interface` (memory) — original "nothing outside
+  CompilerAdaptor touches Core.Compiler" rule, now broadened to
+  "nothing outside CompilerAdaptor touches the driver runtime."
+- `feedback_opaque_types_at_membrane` (memory) — CompileType /
+  MethodDef / JuAST stay opaque across rtctx.

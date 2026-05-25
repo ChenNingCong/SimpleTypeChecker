@@ -35,92 +35,16 @@ end
 
 
 
-function getReturnType(ctx::GlobalContext, sig)::Vector{CompileType}
-    param1 = sig.parameters[1]
-    if param1 <: Type
-        getReturnType(ctx, sig, param1.parameters[1], Base.to_tuple_type(sig.parameters[2:end]))
-    else
-        getReturnType(ctx, sig, param1.instance, Base.to_tuple_type(sig.parameters[2:end]))
-    end
-end
-
-function getReturnType(ctx::GlobalContext, f, tt)::Vector{CompileType}
-    getReturnType(ctx, Tuple{Core.Typeof(f), tt...}, f, tt)
-end
-
-function getReturnType(ctx::GlobalContext, sig, f, types;world = Core.Compiler.get_world_counter())::Vector{CompileType}
-    interp = Core.Compiler.NativeInterpreter(world; inf_params = Core.Compiler.InferenceParams())
-    if ccall(:jl_is_in_pure_context, Bool, ())
-        error("code reflection cannot be used from generated functions")
-    end
-    if isa(f, Core.OpaqueClosure)
-        error("InternalError : OpaqueClosure is unsupported")
-    end
-    if isa(f, Core.Builtin)
-        argtypes = Any[Base.to_tuple_type(types).parameters...]
-        rt = Core.Compiler.builtin_tfunction(interp, f, argtypes, nothing)
-        rt = Core.Compiler.ignorelimited(rt)
-        if rt isa Core.Compiler.Const
-            return CompileType[makeConstVal(rt.val)]
-        else
-            return CompileType[makeType(Core.Compiler.widenconst(rt))]
-        end
-    end
-    rts = CompileType[]
-    for match in Base._methods_by_ftype(sig, -1, world)::Vector
-        match = match::Core.MethodMatch
-        method = Base.func_for_method_checked(match.method, types, match.sparams)
-        mi = Core.Compiler.specialize_method(method, match.spec_types, match.sparams)::Core.Compiler.MethodInstance
-        result = Core.Compiler.InferenceResult(mi)
-        Core.Compiler.typeinf(interp, result, :global)
-        if result.result isa Core.Compiler.InferenceState
-            push!(rts, makeType(Any))
-        else
-            ty = Core.Compiler.ignorelimited(result.result)
-            if ty isa Core.Compiler.Const
-                push!(rts, makeConstVal(ty.val))
-            else
-                push!(rts, makeType(Core.Compiler.widenconst(ty)))
-            end
-        end
-    end
-    if hasfield(Core.Compiler.NativeInterpreter, :cache)
-        cache = interp.cache
-    else
-        cache = interp.inf_cache
-    end
-    for i in cache
-        push!(ctx.queue, KwFunCall(i.linfo))
-    end
-    return rts
-end
-
-function getKeywordMethodInstances(ctx::GlobalContext, sig)::Vector{Core.MethodInstance}
-    # f(x...;kwargs...) => we lookup method for 
-    #=
-    if isa(f, Core.Builtin)
-        error("Builtin function should never be called with kewyord")
-    end
-    =#
-    types =  Base.to_tuple_type(sig.parameters[2:end])
-    results = Vector{Core.MethodInstance}()
-    for match in Base._methods_by_ftype(sig, -1, Core.Compiler.get_world_counter())::Vector
-        match = match::Core.MethodMatch
-        method = Base.func_for_method_checked(match.method, types, match.sparams)
-        mi = Core.Compiler.specialize_method(method, match.spec_types, match.sparams)::Core.Compiler.MethodInstance
-        push!(results, mi)
-    end
-    return results
-end
+# Inference primitives moved to CompilerAdaptor.jl. The interface below stays in
+# this file because it's not compiler-internals — it's the per-Engine caching layer
+# that wraps inferReturnType / inferKeywordMethodHandles.
 
 function cacheLookup(eng::Engine, sig)::Vector{CompileType}
     ctx = eng.globalCtx
     if haskey(ctx.cache, sig)
         return ctx.cache[sig]
     else
-        # TODO : the major slowdown source
-        # we should use result from Julia's builtin compiler
-        v = getReturnType(eng.globalCtx, sig)
+        v = inferReturnType(eng.globalCtx, sig)
         ctx.cache[sig] = v
         return v
     end
@@ -135,7 +59,7 @@ function getMethodMatches(eng::Engine, ms::MethodCallStruct)::Vector{CompileType
     kwargs = ms.kwargs
     sig = Tuple{[i.typ.typ for i in args]...}
     if length(kwargs) > 0
-        mis = getKeywordMethodInstances(eng.globalCtx, sig)
+        mis = inferKeywordMethodHandles(eng.globalCtx, sig)
         if length(mis) == 0
             error("No method instance for keyword call")
         end

@@ -3,4 +3,4 @@ precompile(SimpleTypeChecker.Inference.inferExpr, (SimpleTypeChecker.Inference.E
 precompile(SimpleTypeChecker.Inference.runCheck!, (SimpleTypeChecker.Inference.GlobalContext,))
 precompile(SimpleTypeChecker.Inference.addFile!, (SimpleTypeChecker.Inference.GlobalContext, Core.Module, String))
 precompile(SimpleTypeChecker.Inference.analyzeScopeVariable, (SimpleTypeChecker.Inference.GlobalContext, SimpleTypeChecker.Inference.FunDef))
-precompile(SimpleTypeChecker.Inference.checkToplevelFunction, (SimpleTypeChecker.Inference.Engine, SimpleTypeChecker.Inference.FunDef, Core.MethodInstance))
+precompile(SimpleTypeChecker.Inference.checkToplevelFunction, (SimpleTypeChecker.Inference.Engine, SimpleTypeChecker.Inference.FunDef, SimpleTypeChecker.Inference.MethodHandle))

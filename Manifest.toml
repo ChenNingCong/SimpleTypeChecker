@@ -1,13 +1,20 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.10.5"
+julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "8d783163a0faf6265254228e69332d612e1b82df"
+project_hash = "9a9ee055a2adf2ea5ee0e26e0d3154ff32482dd7"
 
 [[deps.JuliaSyntax]]
 git-tree-sha1 = "db2bdeda30e452485863799be4515f6305431a46"
 uuid = "70703baa-626e-46a2-a12c-08ffd08c73b4"
 version = "0.3.2"
 
+[[deps.SimpleTypeChecker]]
+deps = ["JuliaSyntax", "Sockets"]
+path = "."
+uuid = "99a2e2af-0434-418a-b0f0-416ee7147db6"
+version = "0.1.0"
+
 [[deps.Sockets]]
 uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
+version = "1.11.0"

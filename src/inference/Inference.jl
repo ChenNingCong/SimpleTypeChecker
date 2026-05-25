@@ -2160,18 +2160,6 @@ function prepareToplevelFunction(ctx::GlobalContext, ast::JuAST)::FunDef
     end
 end
 
-@nocheck function makeSparamCompileType(mi::Core.MethodInstance, i::Int)::CompileType
-    return makeConstVal(mi.sparam_vals[i])
-end
-
-@nocheck function makeArgCompileType(mi::Core.MethodInstance, i::Int)::CompileType
-    return makeType(mi.specTypes.parameters[i])
-end
-
-@nocheck function specTypesLength(mi::Core.MethodInstance)::Int
-    return length(mi.specTypes.parameters)
-end
-
 function makeKwargType(arg::Argument)::CompileType
     # hack ...
     makeType(Int)
@@ -2183,10 +2171,10 @@ function checkToplevelFunction(eng::Engine,
     ast = fundef.ast
     smapping = Dict{Symbol, ContextValue}()
     mi = eng.mi
-    if length(mi.sparam_vals) != length(fundef.sparams)
+    if methodHandleSparamCount(mi) != length(fundef.sparams)
         error("mismatched param size")
     end
-    for i in 1:length(mi.sparam_vals)
+    for i in 1:methodHandleSparamCount(mi)
         # TODO : the ast is incorrect here...
         # add mapping here!
         node = makeSparamFlowNode(ast, makeSparamCompileType(mi, i))
@@ -2210,7 +2198,7 @@ function checkToplevelFunction(eng::Engine,
         index = i + length(fundef.args) + 1
         arg = fundef.optargs[i]
         # TODO : check input here
-        if index <= specTypesLength(mi)
+        if index <= methodHandleSpecTypesLength(mi)
             initnode = makeParamFlowNode(ast, makeArgCompileType(mi, index))
         else
             if !isNone(arg.initializer)
@@ -2332,7 +2320,7 @@ function readString(io)
 end
 
 
-@nocheck function mapAST2Method(mod::Module, fundef::FunDef)::Vector{Core.Method}
+@nocheck function mapAST2Method(mod::Module, fundef::FunDef)::Vector{MethodDef}
     # Given an JuAST, we try to select an appropriate method for its definition
     # Currently, keywords and optional functions are not handled
     # we handle them lately !!!
@@ -2357,7 +2345,7 @@ end
     end
     f = evalGetPropertyChain(mod, fundef.fname)
     optresult = Any[]
-    allmethods = Core.Method[]
+    allmethods = MethodDef[]
 
     base = Tuple{Core.Typeof(f), result...}
     # construct from inside out    
@@ -2383,26 +2371,6 @@ end
         push!(allmethods, Base.which(base))
     end
     return allmethods
-end
-
-@nocheck function isConcreteMethod(meth::Core.Method)::Bool
-    z = meth.sig
-    if z isa UnionAll
-        return false
-    end
-    if !(z <: Tuple)
-        return false
-    end
-    for i in 2:length(z.parameters)
-        if !Base.isconcretetype(z.parameters[i])
-            return false
-        end
-    end
-    return true
-end
-
-@nocheck function getCodeInfo(meth::Core.Method)::Any
-    Base.code_typed_by_type(meth.sig)[1].first
 end
 
 @nocheck function collectToplevelFunction!(ctx::GlobalContext, rel::Dict{Vector{Symbol}, Vector{FunDef}}, mod::Vector{Symbol}, ast::JuAST)::Nothing
@@ -2489,11 +2457,11 @@ end
                 end
                 meth = meths[end]
                 # meth is the corresponding method definition for ex 
-                if isConcreteMethod(meth)
-                    ci = getCodeInfo(meth)
+                if isConcreteMethodDef(meth)
+                    ci = methodDefCodeInfo(meth)
                     if ci isa Core.CodeInfo
-                        mi = ci.parent
-                        if mi isa Core.MethodInstance
+                        mi = codeInfoMethodHandle(ci)
+                        if mi isa MethodHandle
                             push!(ctx.queue, KwFunCall(mi))
                         end
                     end
@@ -2511,11 +2479,11 @@ end
         kmi = popfirst!(ctx.queue)
         # this specialization is checked
         mi = kmi.mi
-        meth = mi.def
+        meth = methodHandleDef(mi)
         if meth isa Module
             continue
         end
-        # meth isa Method
+        # meth isa MethodDef
         if !haskey(ctx.methodDefs, meth)
             continue
         end
@@ -2535,7 +2503,6 @@ end
         end
         push!(ctx.hasChecked[mi], kmi.kwargs=>nothing)
         fundef = ctx.methodDefs[meth]
-        tts = mi.specTypes
         # mark the specialization in check
         try
             sictx = analyzeScopeVariable(ctx, fundef)

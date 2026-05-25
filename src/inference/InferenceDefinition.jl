@@ -456,14 +456,14 @@ end
 const KeywordSortList = Vector{Pair{Symbol, CompileType}}
 
 struct KwFunCall
-    mi::Core.MethodInstance
+    mi::MethodHandle
     kwargs::KeywordSortList
-    function KwFunCall(mi::Core.MethodInstance, li::KeywordSortList)
+    function KwFunCall(mi::MethodHandle, li::KeywordSortList)
         return new(mi, sort(li; lt = _helper_sort_lt))
     end
 end
 
-function KwFunCall(mi::Core.MethodInstance)
+function KwFunCall(mi::MethodHandle)
     KwFunCall(mi, KeywordSortList())
 end
 
@@ -476,10 +476,10 @@ mutable struct GlobalContext
     # each source file has an individual JuAST
     fileMapping::Dict{JuliaSyntax.SourceFile, JuAST}
     # each method has an individual JuAST
-    methodDefs::Dict{Core.Method, FunDef}
+    methodDefs::Dict{MethodDef, FunDef}
 
     queue::Vector{KwFunCall}
-    hasChecked::Dict{Core.MethodInstance, Vector{Pair{KeywordSortList, Any}}}
+    hasChecked::Dict{MethodHandle, Vector{Pair{KeywordSortList, Any}}}
     cache::Dict{Any, Vector{CompileType}}
     const expanders::Dict{CompileType, MacroExpander}
 end
@@ -487,9 +487,9 @@ end
 function GlobalContext()
     GlobalContext(ErrorLogger(IOBuffer()),
                   Dict{JuliaSyntax.SourceFile, JuAST}(),
-                  Dict{Core.Method, FunDef}(),
+                  Dict{MethodDef, FunDef}(),
                   KwFunCall[], 
-                  Dict{Core.MethodInstance, Vector{Pair{Dict{Symbol, CompileType}, Any}}}(), 
+                  Dict{MethodHandle, Vector{Pair{Dict{Symbol, CompileType}, Any}}}(), 
                   Dict{Any, Vector{Any}}(),
                   Dict{CompileType, MacroExpander}())
 end
@@ -609,7 +609,7 @@ end
 
 mutable struct Engine
     const globalCtx::GlobalContext
-    const mi::Core.MethodInstance
+    const mi::MethodHandle
     const mod::Core.Module
     const errio::ErrorLogger
     # a JuAST can have multiple mapping
@@ -654,18 +654,10 @@ function getGlobalCtx(eng::Engine)
     return eng.globalCtx
 end
 
-function getMod(mi::Core.MethodInstance)::Core.Module
-    v = mi.def
-    if v isa Module
-        return v
-    else
-        return v.module
-    end
-end
-
-function Engine(ctx::GlobalContext, mi::Core.MethodInstance, scopeInfos::ScopeInfos)
-    # stdout is abstract
-    return Engine(ctx, mi, getMod(mi), ctx.errio, Dict{JuAST, Vector{FlowNode}}(), scopeInfos, FlowNode[], Vector{Vector{Context}}(), None(FlowNode))
+function Engine(ctx::GlobalContext, mi::MethodHandle, scopeInfos::ScopeInfos)
+    # methodHandleModule is defined in CompilerAdaptor.jl (loaded after this file).
+    # Julia resolves the symbol at call time, so the forward reference is fine.
+    return Engine(ctx, mi, methodHandleModule(mi), ctx.errio, Dict{JuAST, Vector{FlowNode}}(), scopeInfos, FlowNode[], Vector{Vector{Context}}(), None(FlowNode))
 end
 
 function addFlowMapping!(eng::Engine, ast::JuAST, node::FlowNode)::Nothing

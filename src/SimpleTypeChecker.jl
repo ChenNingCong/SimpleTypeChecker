@@ -1,5 +1,5 @@
 module SimpleTypeChecker
 
-include("./adaptor/toplevel.jl")
+include("./toplevel.jl")
 
 end # module SimpleTypeChecker

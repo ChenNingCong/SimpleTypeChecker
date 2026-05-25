@@ -57,6 +57,15 @@ using SimpleTypeChecker
         @test captured_failures == 0
     end
 
+    # Standalone trimmed-binary validation. Opt-in (STTC_STANDALONE_TEST=1)
+    # because the build is slow (~30s). This is the membrane's real proof:
+    # the inferencer compiled to a self-contained exe must run in a fresh
+    # process with its own embedded runtime — any Core.* leak from analyzer
+    # code becomes a crash.
+    @testset "Standalone trimmed binary" begin
+        include("standalone/test_standalone.jl")
+    end
+
     @testset "Smoke — README self-check runs to completion" begin
         path = abspath(joinpath(splitdir(pathof(SimpleTypeChecker))[1], ".."))
         ctx = SimpleTypeChecker.Inference.GlobalContext()

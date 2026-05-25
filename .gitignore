@@ -5,3 +5,7 @@
 # Manifest files — tracked at the top of the worktree only if needed.
 # Leave Project.toml tracked; ignore the per-user Manifest.toml.
 /Manifest.toml
+
+# Trim-built artifacts from bin/build_standalone.jl. The build is
+# reproducible (~30s) and binaries are large (~8MB) — don't track them.
+/bin/build/

@@ -156,6 +156,35 @@ end
     return Symbol("")
 end
 
+# Walks each macro argument through inferExpr purely for its side effects
+# on the engine — populating ctx.queue with nested method instances so the
+# checker still recurses into calls written inside an unrecognized macro
+# body. Errors raised while inferring an individual argument are swallowed
+# so one bad argument can't poison checking of the others. Returns ctx
+# possibly updated by successful argument inference.
+@nocheck function inferMacroArgsForSideEffects!(eng::Engine, ctx::Context, ast::JuAST)::Context
+    n = length(ast.args)
+    if n < 2
+        return ctx
+    end
+    for i in 2:n
+        try
+            rel = inferExpr(eng, ctx, ast.args[i])
+            ctx = rel.ctx
+        catch e
+            if e isa SyntaxError || e isa InferenceError
+                # Swallow — macros frequently take non-standard argument
+                # shapes (shell-like tokens for @cmd, raw strings, etc.).
+                # The side-effect-only intent means we don't need to surface
+                # these per-argument failures.
+            else
+                rethrow(e)
+            end
+        end
+    end
+    return ctx
+end
+
 @nocheck function inferMacroCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     assertASTKind(ast, :macrocall)
     # Resolving the macro identifier can fail in several ways:
@@ -165,6 +194,8 @@ end
     #   - User-defined macros from packages we don't trace into.
     # We don't want an unresolved macro identifier to kill the whole method
     # check — fall back to the "macro not implemented" warning path instead.
+    # In all fallback paths we still walk the macro's arguments so nested
+    # method instances inside the macro body get queued for checking.
     local node::FlowNode
     local typ::CompileType
     try
@@ -175,6 +206,7 @@ end
     catch e
         if e isa SyntaxError || e isa InferenceError
             reportWarning(eng, ast, "Macro is not implemented. Inferred as a nothing")
+            ctx = inferMacroArgsForSideEffects!(eng, ctx, ast)
             node = makeMacroCallFlowNode(ast)
             return InferResult(ctx, node)
         else
@@ -196,6 +228,7 @@ end
             addFlowMapping!(eng, ast, node)
         else
             reportWarning(eng, ast, "Macro is not implemented. Inferred as a nothing")
+            ctx = inferMacroArgsForSideEffects!(eng, ctx, ast)
             node = makeMacroCallFlowNode(ast)
         end
     end
@@ -2604,8 +2637,46 @@ end
     return allmethods
 end
 
+# Callable-struct method defs (`function (op::AWrap)(x) ... end`) are a
+# valid Julia pattern that the checker doesn't auto-register yet — the
+# function "name" is a `::`-typed pattern, not an identifier. We detect
+# this and silently skip the def so it doesn't pollute output with
+# "Not a valid function name" errors. The wrapper still works at the
+# call site (its concrete struct type passes the abstract-arg check);
+# only the wrapper's body misses auto-checking. Future work: thread the
+# callable type through prepareToplevelFunction / mapAST2Method.
+@nocheck function isCallableMethodDef(ast::JuAST)::Bool
+    f = ast
+    if f.head == :function || f.head == :(=)
+        if length(f.args) == 0
+            return false
+        end
+        f = f.args[1]
+    else
+        return false
+    end
+    # peel off `where {...}` and `:: rettype` wrappers
+    while true
+        if f.head == :where || f.head == :(::)
+            length(f.args) == 0 && return false
+            f = f.args[1]
+        else
+            break
+        end
+    end
+    if f.head != :call
+        return false
+    end
+    length(f.args) == 0 && return false
+    name = f.args[1]
+    return name.head == :(::)
+end
+
 @nocheck function collectToplevelFunction!(ctx::GlobalContext, rel::Dict{Vector{Symbol}, Vector{FunDef}}, mod::Vector{Symbol}, ast::JuAST)::Nothing
     isFunc = false
+    if isCallableMethodDef(ast)
+        return nothing
+    end
     if ast.head == :module
         mname = ast.args[2]
         if mname.head != :identifier

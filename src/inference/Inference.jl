@@ -265,7 +265,7 @@ function inferCurlyCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     if length(imprecise) > 0
         reportErrorApplyTypeNonconst(eng, ast, imprecise)
     end
-    mtt = tryApplyType(argtyps)
+    mtt = tryApplyType(eng.globalCtx.rtctx, argtyps)
     if isNone(mtt)
         reportErrorApplyTypeFailure(eng, ast, tts)
     end
@@ -312,10 +312,15 @@ function inferSubtypeOp(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     lnode = rel_l.node
     rnode = rel_r.node
     args = FlowNode[lnode, rnode]
+    rtctx = eng.globalCtx.rtctx
     local result_ct::CompileType
     if isConstVal(lnode.typ) && isConstVal(rnode.typ) &&
-       isTypeValue(lnode.typ.val) && isTypeValue(rnode.typ.val)
-        result_ct = makeConstVal(subtypeOf(lnode.typ.val, rnode.typ.val))
+       rtctx.constIsTypeValue(lnode.typ) && rtctx.constIsTypeValue(rnode.typ)
+        # Both consts are Type-values — lift each to type-value handles and
+        # ask the seam to compare the underlying types.
+        l_lifted = unwrap(rtctx.liftConstToType(lnode.typ), CompileType)
+        r_lifted = unwrap(rtctx.liftConstToType(rnode.typ), CompileType)
+        result_ct = makeConstVal(rtctx.subtypeOf(l_lifted, r_lifted))
     else
         result_ct = makeType(Bool)
     end
@@ -339,15 +344,19 @@ function inferTypeAssertExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     ctx = reltyp.ctx
     vnode = relval.node
     tnode = reltyp.node
+    rtctx = eng.globalCtx.rtctx
     # Asserted type must be a constant Type value.
-    if !(isConstVal(tnode.typ) && isTypeValue(tnode.typ.val))
+    if !(isConstVal(tnode.typ) && rtctx.constIsTypeValue(tnode.typ))
         reportErrorApplyTypeNonconst(eng, ast, Int[2])
     end
-    asserted = tnode.typ.val
-    # Value type must be compatible with the assertion. If we know the value
-    # type and it's not <: asserted, the assertion can never hold.
-    valtyp = vnode.typ.typ
-    if isTypeValue(valtyp) && !subtypeOf(valtyp, asserted)
+    # Lift the const Type-value into a type-value handle for the subtype check.
+    asserted_typ = unwrap(rtctx.liftConstToType(tnode.typ), CompileType)
+    # Value type must be compatible with the assertion. If the value's
+    # declared type isn't <: asserted, the assertion can never hold. We
+    # check the value's storage type by removing const-ness first so the
+    # comparison is on the type-value form.
+    valtyp = removeConst(vnode.typ)
+    if !rtctx.subtypeOf(valtyp, asserted_typ)
         # Reuse the assign-init-incompatible error — same shape as `local x::Int = 1.0`.
         reportErrorAssignInitIncompatible(eng, ast, tnode.typ, vnode.typ)
     end
@@ -356,7 +365,7 @@ function inferTypeAssertExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     if isConstVal(vnode.typ)
         result_ct = vnode.typ
     else
-        result_ct = makeType(asserted)
+        result_ct = asserted_typ
     end
     node = makeCurlyCallFlowNode(ast, FlowNode[vnode, tnode], result_ct)
     addFlowMapping!(eng, ast, node)
@@ -415,18 +424,20 @@ function inferWhereType(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         reportASTError(eng, ast, "where requires exactly two arguments (base type and TypeVar binder)")
     end
     binder = ast.args[2]
+    rtctx = eng.globalCtx.rtctx
     local result_ct::CompileType
     local base::FlowNode
     if binder.head == :identifier
         tvname = cast2Symbol(binder.val)
-        tv = TypeVar(tvname)
-        tv_ct = makeConstVal(tv)
+        # Driver-side TypeVar construction — returns a const CompileType
+        # wrapping the fresh TypeVar.
+        tv_ct = unwrap(rtctx.makeTypeVarOf(tvname), CompileType)
         tv_node = makeSparamFlowNode(binder, tv_ct)
         scoped_ctx = update(ctx, tvname, ContextValue(tv_node, tv_node))
         rel = inferExpr(eng, scoped_ctx, ast.args[1])
         base = rel.node
-        if isConstVal(base.typ) && isTypeValue(base.typ.val)
-            result_ct = makeConstVal(makeUnionAll(tv, base.typ.val))
+        if isConstVal(base.typ) && rtctx.constIsTypeValue(base.typ)
+            result_ct = unwrap(rtctx.makeUnionAllOf(tv_ct, base.typ), CompileType)
         else
             result_ct = makeType(Type)
         end
@@ -458,9 +469,10 @@ function inferCCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     rt_rel = inferExpr(eng, ctx, ast.args[3])
     ctx = rt_rel.ctx
     rt_node = rt_rel.node
+    rtctx = eng.globalCtx.rtctx
     local result_ct::CompileType
-    if isConstVal(rt_node.typ) && isTypeValue(rt_node.typ.val)
-        result_ct = makeType(rt_node.typ.val)
+    if isConstVal(rt_node.typ) && rtctx.constIsTypeValue(rt_node.typ)
+        result_ct = unwrap(rtctx.liftConstToType(rt_node.typ), CompileType)
     else
         # Couldn't statically determine the return type — widen to Any.
         result_ct = makeType(Any)
@@ -518,8 +530,7 @@ function _escapeHatchMask(rtctx::RuntimeContext, fargs::Vector{FlowNode})::Tuple
     if !isConstVal(f.typ)
         return (false, UInt32(0))
     end
-    fval = f.typ.val
-    if !(fval isa Function)
+    if !rtctx.constIsFunction(f.typ)
         return (false, UInt32(0))
     end
     # Find methods on this function that could match the call's arity.
@@ -530,7 +541,7 @@ function _escapeHatchMask(rtctx::RuntimeContext, fargs::Vector{FlowNode})::Tuple
     # "single method total" rule, so functions like `Base.rethrow` (one
     # zero-arg method + one 1-arg `@nospecialize` method) qualify at the
     # 1-arg call site.
-    ms = rtctx.methodsOf(fval)
+    ms = rtctx.methodsOf(rtctx.getCallableFromConst(f.typ))
     arity = length(fargs)
     matchIdx = 0
     matchCount = 0
@@ -561,13 +572,12 @@ end
 # table. An abstract arg at one of these sites is harmless: there is no
 # method-table lookup to resolve. Use this to suppress false-positive
 # "argument N is abstract" complaints.
-function _isBuiltinCallee(fargs::Vector{FlowNode})::Bool
+function _isBuiltinCallee(rtctx::RuntimeContext, fargs::Vector{FlowNode})::Bool
     f = fargs[1]
     if !isConstVal(f.typ)
         return false
     end
-    v = f.typ.val
-    return v isa Core.Builtin || v isa Core.IntrinsicFunction
+    return rtctx.constIsBuiltinOrIntrin(f.typ)
 end
 
 function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::InferResult
@@ -665,7 +675,7 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
     end
 
     checkConstructor = false
-    if isConstructor(fargs[1].typ)
+    if isConstructor(eng.globalCtx.rtctx, fargs[1].typ)
         checkConstructor = true
     end
 
@@ -708,7 +718,7 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
     # method table, so an abstract arg here doesn't cause runtime
     # dispatch. Drop user-arg imprecise entries (keep slot 1 = the
     # callee itself, which must still be statically known).
-    if length(imprecise) > 0 && _isBuiltinCallee(fargs)
+    if length(imprecise) > 0 && _isBuiltinCallee(eng.globalCtx.rtctx, fargs)
         kept = Int[]
         for i in imprecise
             if i >= 2
@@ -1361,7 +1371,7 @@ function inferAssignLHSTypedAssert(eng::Engine, ctx::Context, ast::JuAST, mrhsno
         if !isConstVal(typ)
             reportErrorTypeAssertNonconst(eng, ast)
         else
-            declaretyp = lift(typ)
+            declaretyp = lift(eng.globalCtx.rtctx, typ)
             if isNone(mrhsnode)
                 # TODO : distinguish bewteen these two kinds of node!!!
                 node1 = makeAssignLHSVarAssertFlowNode(ast, rel.node, declaretyp, false)
@@ -1760,7 +1770,7 @@ function inferCat(eng::Engine, ctx::Context, ast::JuAST)::InferResult
                     else
                         pnode = castJust(prinType)
                         if istyped
-                            pnodetyp = lift(pnode.typ)
+                            pnodetyp = lift(eng.globalCtx.rtctx, pnode.typ)
                             if !(tryMergeCompileValue(eng.globalCtx.rtctx, pnodetyp, node.typ) &&
                                 tryMergeCompileValue(eng.globalCtx.rtctx, node.typ, pnodetyp))
                                 # todo : improve error reporting here
@@ -1779,7 +1789,7 @@ function inferCat(eng::Engine, ctx::Context, ast::JuAST)::InferResult
             end
         end
         if istyped
-            ttt = makeMatrixType(lift(castJust(prinType).typ))
+            ttt = makeMatrixType(lift(eng.globalCtx.rtctx, castJust(prinType).typ))
         else
             # TODO : test isNone of prinType
             ttt = makeMatrixType(castJust(prinType).typ)
@@ -1828,7 +1838,7 @@ function inferCatHelper(eng::Engine, ctx::Context, ast::JuAST, fnode::FlowNode, 
         else
             pnode = castJust(prinType)
             if istyped
-                pnodetyp = lift(pnode.typ)
+                pnodetyp = lift(eng.globalCtx.rtctx, pnode.typ)
                 if !(tryMergeCompileValue(eng.globalCtx.rtctx, pnodetyp, node.typ) &&
                     tryMergeCompileValue(eng.globalCtx.rtctx, node.typ, pnodetyp))
                     # todo : improve error reporting here
@@ -1939,17 +1949,17 @@ function inferGetField(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     if isBottomType(eng.globalCtx.rtctx, ft)
         reportErrorGetFieldOfBottom(eng, ast)
     end
-    if isConstVal(ft)
-        vval = ft.val
-        if vval isa Module
-            if isModuleDefined(vval, p)
-                v = getFromModule(vval, p)
-                node = makeGetPropertyFlowNode(ast, node, v)
-                addFlowMapping!(eng, ast, node)
-                return InferResult(ctx, node)
-            else
-                reportErrorNoField(eng, ast, node, p)
-            end
+    rtctx = eng.globalCtx.rtctx
+    if isConstVal(ft) && rtctx.constIsModule(ft)
+        # The const value is a Module — fetch the property via membrane-aware
+        # module accessors. The Module reference itself stays opaque.
+        if constModuleIsDefined(rtctx, ft, p)
+            v = constModuleGetField(rtctx, ft, p)
+            node = makeGetPropertyFlowNode(ast, node, v)
+            addFlowMapping!(eng, ast, node)
+            return InferResult(ctx, node)
+        else
+            reportErrorNoField(eng, ast, node, p)
         end
     end
     if !isConcreteType(eng.globalCtx.rtctx, ft)
@@ -2004,7 +2014,7 @@ function tryNarrowType(eng::Engine, ctx::Context, ast::JuAST)::Pair{InferResult,
                     if !isConstVal(rhstt)
                         reportErrorIsaRHSNonconst(eng, ast)
                     end
-                    rhstt = lift(rhstt)
+                    rhstt = lift(eng.globalCtx.rtctx, rhstt)
                     # TODO : lift the constant here
                     # x isa XXX type, we life XXX to a type before we perform comparsion
                     if !isaType(eng.globalCtx.rtctx, rhstt)
@@ -2035,7 +2045,7 @@ function tryNarrowType(eng::Engine, ctx::Context, ast::JuAST)::Pair{InferResult,
                     if isaAny(eng.globalCtx.rtctx, curtt)
                         return newrel => ctx
                     elseif isaUnion(eng.globalCtx.rtctx, curtt)
-                        negtt = splitUnion(curtt, rhstt)
+                        negtt = splitUnion(eng.globalCtx.rtctx, curtt, rhstt)
                         negpinode = makeNegPiFlowNode(ast, condnode, negtt)
                         negctx = update(ctx, lhsid, ContextValue(storetypenode, negpinode))
                         return newrel => negctx
@@ -2435,7 +2445,7 @@ function iterateCheck(eng::Engine, node::FlowNode)::FlowNode
     if !isaUnion(eng.globalCtx.rtctx, tt)
         error("Not a union for iterator")
     end
-    tt = splitUnion(tt, makeType(Nothing))
+    tt = splitUnion(eng.globalCtx.rtctx, tt, makeType(Nothing))
     if isaTuple(eng.globalCtx.rtctx, tt)
         tt = getFirstParameter(tt)
     else
@@ -2799,7 +2809,7 @@ function checkToplevelFunction(eng::Engine,
             rel = inferExpr(eng, ctx, castJust(arg.typ))
             typnode = rel.node
             ctx = rel.ctx
-            ttt = lift(typnode.typ)
+            ttt = lift(eng.globalCtx.rtctx, typnode.typ)
             if !tryMergeCompileValue(eng.globalCtx.rtctx, ttt, initnode.typ)
                 reportErrorAssignInitIncompatible(eng, ast, ttt, initnode.typ)
             end
@@ -2828,7 +2838,7 @@ function checkToplevelFunction(eng::Engine,
             inputtyp = kwargs[arg.name]
             if !isNone(mtypnode)
                 typnode = castJust(mtypnode)
-                ttt = lift(typnode.typ)
+                ttt = lift(eng.globalCtx.rtctx, typnode.typ)
                 if !tryMergeCompileValue(eng.globalCtx.rtctx, ttt, inputtyp)
                     reportErrorAssignInitIncompatible(eng, ast, ttt, inputtyp)
                 end
@@ -2841,7 +2851,7 @@ function checkToplevelFunction(eng::Engine,
                 initnode = castJust(minitnode)
                 if !isNone(mtypnode)
                     typnode = castJust(mtypnode)
-                    ttt = lift(typnode.typ)
+                    ttt = lift(eng.globalCtx.rtctx, typnode.typ)
                     if !tryMergeCompileValue(eng.globalCtx.rtctx, ttt, initnode.typ)
                         reportErrorAssignInitIncompatible(eng, ast, ttt, initnode.typ)
                     end
@@ -2857,7 +2867,7 @@ function checkToplevelFunction(eng::Engine,
         # TODO : fix the flow node here
         rel = inferExpr(eng, ctx, castJust(astrt))
         # TODO : use a interface functon for val -> typ conversion
-        eng.retVal = Just(makeExpectedReturnFlowNode(ast, lift(rel.node.typ)))
+        eng.retVal = Just(makeExpectedReturnFlowNode(ast, lift(eng.globalCtx.rtctx, rel.node.typ)))
         ctx = rel.ctx
     end
     rel = inferExpr(eng, ctx, fundef.body)

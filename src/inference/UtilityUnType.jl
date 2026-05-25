@@ -31,6 +31,17 @@ function isModuleDefined(mod::Core.Module, p::Symbol)::Bool
     return isdefined(mod, p)::Bool
 end
 
+# Membrane-aware variants that take a const CompileType handle (wrapping a
+# Module) instead of a raw Module reference. Used by inferGetProperty so
+# the Module value never crosses into the inferencer.
+function constModuleIsDefined(rtctx::RuntimeContext, modct::CompileType, p::Symbol)::Bool
+    return rtctx.constModuleIsDefined(modct, p)
+end
+
+function constModuleGetField(rtctx::RuntimeContext, modct::CompileType, p::Symbol)::CompileType
+    return unwrap(rtctx.constModuleGetField(modct, p), CompileType)
+end
+
 
 
 # Inference primitives moved to CompilerAdaptor.jl. The interface below stays in
@@ -112,17 +123,16 @@ function checkFieldCompatibility(rtctx::RuntimeContext, dest::CompileType, src::
     return rtctx.subtypeOf(src, dest)
 end
 
-function isConstructor(v::CompileType)::Bool
-    return isConstVal(v) && v.val isa Type
+function isConstructor(rtctx::RuntimeContext, v::CompileType)::Bool
+    return isConstVal(v) && rtctx.constIsTypeValue(v)
 end
 
-function tryApplyType(args::Vector{CompileType})::Maybe{CompileType}
-    f = args[1].val
-    try
-        tt = Core.apply_type(f, (args[i].val for i in 2:length(args))...)
-        return Just(makeConstVal(tt))
-    catch e
+function tryApplyType(rtctx::RuntimeContext, args::Vector{CompileType})::Maybe{CompileType}
+    tt = unwrap(rtctx.applyTypeOf(args), CompileType)
+    if isBottomType(rtctx, tt)
         return None(CompileType)
+    else
+        return Just(tt)
     end
 end
 
@@ -145,19 +155,11 @@ function tryMergeReturnFlowNode(rtctx::RuntimeContext, v1::FlowNode, v2::FlowNod
     return tryMergeFlowType(rtctx, v1, v2)
 end
 
-function collectUnion(@nospecialize x)::Vector{Any}
-    if x isa Union
-        return vcat(collectUnion(x.a), collectUnion(x.b))
-    else
-        return Any[x]
-    end
-end
-
-function splitUnion(x::CompileType, y::CompileType)::CompileType
-    # note, we use the type of left value and the value of right type
-    u1 = collectUnion(x.typ) 
-    u2 = collectUnion(y.typ)
-    makeType(Union{setdiff(u1, u2)...})
+# `collectUnion` / `splitUnion` moved behind the seam — both peek `.a`/`.b`
+# on Union values, which is target-runtime data. The driver does the
+# decomposition and hands back a fresh CompileType handle.
+function splitUnion(rtctx::RuntimeContext, x::CompileType, y::CompileType)::CompileType
+    return unwrap(rtctx.splitUnionOf(x, y), CompileType)
 end
 
 function isaType(rtctx::RuntimeContext, x::CompileType)::Bool
@@ -193,9 +195,9 @@ function getFirstParameter(x::CompileType)::CompileType
     return makeType(_firstTypeParam(x.typ))
 end
 
-function tryMergeConstVal(v1::CompileType, v2::CompileType)::Bool
+function tryMergeConstVal(rtctx::RuntimeContext, v1::CompileType, v2::CompileType)::Bool
     if isConstVal(v1) && isConstVal(v2)
-        return v1.val === v2.val
+        return rtctx.constEqualsConst(v1, v2)
     else
         return false
     end
@@ -261,21 +263,19 @@ function tryMergeFlowNode(eng::Engine, ast::JuAST, v::Vector{FlowNode}, allowUni
         if isBottomType(rtctx, v[i].typ)
             continue
         end
-        v1 = tmptyp.typ
-        v2 = v[i].typ.typ
         if !allowUnion
-            if !(v1 === v2)
+            if !rtctx.typeEq(tmptyp, v[i].typ)
                 reportErrorIfEnlargeType(eng, v[1], v[i])
             end
         end
         # Note, if we allow union, then type may not equal
         if allConst && isConstVal(tmptyp) && isConstVal(v[i].typ)
-            allConst = tryMergeConstVal(tmptyp, v[i].typ)
+            allConst = tryMergeConstVal(rtctx, tmptyp, v[i].typ)
         else
             allConst = false
         end
         if !allConst
-            tmptyp = makeType(Union{v1, v2})
+            tmptyp = unwrap(rtctx.makeUnionOf(tmptyp, v[i].typ), CompileType)
         end
     end
     return makePhiFlowNode(ast, v, tmptyp)

@@ -46,9 +46,9 @@ function removeConst(typ::CompileType)::CompileType
     end
 end
 
-function lift(v::CompileType)::CompileType
+function lift(rtctx::RuntimeContext, v::CompileType)::CompileType
     if isConstVal(v)
-        return makeType(v.val)
+        return unwrap(rtctx.liftConstToType(v), CompileType)
     else
         error("Internal error")
     end

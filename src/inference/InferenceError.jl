@@ -479,14 +479,8 @@ function explainAbstractType(typ::CompileType)::String
     return base
 end
 
-function isBuiltinEqual(tt::CompileType)::Bool
-    if tt.val === (Core.:(===))
-        return true
-    elseif tt.val === (Base.:(!==))
-        return true
-    else
-        return false
-    end
+function isBuiltinEqual(rtctx::RuntimeContext, tt::CompileType)::Bool
+    return rtctx.constEqualsBuiltinEq(tt)
 end
 
 function displayErrorFunCallArgs(err::InferenceErrorFunCallArgs)::Nothing
@@ -517,7 +511,7 @@ function displayErrorFunCallArgs(err::InferenceErrorFunCallArgs)::Nothing
     end
     writelogln!(eng.errio, "  Calls through this site fall into Julia's open-world dispatch and can't be resolved at compile time.")
     writelogln!(eng.errio, "  Fix: make the abstract slot concrete at this site, or wrap it in a parametric struct so the type is carried through the call chain.")
-    if isBuiltinEqual(ms.fargs[1].typ)
+    if isBuiltinEqual(eng.globalCtx.rtctx, ms.fargs[1].typ)
         writelogln!(eng.errio, "  Note: don't use ===/!== to compare values of different types — use (<var> isa Nothing) to narrow the type explicitly.")
     end
 end
@@ -894,7 +888,7 @@ function displayErrorElementNonSameType(err::InferenceErrorElementNonSameType)::
     typed = err.typed
     if typed
         printErrorHead(eng, ast, "Incompatiable type with typed array")
-        writelogln!(eng.errio, "Previous type is $(toString(lift(t1.typ))), $(formatLocation(t1.ast.loc))")
+        writelogln!(eng.errio, "Previous type is $(toString(lift(eng.globalCtx.rtctx, t1.typ))), $(formatLocation(t1.ast.loc))")
         writelogln!(eng.errio, "Current type is $(toString(t2.typ)), $(formatLocation(t2.ast.loc))")
     else
         printErrorHead(eng, ast, "Array element must have the same type")

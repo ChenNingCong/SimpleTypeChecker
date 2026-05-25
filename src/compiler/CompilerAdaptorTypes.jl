@@ -109,6 +109,13 @@ const GetFieldTypeOfFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{Opaqu
 #   getCallableFromConst   -> rewrap `.val` as a CallableK handle for methodsOf
 const ConstIsTypeValueFn       = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
 const ConstIsModuleFn          = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
+# Module accessors operate on a const CompileType handle wrapping a Module.
+# The Module itself never crosses into the inferencer — it stays as part of
+# the opaque `.val`. `constModuleIsDefined` asks `isdefined(mod, sym)`;
+# `constModuleGetField` returns a fresh CompileType handle (const if the
+# binding is const, type-value Any otherwise).
+const ConstModuleIsDefinedFn   = FunctionWrapper{Bool,                       Tuple{OpaqueHandle{CompileTypeK}, Symbol}}
+const ConstModuleGetFieldFn    = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}, Symbol}}
 const ConstIsFunctionFn        = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
 const ConstIsBuiltinOrIntrinFn = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
 const ConstEqualsBuiltinEqFn   = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
@@ -129,6 +136,10 @@ const MakeTypeVarOfFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{Symbol
 const MakeUnionAllOfFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}, OpaqueHandle{CompileTypeK}}}
 const TypeEqFn        = FunctionWrapper{Bool,                       Tuple{OpaqueHandle{CompileTypeK}, OpaqueHandle{CompileTypeK}}}
 const MakeUnionOfFn   = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}, OpaqueHandle{CompileTypeK}}}
+# `splitUnionOf(x, y)` -> `makeType(Union{collectUnion(x.typ) \ collectUnion(y.typ) ...})`.
+# Removes a Union-shaped narrowing target from x. Driver-side because Union
+# decomposition peeks `.a` / `.b`.
+const SplitUnionOfFn  = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}, OpaqueHandle{CompileTypeK}}}
 
 # ─── Display ops ─────────────────────────────────────────────────────────────
 #
@@ -158,6 +169,8 @@ struct RuntimeContext
     # Constant-inspection cluster
     constIsTypeValue::ConstIsTypeValueFn
     constIsModule::ConstIsModuleFn
+    constModuleIsDefined::ConstModuleIsDefinedFn
+    constModuleGetField::ConstModuleGetFieldFn
     constIsFunction::ConstIsFunctionFn
     constIsBuiltinOrIntrin::ConstIsBuiltinOrIntrinFn
     constEqualsBuiltinEq::ConstEqualsBuiltinEqFn
@@ -170,6 +183,7 @@ struct RuntimeContext
     makeUnionAllOf::MakeUnionAllOfFn
     typeEq::TypeEqFn
     makeUnionOf::MakeUnionOfFn
+    splitUnionOf::SplitUnionOfFn
     # Display cluster
     typeToString::TypeToStringFn
     constToString::ConstToStringFn

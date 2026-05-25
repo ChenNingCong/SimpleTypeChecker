@@ -638,6 +638,20 @@ end
     return unwrap(h, CompileType).val isa Module
 end
 
+@nocheck function constModuleIsDefined(h::OpaqueHandle{CompileTypeK}, p::Symbol)::Bool
+    mod = unwrap(h, CompileType).val::Module
+    return isdefined(mod, p)
+end
+
+@nocheck function constModuleGetField(h::OpaqueHandle{CompileTypeK}, p::Symbol)::CompileType
+    mod = unwrap(h, CompileType).val::Module
+    if isconst(mod, p)
+        return makeConstVal(getproperty(mod, p))
+    else
+        return makeType(Any)
+    end
+end
+
 @nocheck function constIsFunction(h::OpaqueHandle{CompileTypeK})::Bool
     return unwrap(h, CompileType).val isa Function
 end
@@ -717,6 +731,25 @@ end
     return makeType(Union{a, b})
 end
 
+# Walks a (possibly-nested) Union's `.a`/`.b` chain into a Vector{Any}.
+# Driver-side helper for splitUnionOf — never crosses the seam.
+@nocheck function _collectUnion(@nospecialize x)::Vector{Any}
+    if x isa Union
+        return vcat(_collectUnion(x.a), _collectUnion(x.b))
+    else
+        return Any[x]
+    end
+end
+
+# `splitUnionOf(x, y) = makeType(Union{collectUnion(x.typ) \ collectUnion(y.typ)...})`.
+# Used for negative-side type narrowing (e.g. `if x isa Nothing ... else /* x is
+# T \ Nothing */ end`). Driver-side because Union decomposition peeks `.a/.b`.
+@nocheck function splitUnionOf(x_h::OpaqueHandle{CompileTypeK}, y_h::OpaqueHandle{CompileTypeK})::CompileType
+    u1 = _collectUnion(unwrap(x_h, CompileType).typ)
+    u2 = _collectUnion(unwrap(y_h, CompileType).typ)
+    return makeType(Union{setdiff(u1, u2)...})
+end
+
 # ─── Display cluster ────────────────────────────────────────────────────────
 #
 # All `repr` / `string` / `show` of `.val` / `.typ` happens driver-side.
@@ -760,6 +793,8 @@ function defaultRuntimeContext(;
     getFieldTypeOfFn::GetFieldTypeOfFn             = GetFieldTypeOfFn(getFieldTypeOf),
     constIsTypeValueFn::ConstIsTypeValueFn         = ConstIsTypeValueFn(constIsTypeValue),
     constIsModuleFn::ConstIsModuleFn               = ConstIsModuleFn(constIsModule),
+    constModuleIsDefinedFn::ConstModuleIsDefinedFn = ConstModuleIsDefinedFn(constModuleIsDefined),
+    constModuleGetFieldFn::ConstModuleGetFieldFn   = ConstModuleGetFieldFn(constModuleGetField),
     constIsFunctionFn::ConstIsFunctionFn           = ConstIsFunctionFn(constIsFunction),
     constIsBuiltinOrIntrinFn::ConstIsBuiltinOrIntrinFn = ConstIsBuiltinOrIntrinFn(constIsBuiltinOrIntrin),
     constEqualsBuiltinEqFn::ConstEqualsBuiltinEqFn = ConstEqualsBuiltinEqFn(constEqualsBuiltinEq),
@@ -771,6 +806,7 @@ function defaultRuntimeContext(;
     makeUnionAllOfFn::MakeUnionAllOfFn             = MakeUnionAllOfFn(makeUnionAllOf),
     typeEqFn::TypeEqFn                             = TypeEqFn(typeEq),
     makeUnionOfFn::MakeUnionOfFn                   = MakeUnionOfFn(makeUnionOf),
+    splitUnionOfFn::SplitUnionOfFn                 = SplitUnionOfFn(splitUnionOf),
     typeToStringFn::TypeToStringFn                 = TypeToStringFn(typeToString),
     constToStringFn::ConstToStringFn               = ConstToStringFn(constToString),
 )::RuntimeContext
@@ -782,10 +818,12 @@ function defaultRuntimeContext(;
                           isConcreteFn, isBottomFn,
                           hasFieldOfFn, getFieldTypeOfFn,
                           constIsTypeValueFn, constIsModuleFn,
+                          constModuleIsDefinedFn, constModuleGetFieldFn,
                           constIsFunctionFn, constIsBuiltinOrIntrinFn,
                           constEqualsBuiltinEqFn, constEqualsConstFn,
                           liftConstToTypeFn, getCallableFromConstFn,
                           applyTypeOfFn, makeTypeVarOfFn,
                           makeUnionAllOfFn, typeEqFn, makeUnionOfFn,
+                          splitUnionOfFn,
                           typeToStringFn, constToStringFn)
 end

@@ -29,7 +29,7 @@ include("helpers.jl")
             return methodsOf(f)
         end
 
-        rt = RuntimeContext(MethodsOfFn(recording_methodsOf))
+        rt = defaultRuntimeContext(methodsOfFn = MethodsOfFn(recording_methodsOf))
 
         # `show_abstract_arg.jl` has a typed (non-@nospecialize) caller
         # `bad()::Nothing` that calls `show(stdout, 42)`. `stdout::IO` is

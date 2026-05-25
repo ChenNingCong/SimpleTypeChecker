@@ -44,7 +44,10 @@ function cacheLookup(eng::Engine, sig)::Vector{CompileType}
     if haskey(ctx.cache, sig)
         return ctx.cache[sig]
     else
-        v = inferReturnType(eng.globalCtx, sig)
+        # Routed through the runtime context (see docs/isolation.md). The
+        # FunctionWrapper has an `Any` return slot for forward-reference
+        # reasons; narrow it back to Vector{CompileType} here.
+        v = ctx.rtctx.inferReturnType(ctx, sig)::Vector{CompileType}
         ctx.cache[sig] = v
         return v
     end

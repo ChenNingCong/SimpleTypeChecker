@@ -22,8 +22,18 @@ const MethodDef    = Core.Method
 #
 # FunctionWrapper is concrete, so reads of these fields dispatch
 # statically — the same trick we already use for MacroExpander.
-const MethodsOfFn = FunctionWrapper{Vector{MethodDef}, Tuple{Any}}
+#
+# Where a field's natural output type (e.g. Vector{CompileType}) lives
+# in an inference type defined after this file, we erase it to `Any`
+# and let the call site re-narrow with `::T`. The FunctionWrapper
+# field itself is still concrete, so dispatch into the trampoline
+# stays static — the Any only shows up as the trampoline's reported
+# return value, which Julia eliminates after the call-site assertion.
+# Mirrors the MacroExpander pattern already in InferenceDefinition.jl.
+const MethodsOfFn        = FunctionWrapper{Vector{MethodDef}, Tuple{Any}}
+const InferReturnTypeFn  = FunctionWrapper{Any,               Tuple{Any, Any}}
 
 struct RuntimeContext
     methodsOf::MethodsOfFn
+    inferReturnType::InferReturnTypeFn
 end

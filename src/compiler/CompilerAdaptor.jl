@@ -526,8 +526,12 @@ end
 # JIT — i.e. behavior identical to before the isolation refactor.
 # Tests / alternative drivers construct their own RuntimeContext with
 # different fields. See `docs/isolation.md`.
-function defaultRuntimeContext()::RuntimeContext
-    return RuntimeContext(
-        MethodsOfFn(methodsOf),
-    )
+# Per-field kwargs default to the live-JIT driver. Tests pass only the
+# fields they want to override; adding a new field to RuntimeContext
+# does not break existing call sites.
+function defaultRuntimeContext(;
+    methodsOfFn::MethodsOfFn               = MethodsOfFn(methodsOf),
+    inferReturnTypeFn::InferReturnTypeFn   = InferReturnTypeFn(inferReturnType),
+)::RuntimeContext
+    return RuntimeContext(methodsOfFn, inferReturnTypeFn)
 end

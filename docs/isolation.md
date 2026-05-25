@@ -82,6 +82,24 @@ boundary that splits "compilable" from "not." Field types are
 therefore concrete `FunctionWrapper{Out, Tuple{In...}}` aliases,
 never bare `Function` or `Any`.
 
+**Opacity constraint (already paved for us):** types crossing the
+seam — `CompileType`, `MethodDef`, `MethodHandle`, `JuAST` — are
+**opaque**. The codebase already enforces this: there is no place
+that constructs a `CompileType` directly; everything routes through
+`makeType` / `makeConstVal` / `removeConst` / `lift`. Honour this
+when adding `rtctx` fields:
+- A membrane function returns opaque values; the inferencer treats
+  them as black boxes and uses the same constructors / accessors
+  it uses today.
+- A membrane function *never* takes a primitive peek-inside arg
+  like `t.typ` or `t.val`. Accept the opaque value and let the
+  driver crack it open.
+- Where a return type can't be named at `RuntimeContext` definition
+  time (because it lives in a later-loaded file), the field's
+  output slot is `Any`. Narrow with `::T` at the call site — the
+  `Any` only appears in the trampoline's reported return; downstream
+  code stays typed.
+
 Two benefits the user called out, restated in our vocabulary:
 
 1. **Static control over what we compile.** Once every runtime

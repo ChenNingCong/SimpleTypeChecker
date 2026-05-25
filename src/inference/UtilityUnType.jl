@@ -39,16 +39,20 @@ end
 # this file because it's not compiler-internals — it's the per-Engine caching layer
 # that wraps inferReturnType / inferKeywordMethodHandles.
 
-function cacheLookup(eng::Engine, sig)::Vector{CompileType}
+function cacheLookup(eng::Engine, sig_h::OpaqueHandle{CallSigK})::Vector{CompileType}
     ctx = eng.globalCtx
-    if haskey(ctx.cache, sig)
-        return ctx.cache[sig]
+    # Cache key is the raw Tuple type — the OpaqueHandle wraps it for
+    # transport across the seam but the in-process dict is keyed by the
+    # underlying value so writes from inferReturnType (which unwraps
+    # internally) line up with lookups from here.
+    sig_raw = sig_h.val
+    if haskey(ctx.cache, sig_raw)
+        return ctx.cache[sig_raw]
     else
-        # Routed through the runtime context (see docs/isolation.md). The
-        # FunctionWrapper has an `Any` return slot for forward-reference
-        # reasons; narrow it back to Vector{CompileType} here.
-        v = ctx.rtctx.inferReturnType(ctx, sig)::Vector{CompileType}
-        ctx.cache[sig] = v
+        # FunctionWrapper auto-wraps the return into OpaqueHandle{CompileTypeVecK};
+        # unwrap to recover the typed Vector here.
+        v = unwrap(ctx.rtctx.inferReturnType(ctx, sig_h), Vector{CompileType})
+        ctx.cache[sig_raw] = v
         return v
     end
 end
@@ -60,8 +64,8 @@ function getMethodMatches(eng::Engine, ms::MethodCallStruct)::Vector{CompileType
     arg_types  = CompileType[fn.typ for fn in args]
     kwarg_types_for_lookup = Pair{Symbol, CompileType}[]
     if length(kwargs) > 0
-        positional_sig = rtctx.makeCallSig(arg_types, kwarg_types_for_lookup)
-        mis = inferKeywordMethodHandles(eng.globalCtx, positional_sig)
+        positional_sig_h = rtctx.makeCallSig(arg_types, kwarg_types_for_lookup)
+        mis = inferKeywordMethodHandles(eng.globalCtx, positional_sig_h.val)
         if length(mis) == 0
             error("No method instance for keyword call")
         end
@@ -76,8 +80,8 @@ function getMethodMatches(eng::Engine, ms::MethodCallStruct)::Vector{CompileType
             push!(kwarg_types_for_lookup, k => node.typ)
         end
     end
-    sig = rtctx.makeCallSig(arg_types, kwarg_types_for_lookup)
-    result = cacheLookup(eng, sig)
+    sig_h = rtctx.makeCallSig(arg_types, kwarg_types_for_lookup)
+    result = cacheLookup(eng, sig_h)
     return result
 end
 
@@ -91,8 +95,8 @@ end
 function hasDynamicDispatchForCall(eng::Engine, ms::MethodCallStruct)::Bool
     arg_types   = CompileType[fn.typ for fn in ms.fargs]
     kwarg_types = Pair{Symbol, CompileType}[k => node.typ for (k, node) in ms.kwargs]
-    sig = eng.globalCtx.rtctx.makeCallSig(arg_types, kwarg_types)
-    return get(eng.globalCtx.dynDispatchCache, sig, false)
+    sig_h = eng.globalCtx.rtctx.makeCallSig(arg_types, kwarg_types)
+    return get(eng.globalCtx.dynDispatchCache, sig_h.val, false)
 end
 
 # Look up the trace strings (one per dyn-dispatch site found in the
@@ -102,8 +106,8 @@ end
 function dispatchTraceForCall(eng::Engine, ms::MethodCallStruct)::Vector{String}
     arg_types   = CompileType[fn.typ for fn in ms.fargs]
     kwarg_types = Pair{Symbol, CompileType}[k => node.typ for (k, node) in ms.kwargs]
-    sig = eng.globalCtx.rtctx.makeCallSig(arg_types, kwarg_types)
-    return get(eng.globalCtx.dynDispatchTraceCache, sig, String[])
+    sig_h = eng.globalCtx.rtctx.makeCallSig(arg_types, kwarg_types)
+    return get(eng.globalCtx.dynDispatchTraceCache, sig_h.val, String[])
 end
 
 function checkFieldCompatibility(rtctx::RuntimeContext, dest::CompileType, src::CompileType)::Bool

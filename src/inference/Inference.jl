@@ -1715,7 +1715,7 @@ function inferTupleValue(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         end
         nodes[i] = rel.node
     end
-    node = makeTupleFlowNode(ast, nodes, eng.globalCtx.rtctx.makeTupleType(CompileType[fn.typ for fn in nodes])::CompileType)
+    node = makeTupleFlowNode(ast, nodes, unwrap(eng.globalCtx.rtctx.makeTupleType(CompileType[fn.typ for fn in nodes]), CompileType))
     addFlowMapping!(eng, ast, node)
     return InferResult(ctx, node) 
 end

@@ -13,60 +13,69 @@ using FunctionWrappers: FunctionWrapper
 const MethodHandle = Core.MethodInstance
 const MethodDef    = Core.Method
 
-# Opaque-handle marker for values that cross the RuntimeContext seam.
+# ─── Opaque-handle phantom-type machinery ────────────────────────────────────
 #
-# Semantically this is NOT the analyzer's `Any` — the inferencer's world
-# does not contain `Any` as a type. Conceptually each value crossing the
-# seam is an iddict-resolved handle owned by the driver runtime; the
-# inferencer never inspects it. We use Julia's `Any` slot here only
-# because Julia has no nominal `OpaqueHandle` type and FunctionWrapper
-# requires a concrete element type. When we move to a real handle scheme
-# (UInt64 keys into a driver-side IdDict pin table), only this alias
-# changes — call sites stay untouched.
-const OpaqueHandle = Any
+# Every value that crosses the RuntimeContext seam is conceptually an
+# opaque handle owned by the driver runtime — the inferencer never
+# inspects it. To enforce that at the seam itself, each handle is
+# parameterized by a `K<:HandleKind` phantom (a singleton tag).
+# `OpaqueHandle{CompileTypeK}` and `OpaqueHandle{MethodDefK}` are distinct
+# types — Julia rejects passing one where the other is expected.
+#
+# Today the wrapped `val` is `Any` because we still flow real
+# CompileType/etc. values across the seam. When we move to UInt64
+# iddict keys (the "real handle" world), only the `val` field type
+# changes — the phantom parameter and FunctionWrapper signatures stay.
 
-# RuntimeContext — the runtime-isolation seam. Every operation that
-# reaches into the live JIT (method lookup, return-type inference,
-# `Core.eval`, etc.) eventually moves behind a field here. Phase A
-# (the current pass) only wires the first call — `methodsOf` — so the
-# struct intentionally has just one field. Each new reroute extends
-# this struct and `defaultRuntimeContext()` in CompilerAdaptor.jl.
+abstract type HandleKind end
+struct CompileTypeK        <: HandleKind end  # a CompileType
+struct CompileTypeVecK     <: HandleKind end  # Vector{CompileType}
+struct CompileTypePairVecK <: HandleKind end  # Vector{Pair{Symbol, CompileType}} (kwargs)
+struct CallableK           <: HandleKind end  # @nospecialize callable for methodsOf
+struct CallSigK            <: HandleKind end  # Julia Tuple type used as method-lookup sig
+struct GlobalContextK      <: HandleKind end  # ::GlobalContext (defined later)
+
+struct OpaqueHandle{K<:HandleKind}
+    val::Any
+end
+
+# Auto-wrap at the seam boundary. FunctionWrapper's call-time conversion
+# invokes this when the inferencer hands a raw value into a phantom-typed
+# slot. No-op overload prevents double-wrapping.
+@inline Base.convert(::Type{OpaqueHandle{K}}, x) where {K<:HandleKind} = OpaqueHandle{K}(x)
+@inline Base.convert(::Type{OpaqueHandle{K}}, h::OpaqueHandle{K}) where {K<:HandleKind} = h
+
+# Driver-side extraction. The caller asserts the wrapped value's
+# concrete type — `unsafe` because nothing checks the kind matches
+# `T`. Kept inline so the unwrap elides through the optimizer.
+@inline unwrap(h::OpaqueHandle, ::Type{T}) where T = h.val::T
+
+# ─── RuntimeContext vtable ───────────────────────────────────────────────────
 #
-# FunctionWrapper is concrete, so reads of these fields dispatch
-# statically — the same trick we already use for MacroExpander.
-#
-# Where a field's natural output type (e.g. Vector{CompileType}) lives
-# in an inference type defined after this file, we erase it to `Any`
-# and let the call site re-narrow with `::T`. The FunctionWrapper
-# field itself is still concrete, so dispatch into the trampoline
-# stays static — the Any only shows up as the trampoline's reported
-# return value, which Julia eliminates after the call-site assertion.
-# Mirrors the MacroExpander pattern already in InferenceDefinition.jl.
-const MethodsOfFn        = FunctionWrapper{Vector{MethodDef}, Tuple{OpaqueHandle}}
-const InferReturnTypeFn  = FunctionWrapper{OpaqueHandle,      Tuple{OpaqueHandle, OpaqueHandle}}
-# Type-construction ops. Inputs are Vector{CompileType} (or pair-vector for
-# kwargs); both vectors arrive across the seam as opaque handles.
-# Outputs:
-#   makeCallSig  -> a Julia Tuple type used as a method-lookup signature
-#                   (kwarg case: Tuple{typeof(Core.kwcall), NamedTuple{...}, ...})
+# Every operation that reaches into the live JIT (method lookup,
+# return-type inference, `Core.eval`, `<:`, etc.) is reached through a
+# field below. FunctionWrapper fields are concrete-typed, so reads of
+# them dispatch statically — same trick as MacroExpander.
+const MethodsOfFn        = FunctionWrapper{Vector{MethodDef},               Tuple{OpaqueHandle{CallableK}}}
+const InferReturnTypeFn  = FunctionWrapper{OpaqueHandle{CompileTypeVecK},   Tuple{OpaqueHandle{GlobalContextK}, OpaqueHandle{CallSigK}}}
+# Type-construction ops:
+#   makeCallSig   -> a Julia Tuple type used as a method-lookup signature
+#                    (kwarg case: Tuple{typeof(Core.kwcall), NamedTuple{...}, ...})
 #   makeTupleType -> a CompileType wrapping the constructed Tuple type for
 #                    value-position tuple expressions in the source.
-const MakeCallSigFn      = FunctionWrapper{OpaqueHandle,      Tuple{OpaqueHandle, OpaqueHandle}}
-const MakeTupleTypeFn    = FunctionWrapper{OpaqueHandle,      Tuple{OpaqueHandle}}
-# Type-query op. Both args are opaque CompileType handles. Returns whether
-# the FIRST arg's underlying type is a subtype of the SECOND's — i.e.
-# `subtypeOf(a, b)` answers `a.typ <: b.typ`. Driver-side because `<:`
-# peeks `.typ`.
-const SubtypeOfFn        = FunctionWrapper{Bool,              Tuple{OpaqueHandle, OpaqueHandle}}
+const MakeCallSigFn      = FunctionWrapper{OpaqueHandle{CallSigK},          Tuple{OpaqueHandle{CompileTypeVecK}, OpaqueHandle{CompileTypePairVecK}}}
+const MakeTupleTypeFn    = FunctionWrapper{OpaqueHandle{CompileTypeK},      Tuple{OpaqueHandle{CompileTypeVecK}}}
+# Type-query op: `subtypeOf(a, b)` answers `a.typ <: b.typ`.
+const SubtypeOfFn        = FunctionWrapper{Bool,                            Tuple{OpaqueHandle{CompileTypeK}, OpaqueHandle{CompileTypeK}}}
 # Single-arg isa-checks on CompileType handles. Each one is a single
 # `===` or `isa` peek on the underlying `.typ`, gathered behind the
 # seam so the inferencer never compares against analyzer-runtime
 # constants like Any/Bool/Union{}/Tuple.
-const IsAnyFn       = FunctionWrapper{Bool, Tuple{OpaqueHandle}}
-const IsBoolFn      = FunctionWrapper{Bool, Tuple{OpaqueHandle}}
-const IsTypeValueFn = FunctionWrapper{Bool, Tuple{OpaqueHandle}}
-const IsUnionFn     = FunctionWrapper{Bool, Tuple{OpaqueHandle}}
-const IsTupleTypeFn = FunctionWrapper{Bool, Tuple{OpaqueHandle}}
+const IsAnyFn       = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
+const IsBoolFn      = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
+const IsTypeValueFn = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
+const IsUnionFn     = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
+const IsTupleTypeFn = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
 
 struct RuntimeContext
     methodsOf::MethodsOfFn

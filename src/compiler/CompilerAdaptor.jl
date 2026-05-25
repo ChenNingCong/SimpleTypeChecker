@@ -378,6 +378,14 @@ function inferReturnType(ctx::GlobalContext, sig)::Vector{CompileType}
     end
 end
 
+# Seam-facing variant — receives phantom-typed handles from FunctionWrapper,
+# unwraps and delegates into the raw 2-arg method above. The inferencer
+# never calls this directly; FunctionWrapper invokes it via the
+# rtctx.inferReturnType field.
+function inferReturnType(ctx_h::OpaqueHandle{GlobalContextK}, sig_h::OpaqueHandle{CallSigK})::Vector{CompileType}
+    return inferReturnType(unwrap(ctx_h, GlobalContext), sig_h.val)
+end
+
 function inferReturnType(ctx::GlobalContext, f, tt)::Vector{CompileType}
     inferReturnType(ctx, Tuple{Core.Typeof(f), tt...}, f, tt)
 end
@@ -502,10 +510,15 @@ function methodDefNKw(meth::MethodDef)::Int
     return Int(meth.nkw)
 end
 
-# Look up all the methods on a callable value. Wraps `methods()`.
-# Single-method `@nospecialize` escape hatch: `methods(::Any)` returns a
-# `Base.MethodList`; we copy into a typed Vector{MethodDef}.
-function methodsOf(@nospecialize(f))::Vector{MethodDef}
+# Seam-facing variant: callable arrives as an opaque handle. Unwraps to
+# `Any` (the callable is still untyped — we can't narrow further before
+# `methods()` is called). The inner @nospecialize impl is the escape
+# hatch the inferencer recognizes for skipping abstract-arg checks.
+function methodsOf(h::OpaqueHandle{CallableK})::Vector{MethodDef}
+    return _methodsOfImpl(h.val)
+end
+
+function _methodsOfImpl(@nospecialize(f))::Vector{MethodDef}
     ms = methods(f)
     result = MethodDef[]
     for m in ms
@@ -532,8 +545,10 @@ end
 # what lets the inferencer stay clean. The @nocheck here is at the
 # right place: it's the adaptor seam to Core.apply_type, not legacy
 # laziness in the inference logic.
-@nocheck function makeCallSig(fargs::Vector{CompileType},
-                              kwargs::Vector{Pair{Symbol, CompileType}})
+@nocheck function makeCallSig(fargs_h::OpaqueHandle{CompileTypeVecK},
+                              kwargs_h::OpaqueHandle{CompileTypePairVecK})
+    fargs  = unwrap(fargs_h,  Vector{CompileType})
+    kwargs = unwrap(kwargs_h, Vector{Pair{Symbol, CompileType}})
     positional = Tuple{[ct.typ for ct in fargs]...}
     if length(kwargs) == 0
         return positional
@@ -546,14 +561,17 @@ end
 
 # Build a CompileType wrapping the Tuple type of a value-position tuple
 # expression. Same untrimmable splat, same reason it lives here.
-@nocheck function makeTupleTypeOf(args::Vector{CompileType})::CompileType
+@nocheck function makeTupleTypeOf(args_h::OpaqueHandle{CompileTypeVecK})::CompileType
+    args = unwrap(args_h, Vector{CompileType})
     return makeType(Tuple{[ct.typ for ct in args]...})
 end
 
 # Subtype query — driver-side because it peeks `.typ` on both sides of the
 # `<:` and because `<:` itself is a runtime-type op. The opaque CompileType
 # values stay sealed for callers; only the adaptor cracks them.
-@nocheck function subtypeOf(a::CompileType, b::CompileType)::Bool
+@nocheck function subtypeOf(a_h::OpaqueHandle{CompileTypeK}, b_h::OpaqueHandle{CompileTypeK})::Bool
+    a = unwrap(a_h, CompileType)
+    b = unwrap(b_h, CompileType)
     return a.typ <: b.typ
 end
 
@@ -561,24 +579,24 @@ end
 # driver-runtime constant (Any / Bool / Type / Union / Tuple). The
 # inferencer cannot do this directly — its `Any` etc. live in a
 # different runtime than the type values being checked.
-@nocheck function isAny(x::CompileType)::Bool
-    return x.typ === Any
+@nocheck function isAny(h::OpaqueHandle{CompileTypeK})::Bool
+    return unwrap(h, CompileType).typ === Any
 end
 
-@nocheck function isBool(x::CompileType)::Bool
-    return x.typ === Bool
+@nocheck function isBool(h::OpaqueHandle{CompileTypeK})::Bool
+    return unwrap(h, CompileType).typ === Bool
 end
 
-@nocheck function isTypeValue(x::CompileType)::Bool
-    return x.typ isa Type
+@nocheck function isTypeValue(h::OpaqueHandle{CompileTypeK})::Bool
+    return unwrap(h, CompileType).typ isa Type
 end
 
-@nocheck function isUnion(x::CompileType)::Bool
-    return x.typ isa Union
+@nocheck function isUnion(h::OpaqueHandle{CompileTypeK})::Bool
+    return unwrap(h, CompileType).typ isa Union
 end
 
-@nocheck function isTupleType(x::CompileType)::Bool
-    return x.typ <: Tuple
+@nocheck function isTupleType(h::OpaqueHandle{CompileTypeK})::Bool
+    return unwrap(h, CompileType).typ <: Tuple
 end
 
 # Per-field kwargs default to the live-JIT driver. Tests pass only the

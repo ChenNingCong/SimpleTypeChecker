@@ -742,7 +742,10 @@ end
 mutable struct Engine
     const globalCtx::GlobalContext
     const mi::MethodHandle
-    const mod::Core.Module
+    # Defining module of `mi`, wrapped as a const CompileType so the raw
+    # Module reference stays driver-side. Inferencer accesses module
+    # bindings via `rtctx.constModuleIsDefined` / `constModuleGetField`.
+    const modCT::CompileType
     const errio::ErrorLogger
     # a JuAST can have multiple mapping
     const flowMapping::Dict{JuAST, Vector{FlowNode}}
@@ -792,9 +795,10 @@ function getGlobalCtx(eng::Engine)
 end
 
 function Engine(ctx::GlobalContext, mi::MethodHandle, scopeInfos::ScopeInfos)
-    # methodHandleModule is defined in CompilerAdaptor.jl (loaded after this file).
-    # Julia resolves the symbol at call time, so the forward reference is fine.
-    return Engine(ctx, mi, methodHandleModule(mi), ctx.errio, Dict{JuAST, Vector{FlowNode}}(), scopeInfos, FlowNode[], Vector{Vector{Context}}(), None(FlowNode))
+    # methodHandleModuleCT is defined in CompilerAdaptor.jl (loaded after this
+    # file). Returns a const CompileType wrapping the defining Module, so the
+    # raw Module reference stays driver-side.
+    return Engine(ctx, mi, methodHandleModuleCT(mi), ctx.errio, Dict{JuAST, Vector{FlowNode}}(), scopeInfos, FlowNode[], Vector{Vector{Context}}(), None(FlowNode))
 end
 
 function addFlowMapping!(eng::Engine, ast::JuAST, node::FlowNode)::Nothing

@@ -415,6 +415,13 @@ function methodHandleModule(mi::MethodHandle)::Core.Module
     end
 end
 
+# Driver-side: return the method's defining module wrapped as a const
+# CompileType. The Module reference stays inside `.val`; the analyzer
+# only sees the opaque CompileType. Used to populate `Engine.modCT`.
+function methodHandleModuleCT(mi::MethodHandle)::CompileType
+    return makeConstVal(methodHandleModule(mi))
+end
+
 function methodHandleSpecTypes(mi::MethodHandle)
     return mi.specTypes
 end
@@ -775,6 +782,26 @@ end
     end
 end
 
+# Evaluate a lambda AST in the given module. Reconstructs a Julia Expr
+# from `ast.tree` (a JuliaSyntax tree node) and `Core.eval`s it in the
+# target module — both target-runtime ops. On success, returns the
+# anonymous function wrapped as a const CompileType. On failure
+# (eval throws), returns the Function type-value so the caller falls
+# back to opaque Function.
+@nocheck function evalLambdaInModule(modCT_h::OpaqueHandle{CompileTypeK},
+                                     ast_h::OpaqueHandle{JuASTK})::CompileType
+    modCT = unwrap(modCT_h, CompileType)
+    mod = modCT.val::Module
+    ast = unwrap(ast_h, JuAST)
+    try
+        lam_expr = Expr(ast.tree)
+        fn = Core.eval(mod, lam_expr)
+        return makeConstVal(fn)
+    catch
+        return makeType(Function)
+    end
+end
+
 # Walk a UnionAll's `.body` chain to its non-UnionAll base, then format
 # the full diagnostic suffix. Driver-side because UnionAll peek is target-
 # runtime-only.
@@ -922,6 +949,7 @@ function defaultRuntimeContext(;
     typeToStringFn::TypeToStringFn                 = TypeToStringFn(typeToString),
     constToStringFn::ConstToStringFn               = ConstToStringFn(constToString),
     explainAbstractTypeFn::ExplainAbstractTypeFn   = ExplainAbstractTypeFn(explainAbstractType),
+    evalLambdaInModuleFn::EvalLambdaInModuleFn     = EvalLambdaInModuleFn(evalLambdaInModule),
     # Type-constant cluster
     makeAnyTypeFn::MakeAnyTypeFn                   = MakeAnyTypeFn(makeAnyType),
     makeBoolTypeFn::MakeBoolTypeFn                 = MakeBoolTypeFn(makeBoolType),
@@ -968,7 +996,7 @@ function defaultRuntimeContext(;
                           makeUnionAllOfFn, typeEqFn, makeUnionOfFn,
                           splitUnionOfFn,
                           typeToStringFn, constToStringFn,
-                          explainAbstractTypeFn,
+                          explainAbstractTypeFn, evalLambdaInModuleFn,
                           makeAnyTypeFn, makeBoolTypeFn, makeNothingTypeFn,
                           makeExprTypeFn, makeIntTypeFn, makeTypeTypeFn,
                           makeFunctionTypeFn, makeBottomTypeOfFn,

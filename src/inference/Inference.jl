@@ -397,17 +397,11 @@ end
 # which is a deep higher-order analysis. Skipping it loses some checks but
 # keeps the feature shippable.
 function inferLambdaExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
-    local result_ct::CompileType
-    try
-        lam_expr = Expr(ast.tree)
-        fn = Core.eval(eng.mod, lam_expr)
-        result_ct = makeConstVal(fn)
-    catch _e
-        # If eval fails for any reason, fall back to opaque Function — the
-        # caller may still hit "abstract argument", but the lambda itself
-        # doesn't trip the unsupported-AST hard error anymore.
-        result_ct = unwrap(eng.globalCtx.rtctx.makeFunctionType(), CompileType)
-    end
+    # Lambda eval — Expr reconstruction + Core.eval + wrap — happens
+    # driver-side via the membrane op. On failure the driver returns
+    # `makeType(Function)` so we just unwrap unconditionally here.
+    result_ct = unwrap(eng.globalCtx.rtctx.evalLambdaInModule(eng.modCT, ast),
+                       CompileType)
     node = makeCurlyCallFlowNode(ast, FlowNode[], result_ct)
     addFlowMapping!(eng, ast, node)
     return InferResult(ctx, node)
@@ -1016,8 +1010,8 @@ function inferVar(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         node = makeVarFlowNode(ast, ctxval.curtyp)
         addFlowMapping!(eng, ast, node)
         return InferResult(ctx, node)
-    elseif isModuleDefined(eng.mod, id)
-        val = getFromModule(eng.mod, id)
+    elseif constModuleIsDefined(eng.globalCtx.rtctx, eng.modCT, id)
+        val = constModuleGetField(eng.globalCtx.rtctx, eng.modCT, id)
         # fix this, using a module here
         node = makeGlobalVarFlowNode(ast, val)
         addFlowMapping!(eng, ast, node)
@@ -1055,7 +1049,7 @@ function inferVar(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         addFlowMapping!(eng, ast, node)
         return InferResult(ctx, node)
     else
-        reportErrorUndefinedVar(eng, ast, eng.mod, id)
+        reportErrorUndefinedVar(eng, ast, eng.modCT, id)
     end
 end
 
@@ -1086,8 +1080,8 @@ function inferLocal(eng::Engine, ctx::Context, ast::JuAST)::InferResult
 end
 
 function inferAssignUpdateHelper(eng::Engine, ctx::Context, ast::JuAST, lhsnode::FlowNode, rhsnode::FlowNode, op::UpdateOp)::FlowNode
-    if isModuleDefined(eng.mod, op.op)
-        opval = getFromModule(eng.mod, op.op)
+    if constModuleIsDefined(eng.globalCtx.rtctx, eng.modCT, op.op)
+        opval = constModuleGetField(eng.globalCtx.rtctx, eng.modCT, op.op)
         # fix this, using a module here
         opnode = makeGlobalVarFlowNode(op.ast, opval)
         addFlowMapping!(eng, op.ast, opnode)
@@ -1105,7 +1099,7 @@ function inferAssignUpdateHelper(eng::Engine, ctx::Context, ast::JuAST, lhsnode:
         addFlowMapping!(eng, op.ast, rhsnode)
         return rhsnode
     else
-        throw(InternalError("All the update assignment operators should be defined in module $(eng.mod)"))
+        throw(InternalError("All the update assignment operators should be defined in module $(toConstString(eng.globalCtx.rtctx, eng.modCT))"))
         
     end
 end
@@ -1124,14 +1118,14 @@ end
 
 function inferAssignLHSBroadcastHelper(eng::Engine, ctx::Context, ast::JuAST, lhsnode::FlowNode, rhsnode::FlowNode, op::UpdateOp)::InferResult
     if op.isUpdate
-        if isModuleDefined(eng.mod, op.op)
-            opval = getFromModule(eng.mod, op.op)
+        if constModuleIsDefined(eng.globalCtx.rtctx, eng.modCT, op.op)
+            opval = constModuleGetField(eng.globalCtx.rtctx, eng.modCT, op.op)
             # fix this, using a module here
             opnode = makeGlobalVarFlowNode(op.ast, opval)
             addFlowMapping!(eng, op.ast, opnode)
             fargs = FlowNode[makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.broadcasted)), opnode, lhsnode, rhsnode]
         else
-            throw(InternalError("All the update assignment operators should be defined in module $(eng.mod)"))
+            throw(InternalError("All the update assignment operators should be defined in module $(toConstString(eng.globalCtx.rtctx, eng.modCT))"))
         end
     else
         opnode = makeGlobalVarFlowNode(ast, unwrap(eng.globalCtx.rtctx.lookupBaseIdentity(), CompileType))
@@ -1179,8 +1173,8 @@ function inferAssignLHSVar(eng::Engine, ctx::Context, ast::JuAST, rhsnode::FlowN
         if isBottomType(eng.globalCtx.rtctx, lhsnode.typ)
             throw(InternalError("Variable should never be inferred as bottom type!"))
         end
-        if isModuleDefined(eng.mod, op.op)
-            opval = getFromModule(eng.mod, op.op)
+        if constModuleIsDefined(eng.globalCtx.rtctx, eng.modCT, op.op)
+            opval = constModuleGetField(eng.globalCtx.rtctx, eng.modCT, op.op)
             # fix this, using a module here
             opnode = makeGlobalVarFlowNode(op.ast, opval)
             addFlowMapping!(eng, op.ast, opnode)
@@ -1197,7 +1191,7 @@ function inferAssignLHSVar(eng::Engine, ctx::Context, ast::JuAST, rhsnode::FlowN
             rhsnode = makeFunCallFlowNode(ast, ms, tt)
             addFlowMapping!(eng, op.ast, rhsnode)
         else
-            throw(InternalError("All the update assignment operators should be defined in module $(eng.mod)"))
+            throw(InternalError("All the update assignment operators should be defined in module $(toConstString(eng.globalCtx.rtctx, eng.modCT))"))
         end
     end
     # TODO : is this kind of reasoning correct??
@@ -1323,14 +1317,14 @@ function inferAssignLHSSetField(eng::Engine, ctx::Context, ast::JuAST, rhsnode::
     end
 
     if op.isUpdate
-        if isModuleDefined(eng.mod, op.op)
+        if constModuleIsDefined(eng.globalCtx.rtctx, eng.modCT, op.op)
             # TODO : add correct arguments here!!!
-            opval = getFromModule(eng.mod, op.op)
+            opval = constModuleGetField(eng.globalCtx.rtctx, eng.modCT, op.op)
             # fix this, using a module here
             opnode = makeGlobalVarFlowNode(op.ast, opval)
             addFlowMapping!(eng, op.ast, opnode)
         else
-            throw(InternalError("All the update assignment operators should be defined in module $(eng.mod)"))
+            throw(InternalError("All the update assignment operators should be defined in module $(toConstString(eng.globalCtx.rtctx, eng.modCT))"))
         end
         argnodes = FlowNode[opnode, lhsnode, rhsnode]
         ms = MethodCallStruct(argnodes)

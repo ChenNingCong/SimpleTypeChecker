@@ -89,23 +89,27 @@ function displayErrorUnitializedVar(err::InferenceErrorUnitializedVar)::Nothing
     printErrorHead(eng, ast, "UndefinedError: variable $id is potentially unitialized here")
 end
 
-struct InferenceErrorUndefinedVar <: InferenceError 
+struct InferenceErrorUndefinedVar <: InferenceError
     eng::Engine
     ast::JuAST
-    m::Module
+    # Module wrapped as a const CompileType — the raw Module reference
+    # stays driver-side. Display goes through `toConstString` which routes
+    # through the membrane.
+    mCT::CompileType
     p::Symbol
 end
 
-function reportErrorUndefinedVar(eng::Engine, ast::JuAST, m::Module, p::Symbol)::Union{}
-    throwInferenceError(InferenceErrorUndefinedVar(eng, ast, m, p))
+function reportErrorUndefinedVar(eng::Engine, ast::JuAST, mCT::CompileType, p::Symbol)::Union{}
+    throwInferenceError(InferenceErrorUndefinedVar(eng, ast, mCT, p))
 end
 
 function displayErrorUndefinedVar(err::InferenceErrorUndefinedVar)::Nothing
     eng = err.eng
     ast = err.ast
-    m = err.m
+    mCT = err.mCT
     p = err.p
-    printErrorHead(eng, ast, "UndefVarError: In module $m, variable $p is not defined")
+    mstr = toConstString(eng.globalCtx.rtctx, mCT)
+    printErrorHead(eng, ast, "UndefVarError: In module $mstr, variable $p is not defined")
 end
 
 struct InferenceErrorUpdateAssignReturnBottom <: InferenceError 

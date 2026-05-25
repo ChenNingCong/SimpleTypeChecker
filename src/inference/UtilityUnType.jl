@@ -17,27 +17,6 @@ function getFieldType(rtctx::RuntimeContext, ft::CompileType, p::Symbol)::Compil
     end
 end
 
-# Legacy: take a raw Core.Module reference (used by callers that have a
-# Module from `eng.mod` directly — not yet membrane-wrapped). TODO:
-# convert eng.mod to a CompileType handle so these can be deleted in
-# favor of the constModule* variants below.
-function getFromModule(mod::Core.Module, p::Symbol)::CompileType
-    # todo handle typed global here
-    if isdefined(mod, p)
-        if isconst(mod, p)
-            return makeConstVal(getproperty(mod, p))
-        else
-            return makeType(Any)
-        end
-    else
-        error("Internal error : getFromModule not checked")
-    end
-end
-
-function isModuleDefined(mod::Core.Module, p::Symbol)::Bool
-    return isdefined(mod, p)::Bool
-end
-
 # Membrane-aware accessors that take a const CompileType handle (wrapping
 # a Module) instead of a raw Module reference. The Module value stays on
 # the driver side; the inferencer sees only the opaque CompileType handle.

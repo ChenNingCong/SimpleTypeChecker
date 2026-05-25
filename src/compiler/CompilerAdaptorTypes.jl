@@ -34,6 +34,7 @@ struct CompileTypePairVecK <: HandleKind end  # Vector{Pair{Symbol, CompileType}
 struct CallableK           <: HandleKind end  # @nospecialize callable for methodsOf
 struct CallSigK            <: HandleKind end  # Julia Tuple type used as method-lookup sig
 struct GlobalContextK      <: HandleKind end  # ::GlobalContext (defined later)
+struct JuASTK              <: HandleKind end  # a JuAST node (analyzer-owned, carried across as opaque)
 
 struct OpaqueHandle{K<:HandleKind}
     val::Any
@@ -156,6 +157,17 @@ const ConstToStringFn = FunctionWrapper{String, Tuple{OpaqueHandle{CompileTypeK}
 # be <T>". Lives driver-side because the UnionAll walk peeks `.body`.
 const ExplainAbstractTypeFn = FunctionWrapper{String, Tuple{OpaqueHandle{CompileTypeK}}}
 
+# ─── Lambda eval ────────────────────────────────────────────────────────────
+#
+# `evalLambdaInModule(modCT, ast)` reconstructs a Julia Expr from `ast.tree`
+# and evals it in the Module wrapped by `modCT`. Returns a const CompileType
+# wrapping the resulting anonymous function. On failure, returns the
+# Function type-value (caller falls back to opaque Function).
+#
+# `ast` crosses the seam as an OpaqueHandle{JuASTK} — the JuAST stays
+# analyzer-side but `Expr(ast.tree)` happens driver-side via the handle.
+const EvalLambdaInModuleFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}, OpaqueHandle{JuASTK}}}
+
 # ─── Type-constant ops ──────────────────────────────────────────────────────
 #
 # The inferencer's `Any` is not the target runtime's `Any` — same name, two
@@ -252,6 +264,7 @@ struct RuntimeContext
     typeToString::TypeToStringFn
     constToString::ConstToStringFn
     explainAbstractType::ExplainAbstractTypeFn
+    evalLambdaInModule::EvalLambdaInModuleFn
     # Type-constant cluster
     makeAnyType::MakeAnyTypeFn
     makeBoolType::MakeBoolTypeFn

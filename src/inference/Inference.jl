@@ -156,12 +156,31 @@ end
     return Symbol("")
 end
 
-function inferMacroCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
+@nocheck function inferMacroCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     assertASTKind(ast, :macrocall)
-    rel = inferExpr(eng, ctx, ast.args[1])
-    ctx = rel.ctx
-    node = rel.node
-    typ = node.typ
+    # Resolving the macro identifier can fail in several ways:
+    #   - Module-qualified macros (Core.@cmd) get tokenized by JuliaSyntax as
+    #     a single identifier "core_@cmd" that's not a real variable in the
+    #     enclosing module.
+    #   - User-defined macros from packages we don't trace into.
+    # We don't want an unresolved macro identifier to kill the whole method
+    # check — fall back to the "macro not implemented" warning path instead.
+    local node::FlowNode
+    local typ::CompileType
+    try
+        rel = inferExpr(eng, ctx, ast.args[1])
+        ctx = rel.ctx
+        node = rel.node
+        typ = node.typ
+    catch e
+        if e isa SyntaxError || e isa InferenceError
+            reportWarning(eng, ast, "Macro is not implemented. Inferred as a nothing")
+            node = makeMacroCallFlowNode(ast)
+            return InferResult(ctx, node)
+        else
+            rethrow(e)
+        end
+    end
     if isConstVal(typ)
         if haskey(eng.globalCtx.expanders, typ)
             rel = inferExpand(eng, ctx, eng.globalCtx.expanders[typ], ast.args[2])

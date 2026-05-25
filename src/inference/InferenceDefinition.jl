@@ -14,8 +14,8 @@ function makeBottomType()
     CompileType(true, nothing, Union{})
 end
 
-function isBottomType(t::CompileType)::Bool
-    return t.typ === Union{}
+function isBottomType(rtctx::RuntimeContext, t::CompileType)::Bool
+    return rtctx.isBottom(t)
 end
 
 function makeConstVal(@nospecialize val)

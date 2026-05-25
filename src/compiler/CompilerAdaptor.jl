@@ -599,6 +599,21 @@ end
     return unwrap(h, CompileType).typ <: Tuple
 end
 
+# "Can flow into typed slots" — concrete, or a Type-value (DataType, UnionAll,
+# etc. that's itself in a type-slot position). Driver-side because the
+# `isconcretetype` peek and the `<: Type` check both crack `.typ`.
+@nocheck function isConcrete(h::OpaqueHandle{CompileTypeK})::Bool
+    tt = unwrap(h, CompileType).typ
+    return isconcretetype(tt) || tt <: Type
+end
+
+# `t.typ === Union{}` — the inferencer's bottom marker. The Union{} here
+# is the driver-runtime Union{}, which is what the type values being
+# checked actually came from.
+@nocheck function isBottom(h::OpaqueHandle{CompileTypeK})::Bool
+    return unwrap(h, CompileType).typ === Union{}
+end
+
 # Per-field kwargs default to the live-JIT driver. Tests pass only the
 # fields they want to override; adding a new field to RuntimeContext
 # does not break existing call sites.
@@ -613,10 +628,13 @@ function defaultRuntimeContext(;
     isTypeValueFn::IsTypeValueFn           = IsTypeValueFn(isTypeValue),
     isUnionFn::IsUnionFn                   = IsUnionFn(isUnion),
     isTupleTypeFn::IsTupleTypeFn           = IsTupleTypeFn(isTupleType),
+    isConcreteFn::IsConcreteFn             = IsConcreteFn(isConcrete),
+    isBottomFn::IsBottomFn                 = IsBottomFn(isBottom),
 )::RuntimeContext
     return RuntimeContext(methodsOfFn, inferReturnTypeFn,
                           makeCallSigFn, makeTupleTypeFn,
                           subtypeOfFn,
                           isAnyFn, isBoolFn, isTypeValueFn,
-                          isUnionFn, isTupleTypeFn)
+                          isUnionFn, isTupleTypeFn,
+                          isConcreteFn, isBottomFn)
 end

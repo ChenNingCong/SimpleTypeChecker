@@ -2,9 +2,8 @@ function hasField(ft::CompileType, p::Symbol)::Bool
     return hasfield(ft.typ, p)
 end
 
-function isConcreteType(ft::CompileType)::Bool
-    tt = ft.typ
-    return isconcretetype(tt) || tt <: Type
+function isConcreteType(rtctx::RuntimeContext, ft::CompileType)::Bool
+    return rtctx.isConcrete(ft)
 end
 
 function getFieldType(ft::CompileType, p::Symbol)::CompileType
@@ -245,21 +244,22 @@ end
 
 function tryMergeFlowNode(eng::Engine, ast::JuAST, v::Vector{FlowNode}, allowUnion::Bool)::FlowNode
     # println("join node $([i.typ for i in v])")
+    rtctx = eng.globalCtx.rtctx
     tmptyp = v[1].typ
     for i in v
-        if !isBottomType(i.typ)
+        if !isBottomType(rtctx, i.typ)
             tmptyp = i.typ
             break
         end
     end
-    if isBottomType(tmptyp)
+    if isBottomType(rtctx, tmptyp)
         # TODO : shouldn't be here
         return makePhiFlowNode(ast, v, makeBottomType())
     end
     allConst = true
     for i in 1:length(v)
         # skip all bottom value
-        if isBottomType(v[i].typ)
+        if isBottomType(rtctx, v[i].typ)
             continue
         end
         v1 = tmptyp.typ

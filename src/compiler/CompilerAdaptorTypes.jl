@@ -76,6 +76,14 @@ const IsBoolFn      = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
 const IsTypeValueFn = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
 const IsUnionFn     = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
 const IsTupleTypeFn = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
+# Composite type-query ops:
+#   isConcrete -> isconcretetype(t.typ) || t.typ <: Type
+#                 (the "type can flow into typed code" check)
+#   isBottom   -> t.typ === Union{}  (replaces what was once Inference's
+#                 isBottomType helper; the Union{} on the inferencer side
+#                 is the analyzer-runtime's Union{}, not the target's)
+const IsConcreteFn = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
+const IsBottomFn   = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
 
 struct RuntimeContext
     methodsOf::MethodsOfFn
@@ -88,4 +96,6 @@ struct RuntimeContext
     isTypeValue::IsTypeValueFn
     isUnion::IsUnionFn
     isTupleType::IsTupleTypeFn
+    isConcrete::IsConcreteFn
+    isBottom::IsBottomFn
 end

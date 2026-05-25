@@ -248,7 +248,7 @@ function inferCurlyCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         rel = inferExpr(eng, ctx, ast.args[i])
         ctx = rel.ctx
         tts[i] = rel.node
-        if isBottomType(rel.node.typ)
+        if isBottomType(eng.globalCtx.rtctx, rel.node.typ)
             reportErrorCurlyCallUseBottom(eng, ast, i)
         end 
     end
@@ -613,7 +613,7 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
                         reportASTError(eng, iast, "Invalid keywords assignment")
                     end
                     ctx = rel.ctx
-                    if isBottomType(rel.node.typ)
+                    if isBottomType(eng.globalCtx.rtctx, rel.node.typ)
                         reportErrorKeywordUseBottom(eng, ast, sym)
                     end
                     push!(kwargs, sym=>rel.node)
@@ -622,7 +622,7 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
         elseif iast.head != :kw && iast.head != :(=)
             rel = inferExpr(eng, ctx, iast)
             ctx = rel.ctx
-            if isBottomType(rel.node.typ)
+            if isBottomType(eng.globalCtx.rtctx, rel.node.typ)
                 reportErrorFunCallUseBottom(eng, ast, i)
             end
             push!(fargs, rel.node)
@@ -636,7 +636,7 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
                     reportASTError(eng, iast, "Invalid keywords assignment : disallow destruction")
                 end
                 ctx = rel.ctx
-                if isBottomType(rel.node.typ)
+                if isBottomType(eng.globalCtx.rtctx, rel.node.typ)
                     reportErrorKeywordUseBottom(eng, ast, sym)
                 end
                 push!(kwargs, sym=>rel.node)
@@ -659,7 +659,7 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
     for i in 1:length(fargs)
         n = fargs[i]
         ttypval = n.typ
-        if !isConcreteType(ttypval)
+        if !isConcreteType(eng.globalCtx.rtctx, ttypval)
             push!(imprecise, i)
         end
     end
@@ -676,7 +676,7 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
             pair = kwargs[i]
             n = pair.second
             ttypval = n.typ
-            if !isConcreteType(ttypval)
+            if !isConcreteType(eng.globalCtx.rtctx, ttypval)
                 push!(kwimprecise, i)
             end
         end
@@ -732,7 +732,7 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
             reportErrorFunCall(eng, ast, ms, length(mm), false)
         end
         tt = extractUniqueMatch(mm)
-        if isBottomType(tt)
+        if isBottomType(eng.globalCtx.rtctx, tt)
             reportErrorBroadcastBottom(eng, ast, ms)
         end
         bnode = makeFunCallFlowNode(ast, ms, tt)
@@ -744,7 +744,7 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
             reportErrorFunCall(eng, ast, ms, length(mm), false)
         end
         tt = extractUniqueMatch(mm)
-        if isBottomType(tt)
+        if isBottomType(eng.globalCtx.rtctx, tt)
             reportErrorBroadcastBottom(eng, ast, ms)
         end
     else
@@ -754,7 +754,7 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
             reportErrorFunCall(eng, ast, ms, length(mm), isDotcall)
         end
         tt = extractUniqueMatch(mm)
-        if isBottomType(tt) && checkConstructor
+        if isBottomType(eng.globalCtx.rtctx, tt) && checkConstructor
             reportErrorNoConstructor(eng, ast, ms)
         end
         # All args at this site are concrete (checked above).
@@ -973,7 +973,7 @@ function inferStringValue(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     for i in 1:length(args)
         newrel = inferExpr(eng, ctx, ast.args[i])
         ctx = newrel.ctx
-        if isBottomType(newrel.node.typ)
+        if isBottomType(eng.globalCtx.rtctx, newrel.node.typ)
             reportErrorStringUseBottom(eng, ast.args[i])
         end
         args[i] = newrel.node
@@ -986,7 +986,7 @@ function inferStringValue(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         reportErrorStringConstructor(eng, ast, ms, length(mm))
     end
     tt = extractUniqueMatch(mm)
-    if isBottomType(tt)
+    if isBottomType(eng.globalCtx.rtctx, tt)
         reportErrorStringReturnBottom(eng, ast, ms)
     end
     newnode = makeFunCallFlowNode(ast, ms, tt)
@@ -1088,7 +1088,7 @@ function inferAssignUpdateHelper(eng::Engine, ctx::Context, ast::JuAST, lhsnode:
             reportErrorFunCall(eng, ast, ms, length(mm))
         end
         tt = extractUniqueMatch(mm)
-        if isBottomType(tt)
+        if isBottomType(eng.globalCtx.rtctx, tt)
             reportErrorUpdateAssignReturnBottom(eng, ast)
         end
         rhsnode = makeFunCallFlowNode(ast, ms, tt)
@@ -1106,7 +1106,7 @@ function inferAssignLHSVarBroadcast(eng::Engine, ctx::Context, ast::JuAST, rhsno
     ctx = rel.ctx
     lhsnode = rel.node
     # lhsnode shouldn't be a bottom
-    if isBottomType(lhsnode.typ)
+    if isBottomType(eng.globalCtx.rtctx, lhsnode.typ)
         throw(InternalError("Variable should never be inferred as bottom type!"))
     end
     return inferAssignLHSBroadcastHelper(eng, ctx, ast, lhsnode, rhsnode, op)
@@ -1134,7 +1134,7 @@ function inferAssignLHSBroadcastHelper(eng::Engine, ctx::Context, ast::JuAST, lh
         reportErrorFunCall(eng, ast, ms, length(mm), false)
     end
     tt = extractUniqueMatch(mm)
-    if isBottomType(tt)
+    if isBottomType(eng.globalCtx.rtctx, tt)
         reportErrorBroadcastBottom(eng, ast, ms)
     end
     bnode = makeFunCallFlowNode(ast, ms, tt)
@@ -1146,7 +1146,7 @@ function inferAssignLHSBroadcastHelper(eng::Engine, ctx::Context, ast::JuAST, lh
         reportErrorFunCall(eng, ast, ms, length(mm), false)
     end
     tt = extractUniqueMatch(mm)
-    if isBottomType(tt)
+    if isBottomType(eng.globalCtx.rtctx, tt)
         reportErrorBroadcastBottom(eng, ast, ms)
     end
     node = makeFunCallFlowNode(ast, ms, tt)
@@ -1166,7 +1166,7 @@ function inferAssignLHSVar(eng::Engine, ctx::Context, ast::JuAST, rhsnode::FlowN
         ctx = rel.ctx
         lhsnode = rel.node
         # lhsnode shouldn't be a bottom
-        if isBottomType(lhsnode.typ)
+        if isBottomType(eng.globalCtx.rtctx, lhsnode.typ)
             throw(InternalError("Variable should never be inferred as bottom type!"))
         end
         if isModuleDefined(eng.mod, op.op)
@@ -1181,7 +1181,7 @@ function inferAssignLHSVar(eng::Engine, ctx::Context, ast::JuAST, rhsnode::FlowN
                 reportErrorFunCall(eng, ast, ms, length(mm))
             end
             tt = extractUniqueMatch(mm)
-            if isBottomType(tt)
+            if isBottomType(eng.globalCtx.rtctx, tt)
                 reportErrorUpdateAssignReturnBottom(eng, ast)
             end
             rhsnode = makeFunCallFlowNode(ast, ms, tt)
@@ -1288,10 +1288,10 @@ function inferAssignLHSSetField(eng::Engine, ctx::Context, ast::JuAST, rhsnode::
     ctx = rel.ctx
     xnode = rel.node
     # we need to distinguish getproperty on module and other types...
-    if isBottomType(xnode.typ)
+    if isBottomType(eng.globalCtx.rtctx, xnode.typ)
         reportErrorSetFieldOfBottom(eng, ast)
     end
-    if !isConcreteType(xnode.typ)
+    if !isConcreteType(eng.globalCtx.rtctx, xnode.typ)
         reportErrorFieldType(eng, ast, xnode, false)
     end
     if !hasField(xnode.typ, p)
@@ -1301,7 +1301,7 @@ function inferAssignLHSSetField(eng::Engine, ctx::Context, ast::JuAST, rhsnode::
     # here, it should be dotgetproperty for broadcast call
     # or getproperty for other non-broadcast call
     ft = getFieldType(xnode.typ, p)
-    if !isConcreteType(ft)
+    if !isConcreteType(eng.globalCtx.rtctx, ft)
         if op.isDotcall || op.isUpdate
             reportErrorFieldType(eng, ast, xnode, false)
         end
@@ -1329,7 +1329,7 @@ function inferAssignLHSSetField(eng::Engine, ctx::Context, ast::JuAST, rhsnode::
             reportErrorFunCall(eng, ast, ms, length(mm))
         end
         rt = extractUniqueMatch(mm)
-        if isBottomType(rt)
+        if isBottomType(eng.globalCtx.rtctx, rt)
             reportErrorUpdateAssignReturnBottom(eng, ast)
         end
         rhsnode = makeFunCallFlowNode(ast, ms, rt)
@@ -1446,7 +1446,7 @@ function inferAssignLHSArrayRef(eng::Engine, ctx::Context, ast::JuAST, rhsnode::
         newrel = inferExpr(eng, ctx, ast.args[i])
         ctx = newrel.ctx
         args[i] = newrel.node
-        if isBottomType(newrel.node.typ)
+        if isBottomType(eng.globalCtx.rtctx, newrel.node.typ)
             reportErrorArrayRefBottom(eng, ast, i, i == lastindex(args))
         end
         if i >= 2 && i == lastindex(args)
@@ -1467,7 +1467,7 @@ function inferAssignLHSArrayRef(eng::Engine, ctx::Context, ast::JuAST, rhsnode::
             reportErrorArrayRef(eng, ast, ms, length(mm))
         end
         tt = extractUniqueMatch(mm)
-        if isBottomType(tt)
+        if isBottomType(eng.globalCtx.rtctx, tt)
             reportErrorIndexReturnBottom(eng, ast, ms)
         end
         lhsnode = makeArrayRefFlowNode(ast, ms, tt)
@@ -1486,7 +1486,7 @@ function inferAssignLHSArrayRef(eng::Engine, ctx::Context, ast::JuAST, rhsnode::
         reportErrorArraySet(eng, ast, ms, length(mm))
     end
     tt = extractUniqueMatch(mm)
-    if isBottomType(tt)
+    if isBottomType(eng.globalCtx.rtctx, tt)
         reportErrorIndexReturnBottom(eng, ast, ms)
     end
     newnode = makeAssignLHSArrayRefFlowNode(ast, ms, tt)
@@ -1533,7 +1533,7 @@ function inferAssign(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     rel = inferExpr(eng, ctx, ast.args[2])
     ctx = rel.ctx
     rhsnode = rel.node
-    if isBottomType(rhsnode.typ)
+    if isBottomType(eng.globalCtx.rtctx, rhsnode.typ)
         # error(rhs) is a bottom
         reportErrorAssignBottom(eng, ast)
     end
@@ -1558,7 +1558,7 @@ function inferBlock(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         for i in 1:length(ast.args)-1
             ret = inferExpr(eng, ctx, ast.args[i])
             ctx = ret.ctx
-            if isBottomType(ret.node.typ)
+            if isBottomType(eng.globalCtx.rtctx, ret.node.typ)
                 reportErrorPrematureUnreachable(eng, ast.args[i])
             end
         end
@@ -1644,9 +1644,9 @@ function inferTryStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
             #     `mustInitialized` in BOTH branches (mirrors the
             #     if/else merger). Variables present in only one branch
             #     fall back to the pre-try binding if any.
-            if isBottomType(catch_rel.node.typ)
+            if isBottomType(eng.globalCtx.rtctx, catch_rel.node.typ)
                 merged_ctx = try_rel.ctx
-            elseif isBottomType(try_rel.node.typ)
+            elseif isBottomType(eng.globalCtx.rtctx, try_rel.node.typ)
                 merged_ctx = catch_rel.ctx
             else
                 merged_ctx = _mergeTryCatchContexts(eng, ast, ctx, try_rel.ctx, catch_rel.ctx)
@@ -1710,7 +1710,7 @@ function inferTupleValue(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         local iast = ast.args[i]
         rel = inferExpr(eng, ctx, iast)
         ctx = rel.ctx
-        if isBottomType(rel.node.typ)
+        if isBottomType(eng.globalCtx.rtctx, rel.node.typ)
             reportErrorTupleBottom(eng, iast, i)
         end
         nodes[i] = rel.node
@@ -1852,7 +1852,7 @@ function inferCatHelper(eng::Engine, ctx::Context, ast::JuAST, fnode::FlowNode, 
         reportErrorArrayRef(eng, ast, ms, length(mm))
     end
     tt = extractUniqueMatch(mm)
-    if isBottomType(tt)
+    if isBottomType(eng.globalCtx.rtctx, tt)
         reportErrorIndexReturnBottom(eng, ast, ms)
     end
     newnode = makeFunCallFlowNode(ast, ms, tt)
@@ -1892,7 +1892,7 @@ function inferArrayRef(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         end
         newrel = inferExpr(eng, ctx, ast.args[i])
         ctx = newrel.ctx
-        if isBottomType(newrel.node.typ)
+        if isBottomType(eng.globalCtx.rtctx, newrel.node.typ)
             reportErrorArrayRefBottom(eng, ast, i, false)
         end
         args[i] = newrel.node
@@ -1908,7 +1908,7 @@ function inferArrayRef(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         reportErrorArrayRef(eng, ast, ms, length(mm))
     end
     tt = extractUniqueMatch(mm)
-    if isBottomType(tt)
+    if isBottomType(eng.globalCtx.rtctx, tt)
         reportErrorIndexReturnBottom(eng, ast, ms)
     end
     newnode = makeArrayRefFlowNode(ast, ms, tt)
@@ -1936,7 +1936,7 @@ function inferGetField(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     ctx = rel.ctx
     ft = node.typ
     # we need to distinguish getproperty on module and other types...
-    if isBottomType(ft)
+    if isBottomType(eng.globalCtx.rtctx, ft)
         reportErrorGetFieldOfBottom(eng, ast)
     end
     if isConstVal(ft)
@@ -1952,7 +1952,7 @@ function inferGetField(eng::Engine, ctx::Context, ast::JuAST)::InferResult
             end
         end
     end
-    if !isConcreteType(ft)
+    if !isConcreteType(eng.globalCtx.rtctx, ft)
         reportErrorFieldType(eng, ast, node, false)
     end
     if hasField(ft, p)
@@ -2256,7 +2256,7 @@ function inferIfStmt(eng::Engine, ctx::Context, ast::JuAST, isOr::Bool, isAnd::B
     reachflags = similar(rels, Bool)
     fill!(reachflags, true)
     for i in eachindex(reachflags)
-        if isBottomType(rels[i].node.typ)
+        if isBottomType(eng.globalCtx.rtctx, rels[i].node.typ)
             reachflags[i] = false
         end
     end

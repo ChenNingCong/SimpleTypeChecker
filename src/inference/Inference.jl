@@ -513,7 +513,7 @@ end
 #   4. The method has `@nospecialize` on at least one positional arg.
 # Returns `(true, mask)` if escape-hatch, else `(false, 0)`. The mask
 # is `Method.nospecialize` — bit `i-1` set ⇒ user-arg `i` is @nospecialize.
-function _escapeHatchMask(fargs::Vector{FlowNode})::Tuple{Bool, UInt32}
+function _escapeHatchMask(rtctx::RuntimeContext, fargs::Vector{FlowNode})::Tuple{Bool, UInt32}
     f = fargs[1]
     if !isConstVal(f.typ)
         return (false, UInt32(0))
@@ -530,7 +530,7 @@ function _escapeHatchMask(fargs::Vector{FlowNode})::Tuple{Bool, UInt32}
     # "single method total" rule, so functions like `Base.rethrow` (one
     # zero-arg method + one 1-arg `@nospecialize` method) qualify at the
     # 1-arg call site.
-    ms = methodsOf(fval)
+    ms = rtctx.methodsOf(fval)
     arity = length(fargs)
     matchIdx = 0
     matchCount = 0
@@ -690,7 +690,7 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
     #     @nospecialize_singlemethod f(@nospecialize(x))::String = ...
     # and call it with Any without the abstract-arg complaint.
     if length(imprecise) > 0
-        ok, mask = _escapeHatchMask(fargs)
+        ok, mask = _escapeHatchMask(eng.globalCtx.rtctx, fargs)
         if ok
             kept = Int[]
             for i in imprecise

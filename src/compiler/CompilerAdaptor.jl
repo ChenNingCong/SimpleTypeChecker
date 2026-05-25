@@ -519,3 +519,15 @@ end
 function codeInfoMethodHandle(@nospecialize ci)
     return ci.parent
 end
+
+# === RuntimeContext default factory ===
+#
+# Builds a RuntimeContext that delegates every operation to the live
+# JIT — i.e. behavior identical to before the isolation refactor.
+# Tests / alternative drivers construct their own RuntimeContext with
+# different fields. See `docs/isolation.md`.
+function defaultRuntimeContext()::RuntimeContext
+    return RuntimeContext(
+        MethodsOfFn(methodsOf),
+    )
+end

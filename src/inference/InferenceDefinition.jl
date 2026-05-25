@@ -576,9 +576,15 @@ mutable struct GlobalContext
     # you've hit a "won't trim" fire and want to know WHERE in the chain.
     printDispatchTrace::Bool
     const expanders::Dict{CompileType, MacroExpander}
+    # Runtime-isolation seam. See docs/isolation.md and
+    # src/compiler/CompilerAdaptorTypes.jl. Default factory is
+    # `defaultRuntimeContext()` in CompilerAdaptor.jl (forward-referenced
+    # since that file loads after this one). Tests can construct a
+    # GlobalContext with a custom rtctx to mock runtime queries.
+    const rtctx::RuntimeContext
 end
 
-function GlobalContext()
+function GlobalContext(; rtctx::RuntimeContext = defaultRuntimeContext())
     GlobalContext(ErrorLogger(IOBuffer()),
                   Dict{JuliaSyntax.SourceFile, JuAST}(),
                   Dict{MethodDef, FunDef}(),
@@ -589,7 +595,8 @@ function GlobalContext()
                   Dict{Any, Vector{String}}(),
                   false,
                   false,
-                  Dict{CompileType, MacroExpander}())
+                  Dict{CompileType, MacroExpander}(),
+                  rtctx)
 end
 
 

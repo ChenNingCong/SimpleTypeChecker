@@ -494,24 +494,59 @@ function displayErrorFunCallArgs(err::InferenceErrorFunCallArgs)::Nothing
     isDotcall = err.isDotcall
     str = getSignature(ms)
     if isDotcall
-        printErrorHead(eng, ast, "ArgumentError: broadcast call argument is of abstract type")
+        printErrorHead(eng, ast, "DispatchError: this broadcast call won't statically dispatch (and won't trim)")
     else
-        printErrorHead(eng, ast, "ArgumentError: Function argument is of abstract type")
+        printErrorHead(eng, ast, "DispatchError: this call won't statically dispatch (and won't trim)")
     end
     for ii in i
         if ii != 1
-            println(eng.errio, "  $(ii-1)-th argument is of abstract type $(explainAbstractType(fargs[ii].typ))")
+            println(eng.errio, "  argument $(ii-1) is abstract ($(explainAbstractType(fargs[ii].typ)))")
         else
-            println(eng.errio, "  the called function is of abstract type $(explainAbstractType(fargs[ii].typ))")
+            println(eng.errio, "  the called function itself is abstract ($(explainAbstractType(fargs[ii].typ)))")
         end
     end
     for ii in kwi
         name, node = kwargs[ii]
-        println(eng.errio, "  keyword argument $(name) is of abstract type $(explainAbstractType(node.typ))")
+        println(eng.errio, "  keyword argument $(name) is abstract ($(explainAbstractType(node.typ)))")
     end
+    println(eng.errio, "  Calls through this site fall into Julia's open-world dispatch and can't be resolved at compile time.")
+    println(eng.errio, "  Fix: make the abstract slot concrete at this site, or wrap it in a parametric struct so the type is carried through the call chain.")
     if isBuiltinEqual(ms.fargs[1].typ)
-        println(eng.errio, "  Don't use ===/!== to compare values of different types, use (<var> isa Nothing) to split type of a variable explicitly")
+        println(eng.errio, "  Note: don't use ===/!== to compare values of different types — use (<var> isa Nothing) to narrow the type explicitly.")
     end
+end
+
+# Emitted when the call-site args are all concrete, but Julia's inferencer
+# bailed to `Any` for the return type. That means dispatch INSIDE the callee
+# is dynamic — the call won't trim, and this top-level site is the user-
+# actionable point to fix it (deeper blame would land in Base, where the user
+# can't change anything).
+struct InferenceErrorTopLevelDispatch <: InferenceError
+    eng::Engine
+    ast::JuAST
+    ms::MethodCallStruct
+    isDotcall::Bool
+end
+
+function reportErrorTopLevelDispatch(eng::Engine, ast::JuAST, ms::MethodCallStruct, isDotcall::Bool)::Union{}
+    throwInferenceError(InferenceErrorTopLevelDispatch(eng, ast, ms, isDotcall))
+end
+
+function displayErrorTopLevelDispatch(err::InferenceErrorTopLevelDispatch)::Nothing
+    eng = err.eng
+    ast = err.ast
+    ms = err.ms
+    if err.isDotcall
+        printErrorHead(eng, ast, "DispatchError: this broadcast call won't trim — internal dispatch goes dynamic")
+    else
+        printErrorHead(eng, ast, "DispatchError: this call won't trim — internal dispatch goes dynamic")
+    end
+    println(eng.errio, "  All arguments at this site are concrete, but the callee's body contains dispatch that Julia's inferencer couldn't resolve statically (the return type widened to `Any`).")
+    println(eng.errio, "  This top-level call is the user-actionable cause. The deeper blame lives inside the callee (likely Base / a third-party package), where the user can't fix it.")
+    println(eng.errio, "  Fix options:")
+    println(eng.errio, "    - Use a different concrete-dispatch-friendly callee (e.g. Core.stdout instead of Base.stdout; libc snprintf via ccall instead of string(::Any)).")
+    println(eng.errio, "    - Wrap the callee with a type-stable callable struct or FunctionWrapper.")
+    println(eng.errio, "    - Mark the enclosing function @nocheck if this dispatch is intentional.")
 end
 
 struct InferenceErrorNoConstructor <: InferenceError

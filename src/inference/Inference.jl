@@ -2435,13 +2435,32 @@ function checkToplevelFunction(eng::Engine,
     ast = fundef.ast
     smapping = Dict{Symbol, ContextValue}()
     mi = eng.mi
-    if methodHandleSparamCount(mi) != length(fundef.sparams)
-        error("mismatched param size")
+    # MI may carry fewer sparams than the AST when extra `where` parameters
+    # are bound by keyword-arg dispatch instead of positional dispatch — e.g.
+    # `f(...; cb::FCB = default) where {T, FA, FCB}` produces a positional
+    # MI with sparams (T, FA) while AST has (T, FA, FCB). Only erroring if
+    # the MI carries MORE sparams than the AST, which would be a real bug.
+    n_mi = methodHandleSparamCount(mi)
+    n_ast = length(fundef.sparams)
+    if n_mi > n_ast
+        meth = methodHandleDef(mi)
+        loc = formatLocation(ast.loc)
+        error("mismatched param size: function $(fundef.fname) at $loc — MI has $n_mi sparams but AST only has $n_ast  [method: $meth]")
     end
-    for i in 1:methodHandleSparamCount(mi)
-        # TODO : the ast is incorrect here...
-        # add mapping here!
+    # Bind the first n_mi sparams from the MI's concrete values.
+    for i in 1:n_mi
         node = makeSparamFlowNode(ast, makeSparamCompileType(mi, i))
+        smapping[fundef.sparams[i].first] = ContextValue(node, node)
+    end
+    # Any extra AST sparams (kwarg-bound, not in the MI) — bind the
+    # identifier to the constant Type `Any`. Semantically this is "the
+    # static type assertion FF degrades to Any, accept any caller value."
+    # Using makeConstVal (not makeType) so `lift()` in the kwarg pipeline
+    # treats it as a const Type rather than tripping its "Internal error"
+    # branch. Using TypeVar values here doesn't work either — they break
+    # the `<:` subtype machinery because TypeVar isn't <: Type.
+    for i in (n_mi + 1):n_ast
+        node = makeSparamFlowNode(ast, makeConstVal(Any))
         smapping[fundef.sparams[i].first] = ContextValue(node, node)
     end
     mapping = Dict{Symbol, ContextValue}()

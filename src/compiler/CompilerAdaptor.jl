@@ -82,8 +82,16 @@ function inferReturnType(ctx::GlobalContext, sig)::Vector{CompileType}
     param1 = sig.parameters[1]
     if param1 <: Type
         inferReturnType(ctx, sig, param1.parameters[1], Base.to_tuple_type(sig.parameters[2:end]))
-    else
+    elseif Base.issingletontype(param1)
         inferReturnType(ctx, sig, param1.instance, Base.to_tuple_type(sig.parameters[2:end]))
+    else
+        # Callable types without a singleton instance — closures that
+        # capture variables, callable structs with fields, FunctionWrappers.
+        # The downstream path uses only `sig` to locate methods; pass
+        # `nothing` as the placeholder for `f`. The Builtin / OpaqueClosure
+        # branches won't trigger (isa check fails on nothing), and the main
+        # `_methods_by_ftype(sig, ...)` path doesn't need f.
+        inferReturnType(ctx, sig, nothing, Base.to_tuple_type(sig.parameters[2:end]))
     end
 end
 

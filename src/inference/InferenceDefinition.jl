@@ -488,9 +488,9 @@ function GlobalContext()
     GlobalContext(ErrorLogger(IOBuffer()),
                   Dict{JuliaSyntax.SourceFile, JuAST}(),
                   Dict{MethodDef, FunDef}(),
-                  KwFunCall[], 
-                  Dict{MethodHandle, Vector{Pair{Dict{Symbol, CompileType}, Any}}}(), 
-                  Dict{Any, Vector{Any}}(),
+                  KwFunCall[],
+                  Dict{MethodHandle, Vector{Pair{KeywordSortList, Any}}}(),
+                  Dict{Any, Vector{CompileType}}(),
                   Dict{CompileType, MacroExpander}())
 end
 

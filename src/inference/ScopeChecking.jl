@@ -160,9 +160,17 @@ function analyzeScopeVariableAssignLHS(ctx::ScopeInfoContext, lhs::JuAST, isLoca
 end
 
 function enterScope(ctx::ScopeInfoContext, parent::JuAST, body::JuAST)
-    if parent.head == :for 
+    if parent.head == :for
+        # In-tree JuliaSyntax wraps the binding clause(s) in :iteration.
+        # Old single-binding shape `(= i iter)` and old multi-binding
+        # `(block (= i1 it1) ...)` are normalized here by stepping
+        # through :iteration. Each binding sub-node has children
+        # [var, iter_expr] (head is :in or := in the in-tree version,
+        # := in the legacy package version).
         iter = parent.args[1]
-        if iter.head == :block
+        if iter.head == :iteration
+            iter = iter.args[1]
+        elseif iter.head == :block
             iter = iter.args[1]
         end
         analyzeScopeVariable(ctx, iter.args[2])
@@ -176,8 +184,12 @@ function enterScope(ctx::ScopeInfoContext, parent::JuAST, body::JuAST)
     push!(ctx.chains, info)
     if parent.head == :for
         iter = parent.args[1]
-        # multiple binding
-        if iter.head == :block
+        if iter.head == :iteration
+            # multi-binding lives as multiple children of :iteration
+            for i in iter.args
+                analyzeScopeVariableAssignLHS(ctx, i.args[1], true, false)
+            end
+        elseif iter.head == :block
             for i in iter.args
                 analyzeScopeVariableAssignLHS(ctx, i.args[1], true, false)
             end

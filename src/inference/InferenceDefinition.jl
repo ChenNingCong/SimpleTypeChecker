@@ -1,7 +1,7 @@
 using ..SyntaxDefinition
 using ..Utility
 import ..Utility
-import JuliaSyntax
+const JuliaSyntax = Base.JuliaSyntax
 using FunctionWrappers: FunctionWrapper
 
 struct CompileType

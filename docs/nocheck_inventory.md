@@ -17,16 +17,17 @@ Categories:
 - **LEGACY** — author hadn't typed the body. Removal target. Most of
   these are now done.
 
-Last updated: 2026-05-25 (after the try/catch-merge + Builtin /
-per-arity-escape-hatch / FunctionWrapper pass).
-Count: `grep -c "@nocheck function" -r src` → **29**, down from 78.
+Last updated: 2026-05-25 (after the JuliaSyntax wrapper review +
+try/catch-merge + Builtin / per-arity-escape-hatch / FunctionWrapper
+pass).
+Count: `grep -c "@nocheck function" -r src` → **27**, down from 78.
 
-Breakdown of the remaining 29:
+Breakdown of the remaining 27:
 - `src/compiler/CompilerAdaptor.jl`: **12** — adaptor seam to
   `Core.Compiler.*`, `MethodInstance`/`Method` field access, trace
   helpers. Kept by design (core-compiler component to be trimmed
   separately).
-- Application-level (17 across the rest):
+- Application-level (15 across the rest):
   - **abstract IO interface contract** (4): `Base.show(::IO, ::JuAST)`,
     `displayJuASTHelper`, `Base.show(::IO, ::ScopeInfo)`,
     `displayContext(::IO, ::Context)`. `io::IO` is the public
@@ -36,8 +37,6 @@ Breakdown of the remaining 29:
     `makeNameTupleType`, `dispatchTraceForCall`, `makeTupleType`.
     Splatting a `Vector{Any}` into a parametric Tuple/NamedTuple is
     exactly the case Julia's type system can't infer statically.
-  - **external API with keyword args** (2): `untokenize`,
-    `parseJuAST` — JuliaSyntax callers, kwarg dispatch is dynamic.
   - **by-design runtime evaluation** (4): `fasteval`,
     `mapAST2Method`, `addFile!`, `runCheck!` — `Core.eval`, AST
     walking, file I/O.
@@ -46,6 +45,45 @@ Breakdown of the remaining 29:
   - **walkdir** (1): `checkPackage` — abstract iterator from
     `walkdir`. Could be eliminated with a small refactor.
   - **HTML debug helper** (1): `parseAndConstructHTML`.
+
+### JuliaSyntax wrapper review (2026-05-25)
+
+Reviewed `untokenize` and `parseJuAST` empirically with
+`juliac --trim=safe`:
+
+- `JuliaSyntax.untokenize(::SyntaxHead; include_flag_suff=true)`
+  trim-compiles **cleanly** (no verifier errors). Our checker also
+  accepts the wrapper once `::String` is asserted on the return.
+  `@nocheck` removed.
+- `JuliaSyntax.parseall(SyntaxNode, str; filename)` with the
+  **registered package version** produced 8 verifier errors, all
+  in JuliaSyntax error-emission paths. With the **in-tree version
+  (`Base.JuliaSyntax`)**, that drops to **2 errors, 0 warnings**
+  — both for the same `parse_block_inner` call (`::Function`
+  callback). The error-path issues were fixed in-tree:
+  - `const _token_error_descriptions = Dict{Kind, String}(...)` —
+    one-word `const` pins the binding type so `getindex(::Dict{Kind,String}, ::Kind)::String` resolves statically.
+  - `internal_error(strs::Vararg{String, N}) where {N}` — typed
+    Vararg with concrete element type and length parameter, so
+    each call site specializes and the splat unrolls statically.
+
+Migrated to the in-tree `Base.JuliaSyntax` (Julia 1.12+). Three
+shape differences also needed handling:
+- `module` lost the leading boolean-bareness child.
+- `try` is now `(try block (catch var body) (else body) (finally body))`
+  with optional clause sub-nodes instead of a fixed 5-tuple.
+- `for` wraps the binding clause(s) in a new `:iteration` node;
+  binding uses `:in` instead of `:=`.
+- `a.b` is `(. a b)` (bare identifier) instead of `(. a (quote b))`.
+- `GreenNode.children` (was `args`) is `Union{Nothing, Vector}`
+  instead of `Union{Tuple{}, Vector}`.
+- `_kind_names::Vector{String}` is now `_kind_int_to_str::Dict{UInt16, String}`.
+
+Conclusion (validated empirically): "JuliaSyntax returns Any in
+places" is independent of whether our wrapper is trimmable from
+our checker's standpoint. Don't add `@nocheck` defensively —
+only when our checker actually fires. The in-tree version closes
+most of the trim gap for free.
 
 ## Removed this pass (strike-throughs preserved for history)
 

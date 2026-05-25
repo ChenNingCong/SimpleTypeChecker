@@ -7,7 +7,7 @@ export SpanInfo,
        makeEmptyJuASTVal,
        makeConstJuASTVal
 
-import JuliaSyntax
+const JuliaSyntax = Base.JuliaSyntax
 using ..Utility
 
 # An literal value in the AST tree

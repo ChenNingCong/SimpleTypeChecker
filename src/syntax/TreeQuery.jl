@@ -1,8 +1,8 @@
 export locateNode
 # Also used in JSAdaptor
-const NewlineWsKind = convert(JuliaSyntax.Kind, "NewlineWs")
-const WhitespaceKind = convert(JuliaSyntax.Kind, "Whitespace")
-const CommentKind = convert(JuliaSyntax.Kind, "Comment")
+const NewlineWsKind = JuliaSyntax.Kind("NewlineWs")
+const WhitespaceKind = JuliaSyntax.Kind("Whitespace")
+const CommentKind = JuliaSyntax.Kind("Comment")
 
 function stringfy(x)
     return "$(Int(x.first)):$(Int(x.second))"

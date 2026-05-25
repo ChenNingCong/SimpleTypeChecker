@@ -1608,60 +1608,54 @@ end
 
 function inferTryStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     assertASTKind(ast, :try)
-    # JuliaSyntax `try` AST has 5 args:
+    # In-tree JuliaSyntax `try` AST (1.12+):
     #   args[1] : try body (:block)
-    #   args[2] : catch variable (:identifier, or :literal nothing if absent)
-    #   args[3] : catch body (:block, or :literal nothing if absent)
-    #   args[4] : else body  (:literal nothing if absent)
-    #   args[5] : finally body (:literal nothing if absent)
-    try_body  = ast.args[1]
-    catch_var = ast.args[2]
-    catch_body = ast.args[3]
-    else_body = ast.args[4]
-    finally_body = ast.args[5]
-
-    # Walk the try body, capturing its post-context.
+    #   args[2..end] : optional clause sub-nodes, each with head
+    #     :catch, :else, or :finally (zero or more, in source order).
+    #   :catch has children [var, body] where var is an :identifier
+    #     (val = Symbol("") for `catch` with no binding).
+    #   :else and :finally each have one :block child.
+    try_body = ast.args[1]
     try_rel = inferExpr(eng, ctx, try_body)
 
-    # Decide which context propagates past the try/catch block. Inline
-    # the catch-body walk here so the checker sees `catch_rel` is
-    # assigned on every path that reads it.
     local merged_ctx::Context = ctx
-    if catch_body.head == :block
-        catch_ctx = ctx
-        if catch_var.head == :identifier
-            name = cast2Symbol(catch_var.val)
-            anynode = makeParamFlowNode(catch_var, makeType(Any))
-            catch_ctx = update(catch_ctx, name, ContextValue(anynode, anynode))
+    for i in 2:length(ast.args)
+        c = ast.args[i]
+        if c.head == :catch
+            catch_var = c.args[1]
+            catch_body = c.args[2]
+            catch_ctx = ctx
+            if catch_var.head == :identifier
+                vv = catch_var.val.val
+                if vv isa Symbol && vv != Symbol("")
+                    anynode = makeParamFlowNode(catch_var, makeType(Any))
+                    catch_ctx = update(catch_ctx, vv, ContextValue(anynode, anynode))
+                end
+            end
+            catch_rel = inferExpr(eng, catch_ctx, catch_body)
+            # Three cases when there's a catch block:
+            #   - Catch's body is Bottom (every path returns / throws /
+            #     rethrows): reaching code AFTER the try/catch implies
+            #     the try completed without throwing, so try's
+            #     post-context is sound to propagate.
+            #   - Try's body is Bottom: the only path past the block is
+            #     via the catch.
+            #   - Both branches fall through: merge variables that are
+            #     `mustInitialized` in BOTH branches (mirrors the
+            #     if/else merger). Variables present in only one branch
+            #     fall back to the pre-try binding if any.
+            if isBottomType(catch_rel.node.typ)
+                merged_ctx = try_rel.ctx
+            elseif isBottomType(try_rel.node.typ)
+                merged_ctx = catch_rel.ctx
+            else
+                merged_ctx = _mergeTryCatchContexts(eng, ast, ctx, try_rel.ctx, catch_rel.ctx)
+            end
+        elseif c.head == :else
+            inferExpr(eng, ctx, c.args[1])
+        elseif c.head == :finally
+            inferExpr(eng, ctx, c.args[1])
         end
-        catch_rel = inferExpr(eng, catch_ctx, catch_body)
-
-        # Three cases when there's a catch block:
-        #   - Catch's body is Bottom (every path returns / throws /
-        #     rethrows): reaching code AFTER the try/catch implies the
-        #     try completed without throwing, so try's post-context is
-        #     sound to propagate.
-        #   - Try's body is Bottom: the only path past the block is
-        #     via the catch.
-        #   - Both branches fall through: merge variables that are
-        #     `mustInitialized` in BOTH branches (mirrors the if/else
-        #     merger). Variables present in only one branch fall back
-        #     to the pre-try binding if any.
-        if isBottomType(catch_rel.node.typ)
-            merged_ctx = try_rel.ctx
-        elseif isBottomType(try_rel.node.typ)
-            merged_ctx = catch_rel.ctx
-        else
-            merged_ctx = _mergeTryCatchContexts(eng, ast, ctx, try_rel.ctx, catch_rel.ctx)
-        end
-    end
-
-    # Else / finally — walk for side effects in the pre-try context.
-    if else_body.head == :block
-        inferExpr(eng, ctx, else_body)
-    end
-    if finally_body.head == :block
-        inferExpr(eng, ctx, finally_body)
     end
 
     node = makeBlockFlowNode(ast, try_rel.node)
@@ -1928,7 +1922,11 @@ function inferGetField(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         reportASTError(eng, ast, "Not a valid getproperty call")
     end
     ap = ast.args[2]
-    if ap.head == :quote && length(ap.args) == 1 && ap.args[1].head == :identifier
+    # In-tree JuliaSyntax emits `(. a b)` (bare identifier on the rhs);
+    # legacy JuliaSyntax 0.3 emits `(. a (quote b))`. Accept both shapes.
+    if ap.head == :identifier
+        p = cast2Symbol(ap.val)
+    elseif ap.head == :quote && length(ap.args) == 1 && ap.args[1].head == :identifier
         p = cast2Symbol(ap.args[1].val)
     else
         reportASTError(eng, ast, "Property is not a constant symbol")
@@ -2454,9 +2452,9 @@ function checkForStmt(eng::Engine, ast::JuAST)::Nothing
         end
     elseif ast.head == :identifier
         return
-    elseif ast.head == :(=)
+    elseif ast.head == :(=) || ast.head == :in
         checkForStmt(eng, ast.args[1])
-    elseif ast.head == :block
+    elseif ast.head == :iteration || ast.head == :block
         for i in ast.args
             checkForStmt(eng, i)
         end
@@ -2473,7 +2471,7 @@ function inferForStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     checkForStmt(eng, vars)
 
     # step one : check outmost iterator
-    if vars.head == :block
+    if vars.head == :iteration || vars.head == :block
         firstvar = vars.args[1].args[1]
         iter = vars.args[1].args[2]
     else
@@ -2505,7 +2503,7 @@ function inferForStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     newctx = Context(ImmutableDict(newmapping))
     newctx = inferAssignLHS(eng, newctx, firstvar, varnode, UpdateOp()).ctx
     # step three : add other variables
-    if vars.head == :block
+    if vars.head == :iteration || vars.head == :block
         for i in 2:length(vars.args)
             p = vars.args[i]
             firstvar = p.args[1]
@@ -2893,7 +2891,7 @@ end
 # fields. Used both for module navigation (caller checks the result
 # isa Module) and for function lookup (caller uses the value directly).
 function evalGetPropertyChain(parent::Core.Module, s::Vector{Symbol})
-    base = parent
+    local base::Any = parent
     for i in s
         if base isa Module
             base = getglobal(base, i)
@@ -3011,11 +3009,11 @@ function collectToplevelFunction!(ctx::GlobalContext, rel::Dict{Vector{Symbol}, 
         return nothing
     end
     if ast.head == :module
-        mname = ast.args[2]
+        mname = ast.args[1]
         if mname.head != :identifier
             reportASTError(ctx, ast, "Module name must be an identifier")
         end
-        bodyast = ast.args[3]
+        bodyast = ast.args[2]
         if bodyast.head != :block
             reportASTError(ctx, ast, "Module body must be an block")
         end

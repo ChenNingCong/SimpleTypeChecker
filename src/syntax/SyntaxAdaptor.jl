@@ -3,7 +3,7 @@
 
 export parseJuAST
 
-import JuliaSyntax
+const JuliaSyntax = Base.JuliaSyntax
 # Maybe is used only in this module, we don't expose it to other modules
 using ..SyntaxDefinition
 import ..SyntaxDefinition.formatLocation
@@ -31,12 +31,12 @@ function convert2MutableGreenNode(ast::JuliaSyntax.GreenNode{JuliaSyntax.SyntaxH
 end
 
 # We identity every non-leaf GreenNode with its span
-function convert2MutableGreenNode!(spanMapping::Dict{SpanInfo, Vector{MutableGreenNode}}, 
-                                   pos::Base.RefValue{UInt32}, 
+function convert2MutableGreenNode!(spanMapping::Dict{SpanInfo, Vector{MutableGreenNode}},
+                                   pos::Base.RefValue{UInt32},
                                    ast::JuliaSyntax.GreenNode{JuliaSyntax.SyntaxHead})::MutableGreenNode
-    args = ast.args
+    args = ast.children
     span = SpanInfo(pos[] + 1, pos[] + ast.span)
-    if args isa Tuple{}
+    if args isa Nothing
         node = MutableGreenNode(ast.head, span, Tuple{}(), nothing)
         pos[] = pos[] + ast.span
     else
@@ -72,7 +72,7 @@ function getNodeVal(tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData})::JuASTVa
     end
 end
 
-@nocheck function untokenize(head::JuliaSyntax.SyntaxHead)
+function untokenize(head::JuliaSyntax.SyntaxHead)::String
     JuliaSyntax.untokenize(head;include_flag_suff=true)
 end
 
@@ -117,7 +117,7 @@ function convert2JuAST!(tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData},
         error("Bad flag : $(formatLocation(loc)) $(head.kind) : $flag $(untokenize(head))")
     end
     # TODO : we need to handle more strange syntax here...
-    shead = Symbol(JuliaSyntax._kind_names[Int(kind)+1])
+    shead = Symbol(JuliaSyntax._kind_int_to_str[reinterpret(UInt16, head.kind)])
     children = Vector{JuAST}(undef, length(nchild))
     ast = JuAST(shead, flag, children, makeEmptyJuASTVal(), loc, parent, tree)
     for i in 1:length(nchild)
@@ -159,9 +159,9 @@ function compareGreenNode(node::JuliaSyntax.GreenNode{JuliaSyntax.SyntaxHead}, m
     if !fastCompareGreenNode(node, mnode)
         return false
     end
-    nchild = node.args
+    nchild = node.children
     mchild = mnode.args
-    if nchild isa Tuple{}
+    if nchild isa Nothing
         if mchild isa Tuple{}
             return true
         else
@@ -276,7 +276,7 @@ function constructJuAST(tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData})::JuA
     return ast
 end
 
-@nocheck function parseJuAST(str::String, filename::String)::JuAST
+function parseJuAST(str::String, filename::String)::JuAST
     tree = JuliaSyntax.parseall(JuliaSyntax.SyntaxNode, str;filename)
     ast = constructJuAST(tree)
     return ast

@@ -770,7 +770,7 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
                 reportErrorTopLevelDispatch(eng, ast, ms, isDotcall)
             end
         else
-            if tt.typ === Any
+            if isaAny(eng.globalCtx.rtctx, tt)
                 reportErrorTopLevelDispatch(eng, ast, ms, isDotcall)
             end
         end
@@ -2007,7 +2007,7 @@ function tryNarrowType(eng::Engine, ctx::Context, ast::JuAST)::Pair{InferResult,
                     rhstt = lift(rhstt)
                     # TODO : lift the constant here
                     # x isa XXX type, we life XXX to a type before we perform comparsion
-                    if !isaType(rhstt)
+                    if !isaType(eng.globalCtx.rtctx, rhstt)
                         reportErrorIsaLHSBadType(eng, ast, rhstt)
                     end
                     # then we lookup lhs of isa
@@ -2032,9 +2032,9 @@ function tryNarrowType(eng::Engine, ctx::Context, ast::JuAST)::Pair{InferResult,
                     ctxval = ContextValue(storetypenode, pinode)
                     newctx = update(ctx, lhsid, ctxval)
                     newrel = InferResult(newctx, condnode)
-                    if isaAny(curtt)
+                    if isaAny(eng.globalCtx.rtctx, curtt)
                         return newrel => ctx
-                    elseif isaUnion(curtt)
+                    elseif isaUnion(eng.globalCtx.rtctx, curtt)
                         negtt = splitUnion(curtt, rhstt)
                         negpinode = makeNegPiFlowNode(ast, condnode, negtt)
                         negctx = update(ctx, lhsid, ContextValue(storetypenode, negpinode))
@@ -2049,7 +2049,7 @@ function tryNarrowType(eng::Engine, ctx::Context, ast::JuAST)::Pair{InferResult,
         end
     end
     rel = inferExpr(eng, ctx, ast)
-    if !isaBool(rel.node.typ)
+    if !isaBool(eng.globalCtx.rtctx, rel.node.typ)
         reportErrorCondNotBool(eng, rel.node)
     end
     return rel => rel.ctx
@@ -2132,7 +2132,7 @@ function inferWhileStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     
     newctx = Context(ImmutableDict(newmapping))
     rel = inferExpr(eng, newctx, cond)
-    if !isaBool(rel.node.typ)
+    if !isaBool(eng.globalCtx.rtctx, rel.node.typ)
         reportErrorCondNotBool(eng, rel.node)
     end
     # we enter loop when we infer body
@@ -2432,11 +2432,11 @@ function iterateCheck(eng::Engine, node::FlowNode)::FlowNode
     end
     # TODO check another part of iterate, iterate(iterator, val)
     tt = extractUniqueMatch(matches)
-    if !isaUnion(tt)
+    if !isaUnion(eng.globalCtx.rtctx, tt)
         error("Not a union for iterator")
     end
     tt = splitUnion(tt, makeType(Nothing))
-    if isaTuple(tt)
+    if isaTuple(eng.globalCtx.rtctx, tt)
         tt = getFirstParameter(tt)
     else
         error("Not a tuple for iterator")

@@ -158,24 +158,24 @@ function splitUnion(x::CompileType, y::CompileType)::CompileType
     makeType(Union{setdiff(u1, u2)...})
 end
 
-function isaType(x::CompileType)::Bool
-    x.typ isa Type
+function isaType(rtctx::RuntimeContext, x::CompileType)::Bool
+    return rtctx.isTypeValue(x)
 end
 
-function isaAny(x::CompileType)::Bool
-    x.typ === Any
+function isaAny(rtctx::RuntimeContext, x::CompileType)::Bool
+    return rtctx.isAny(x)
 end
 
-function isaBool(x::CompileType)::Bool
-    x.typ === Bool
+function isaBool(rtctx::RuntimeContext, x::CompileType)::Bool
+    return rtctx.isBool(x)
 end
 
-function isaUnion(x::CompileType)::Bool
-    x.typ isa Union
+function isaUnion(rtctx::RuntimeContext, x::CompileType)::Bool
+    return rtctx.isUnion(x)
 end
 
-function isaTuple(x::CompileType)::Bool
-    x.typ <: Tuple
+function isaTuple(rtctx::RuntimeContext, x::CompileType)::Bool
+    return rtctx.isTupleType(x)
 end
 
 # Single-method `@nospecialize` escape hatch: the caller's typed

@@ -557,6 +557,30 @@ end
     return a.typ <: b.typ
 end
 
+# Single-peek isa-checks. Each cracks `.typ` and compares against a
+# driver-runtime constant (Any / Bool / Type / Union / Tuple). The
+# inferencer cannot do this directly — its `Any` etc. live in a
+# different runtime than the type values being checked.
+@nocheck function isAny(x::CompileType)::Bool
+    return x.typ === Any
+end
+
+@nocheck function isBool(x::CompileType)::Bool
+    return x.typ === Bool
+end
+
+@nocheck function isTypeValue(x::CompileType)::Bool
+    return x.typ isa Type
+end
+
+@nocheck function isUnion(x::CompileType)::Bool
+    return x.typ isa Union
+end
+
+@nocheck function isTupleType(x::CompileType)::Bool
+    return x.typ <: Tuple
+end
+
 # Per-field kwargs default to the live-JIT driver. Tests pass only the
 # fields they want to override; adding a new field to RuntimeContext
 # does not break existing call sites.
@@ -566,8 +590,15 @@ function defaultRuntimeContext(;
     makeCallSigFn::MakeCallSigFn           = MakeCallSigFn(makeCallSig),
     makeTupleTypeFn::MakeTupleTypeFn       = MakeTupleTypeFn(makeTupleTypeOf),
     subtypeOfFn::SubtypeOfFn               = SubtypeOfFn(subtypeOf),
+    isAnyFn::IsAnyFn                       = IsAnyFn(isAny),
+    isBoolFn::IsBoolFn                     = IsBoolFn(isBool),
+    isTypeValueFn::IsTypeValueFn           = IsTypeValueFn(isTypeValue),
+    isUnionFn::IsUnionFn                   = IsUnionFn(isUnion),
+    isTupleTypeFn::IsTupleTypeFn           = IsTupleTypeFn(isTupleType),
 )::RuntimeContext
     return RuntimeContext(methodsOfFn, inferReturnTypeFn,
                           makeCallSigFn, makeTupleTypeFn,
-                          subtypeOfFn)
+                          subtypeOfFn,
+                          isAnyFn, isBoolFn, isTypeValueFn,
+                          isUnionFn, isTupleTypeFn)
 end

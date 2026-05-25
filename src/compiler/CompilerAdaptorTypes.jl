@@ -58,6 +58,15 @@ const MakeTupleTypeFn    = FunctionWrapper{OpaqueHandle,      Tuple{OpaqueHandle
 # `subtypeOf(a, b)` answers `a.typ <: b.typ`. Driver-side because `<:`
 # peeks `.typ`.
 const SubtypeOfFn        = FunctionWrapper{Bool,              Tuple{OpaqueHandle, OpaqueHandle}}
+# Single-arg isa-checks on CompileType handles. Each one is a single
+# `===` or `isa` peek on the underlying `.typ`, gathered behind the
+# seam so the inferencer never compares against analyzer-runtime
+# constants like Any/Bool/Union{}/Tuple.
+const IsAnyFn       = FunctionWrapper{Bool, Tuple{OpaqueHandle}}
+const IsBoolFn      = FunctionWrapper{Bool, Tuple{OpaqueHandle}}
+const IsTypeValueFn = FunctionWrapper{Bool, Tuple{OpaqueHandle}}
+const IsUnionFn     = FunctionWrapper{Bool, Tuple{OpaqueHandle}}
+const IsTupleTypeFn = FunctionWrapper{Bool, Tuple{OpaqueHandle}}
 
 struct RuntimeContext
     methodsOf::MethodsOfFn
@@ -65,4 +74,9 @@ struct RuntimeContext
     makeCallSig::MakeCallSigFn
     makeTupleType::MakeTupleTypeFn
     subtypeOf::SubtypeOfFn
+    isAny::IsAnyFn
+    isBool::IsBoolFn
+    isTypeValue::IsTypeValueFn
+    isUnion::IsUnionFn
+    isTupleType::IsTupleTypeFn
 end

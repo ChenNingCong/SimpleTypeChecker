@@ -853,6 +853,23 @@ end
     end
 end
 
+# `tupleDestructInfo(h, n)` — driver-side decision for whether `h` can be
+# destructured into `n` slots. Three Bools out:
+#   (1) is `.typ` a DataType?
+#   (2) does it have at least `n` parameters?
+#   (3) is it <: Tuple or <: Pair?
+# The inferencer uses these to report the specific failure mode without
+# peeking into target-runtime type structure.
+@nocheck function tupleDestructInfo(h::OpaqueHandle{CompileTypeK}, n::Int)::Tuple{Bool, Bool, Bool}
+    t = unwrap(h, CompileType).typ
+    if !(t isa DataType)
+        return (false, false, false)
+    end
+    lenOk = length((t::DataType).parameters) >= n
+    isTupleOrPair = (t <: Tuple) || (t <: Pair)
+    return (true, lenOk, isTupleOrPair)
+end
+
 # Per-field kwargs default to the live-JIT driver. Tests pass only the
 # fields they want to override; adding a new field to RuntimeContext
 # does not break existing call sites.
@@ -917,6 +934,7 @@ function defaultRuntimeContext(;
     getFirstParameterOfFn::GetFirstParameterOfFn   = GetFirstParameterOfFn(getFirstParameterOf),
     getTypeParameterOfFn::GetTypeParameterOfFn     = GetTypeParameterOfFn(getTypeParameterOf),
     removeConstOfFn::RemoveConstOfFn               = RemoveConstOfFn(removeConstOf),
+    tupleDestructInfoFn::TupleDestructInfoFn       = TupleDestructInfoFn(tupleDestructInfo),
 )::RuntimeContext
     return RuntimeContext(methodsOfFn, inferReturnTypeFn,
                           makeCallSigFn, makeTupleTypeFn,
@@ -944,5 +962,6 @@ function defaultRuntimeContext(;
                           lookupBaseIdentityFn, lookupIsaFn,
                           lookupBitAndFn, lookupBitOrFn, lookupAnyValueFn,
                           makeMatrixOfFn, getFirstParameterOfFn,
-                          getTypeParameterOfFn, removeConstOfFn)
+                          getTypeParameterOfFn, removeConstOfFn,
+                          tupleDestructInfoFn)
 end

@@ -54,8 +54,35 @@ function lift(rtctx::RuntimeContext, v::CompileType)::CompileType
     end
 end
 
-function convert2ConstVal(val::JuASTVal)::CompileType
-    return makeConstVal(val.val)
+# JuASTVal carries a parsed source literal — Bool / Int / Float / String /
+# Char / Symbol. The value lives in the analyzer runtime (it came from the
+# parser). To get a target-runtime CompileType, dispatch on the literal
+# type and call the appropriate `wrapLiteral*` membrane op so the driver
+# constructs `makeConstVal` on its side.
+function convert2ConstVal(rtctx::RuntimeContext, val::JuASTVal)::CompileType
+    v = val.val
+    if v isa Bool
+        return unwrap(rtctx.wrapLiteralBool(v), CompileType)
+    elseif v isa Int
+        return unwrap(rtctx.wrapLiteralInt(v), CompileType)
+    elseif v isa Float64
+        return unwrap(rtctx.wrapLiteralFloat64(v), CompileType)
+    elseif v isa String
+        return unwrap(rtctx.wrapLiteralString(v), CompileType)
+    elseif v isa Char
+        return unwrap(rtctx.wrapLiteralChar(v), CompileType)
+    elseif v isa Symbol
+        # Symbols cross the seam as String; driver re-interns into its
+        # own Symbol table.
+        return unwrap(rtctx.wrapLiteralSymbolName(String(v)), CompileType)
+    elseif v === nothing
+        return unwrap(rtctx.wrapLiteralNothing(), CompileType)
+    else
+        # Fallback for literal types we haven't enumerated yet (e.g. BigInt,
+        # complex literals). Keeps the inferencer functional in the short
+        # term; new op should be added when this branch is hit.
+        return makeConstVal(v)
+    end
 end
 
 #=
@@ -249,15 +276,15 @@ struct SetPropertyFlowNode end
 struct KeyParamFlowNode end
 # special node for Expr, Expr is a mutable that is local to the function body
 # we treat the value as a non-constant, because it's mutable
-function makeLiteralFlowNode(ast::JuAST, val::JuASTVal)
-    FlowNode(ast, FlowNode[], convert2ConstVal(val), LiteralFlowNode())
+function makeLiteralFlowNode(rtctx::RuntimeContext, ast::JuAST, val::JuASTVal)
+    FlowNode(ast, FlowNode[], convert2ConstVal(rtctx, val), LiteralFlowNode())
 end
 
-function makeLiteralExprFlowNode(ast::JuAST)
-    FlowNode(ast, FlowNode[], makeType(Expr), LiteralExprFlowNode())
+function makeLiteralExprFlowNode(rtctx::RuntimeContext, ast::JuAST)
+    FlowNode(ast, FlowNode[], unwrap(rtctx.makeExprType(), CompileType), LiteralExprFlowNode())
 end
-function makeMacroCallFlowNode(ast::JuAST)
-    FlowNode(ast, FlowNode[], makeType(Nothing), MacroCallFlowNode())
+function makeMacroCallFlowNode(rtctx::RuntimeContext, ast::JuAST)
+    FlowNode(ast, FlowNode[], unwrap(rtctx.makeNothingType(), CompileType), MacroCallFlowNode())
 end
 
 function makeAssignLHSVarFlowNode(ast::JuAST, rhs::FlowNode, updateOp::UpdateOp)
@@ -309,8 +336,8 @@ function makeFunCallFlowNode(ast::JuAST, ms::MethodCallStruct, typ::CompileType)
     FlowNode(ast, FlowNode[], typ, FunCallFlowNode(ms))
 end
 
-function makeEmptyBlockFlowNode(ast::JuAST)
-    FlowNode(ast, FlowNode[], makeConstVal(nothing), BlockFlowNode())
+function makeEmptyBlockFlowNode(rtctx::RuntimeContext, ast::JuAST)
+    FlowNode(ast, FlowNode[], unwrap(rtctx.wrapLiteralNothing(), CompileType), BlockFlowNode())
 end
 
 function makeBlockFlowNode(ast::JuAST, last::FlowNode)
@@ -349,8 +376,8 @@ function makeGetPropertyFlowNode(ast::JuAST, node::FlowNode, typ::CompileType)
     FlowNode(ast, FlowNode[node], typ, GetPropertyFlowNode())
 end
 
-function makeEmptyElseFlowNode(ast::JuAST)
-    FlowNode(ast, FlowNode[], makeConstVal(nothing), IfStmtFlowNode())
+function makeEmptyElseFlowNode(rtctx::RuntimeContext, ast::JuAST)
+    FlowNode(ast, FlowNode[], unwrap(rtctx.wrapLiteralNothing(), CompileType), IfStmtFlowNode())
 end
 
 function makeIfStmtFlowNode(ast::JuAST, typ::CompileType)
@@ -402,8 +429,8 @@ function makeSetPropertyFlowNode(ast::JuAST, xnode::FlowNode, rhsnode::FlowNode,
     FlowNode(ast, FlowNode[xnode, rhsnode], typ, SetPropertyFlowNode())
 end
 
-function makeWhileStmtFlowNode(ast::JuAST)
-    FlowNode(ast, FlowNode[], makeType(Nothing), WhileStmtFlowNode())
+function makeWhileStmtFlowNode(rtctx::RuntimeContext, ast::JuAST)
+    FlowNode(ast, FlowNode[], unwrap(rtctx.makeNothingType(), CompileType), WhileStmtFlowNode())
 end
 
 #=

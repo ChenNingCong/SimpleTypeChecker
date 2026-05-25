@@ -205,6 +205,11 @@ const MakeMatrixOfFn         = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple
 const GetFirstParameterOfFn  = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}}}
 const GetTypeParameterOfFn   = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}, Int}}
 const RemoveConstOfFn        = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}}}
+# `tupleDestructInfo(h, n)` -> `(isDataType, length(t.parameters) >= n,
+# (t <: Tuple || t <: Pair))`. Decides whether the inferencer can destructure
+# `h` into `n` slots. Returns three Bools so the inferencer can report the
+# specific failure mode without peeking `.typ`/`.parameters`.
+const TupleDestructInfoFn    = FunctionWrapper{Tuple{Bool, Bool, Bool}, Tuple{OpaqueHandle{CompileTypeK}, Int}}
 
 struct RuntimeContext
     methodsOf::MethodsOfFn
@@ -270,4 +275,5 @@ struct RuntimeContext
     getFirstParameterOf::GetFirstParameterOfFn
     getTypeParameterOf::GetTypeParameterOfFn
     removeConstOf::RemoveConstOfFn
+    tupleDestructInfo::TupleDestructInfoFn
 end

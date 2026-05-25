@@ -82,7 +82,7 @@ function assertASTKind(ast::JuAST, typ::Symbol)::Nothing
 end
 
 function inferLiteral(eng::Engine, ctx::Context, ast::JuAST)::InferResult
-    node = makeLiteralFlowNode(ast, ast.val)
+    node = makeLiteralFlowNode(eng.globalCtx.rtctx, ast, ast.val)
     addFlowMapping!(eng, ast, node)
     return InferResult(ctx, node)
 end
@@ -92,7 +92,7 @@ function inferCharLiteral(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     if length(ast.args) == 1 && ast.args[1].head == :literal
         charval = ast.args[1].val
         if isaJuASTVal(charval, Char)
-            node = makeLiteralFlowNode(ast, charval)
+            node = makeLiteralFlowNode(eng.globalCtx.rtctx, ast, charval)
             addFlowMapping!(eng, ast, node)
             addFlowMapping!(eng, ast.args[1], node)
             return InferResult(ctx, node)
@@ -116,11 +116,11 @@ function inferQuoteLiteral(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     qast = ast.args[1]
     local node::FlowNode
     if qast.head == :identifier
-        node = makeLiteralFlowNode(ast, qast.val)
+        node = makeLiteralFlowNode(eng.globalCtx.rtctx, ast, qast.val)
         addFlowMapping!(eng, ast, node)
         addFlowMapping!(eng, qast, node)
     elseif qast.head == :block
-        node = makeLiteralExprFlowNode(ast) 
+        node = makeLiteralExprFlowNode(eng.globalCtx.rtctx, ast) 
         pushdownFlowNode(eng, ast, node)
     else
         reportUnimplementedASTError(eng, ast, "Quoted expression only supports for symbol (:x) and block expressions")
@@ -213,7 +213,7 @@ function inferMacroCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         if e isa SyntaxError || e isa InferenceError
             reportWarning(eng, ast, "Macro is not implemented. Inferred as a nothing")
             ctx = inferMacroArgsForSideEffects!(eng, ctx, ast)
-            node = makeMacroCallFlowNode(ast)
+            node = makeMacroCallFlowNode(eng.globalCtx.rtctx, ast)
             return InferResult(ctx, node)
         else
             rethrow(e)
@@ -235,7 +235,7 @@ function inferMacroCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         else
             reportWarning(eng, ast, "Macro is not implemented. Inferred as a nothing")
             ctx = inferMacroArgsForSideEffects!(eng, ctx, ast)
-            node = makeMacroCallFlowNode(ast)
+            node = makeMacroCallFlowNode(eng.globalCtx.rtctx, ast)
         end
     end
     return InferResult(ctx, node)
@@ -320,9 +320,9 @@ function inferSubtypeOp(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         # ask the seam to compare the underlying types.
         l_lifted = unwrap(rtctx.liftConstToType(lnode.typ), CompileType)
         r_lifted = unwrap(rtctx.liftConstToType(rnode.typ), CompileType)
-        result_ct = makeConstVal(rtctx.subtypeOf(l_lifted, r_lifted))
+        result_ct = unwrap(rtctx.wrapLiteralBool(rtctx.subtypeOf(l_lifted, r_lifted)), CompileType)
     else
-        result_ct = makeType(Bool)
+        result_ct = unwrap(rtctx.makeBoolType(), CompileType)
     end
     node = makeCurlyCallFlowNode(ast, args, result_ct)
     addFlowMapping!(eng, ast, node)
@@ -406,7 +406,7 @@ function inferLambdaExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         # If eval fails for any reason, fall back to opaque Function — the
         # caller may still hit "abstract argument", but the lambda itself
         # doesn't trip the unsupported-AST hard error anymore.
-        result_ct = makeType(Function)
+        result_ct = unwrap(eng.globalCtx.rtctx.makeFunctionType(), CompileType)
     end
     node = makeCurlyCallFlowNode(ast, FlowNode[], result_ct)
     addFlowMapping!(eng, ast, node)
@@ -439,12 +439,12 @@ function inferWhereType(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         if isConstVal(base.typ) && rtctx.constIsTypeValue(base.typ)
             result_ct = unwrap(rtctx.makeUnionAllOf(tv_ct, base.typ), CompileType)
         else
-            result_ct = makeType(Type)
+            result_ct = unwrap(rtctx.makeTypeType(), CompileType)
         end
     else
         rel = inferExpr(eng, ctx, ast.args[1])
         base = rel.node
-        result_ct = makeType(Type)
+        result_ct = unwrap(rtctx.makeTypeType(), CompileType)
     end
     args = FlowNode[base]
     node = makeCurlyCallFlowNode(ast, args, result_ct)
@@ -475,7 +475,7 @@ function inferCCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         result_ct = unwrap(rtctx.liftConstToType(rt_node.typ), CompileType)
     else
         # Couldn't statically determine the return type — widen to Any.
-        result_ct = makeType(Any)
+        result_ct = unwrap(rtctx.makeAnyType(), CompileType)
     end
     # Infer trailing call args so any nested function calls they contain get
     # type-checked too. Don't validate against the arg-type tuple — that's
@@ -734,7 +734,7 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
     end
     if isDotcall
         # kwargs is empty here
-        fargs = vcat(makeLiteralFlowNode(ast, makeConstJuASTVal(Base.broadcasted)), fargs)
+        fargs = vcat(makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.broadcasted)), fargs)
         ms = MethodCallStruct(fargs, kwargs)
         mm = getMethodMatches(eng, ms)
         if length(mm) >= 2 || length(mm) == 0
@@ -746,7 +746,7 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
             reportErrorBroadcastBottom(eng, ast, ms)
         end
         bnode = makeFunCallFlowNode(ast, ms, tt)
-        fargs = FlowNode[makeLiteralFlowNode(ast, makeConstJuASTVal(Base.materialize)), bnode]
+        fargs = FlowNode[makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.materialize)), bnode]
         ms = MethodCallStruct(fargs, kwargs)
         mm = getMethodMatches(eng, ms)
         if length(mm) >= 2 || length(mm) == 0
@@ -796,7 +796,7 @@ end
 function inferReturn(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     assertASTKind(ast, :return)
     if length(ast.args) == 0
-        rettnode = makeLiteralFlowNode(ast, makeConstJuASTVal(nothing))
+        rettnode = makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(nothing))
         newnode = makeEmptyReturnFlowNode(ast)
     elseif length(ast.args) == 1
         rel = inferExpr(eng, ctx, ast.args[1])
@@ -988,7 +988,7 @@ function inferStringValue(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         end
         args[i] = newrel.node
     end
-    opnode = makeLiteralFlowNode(ast, makeConstJuASTVal(Base.string))
+    opnode = makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.string))
     ms = MethodCallStruct(opnode, args)
     # TODO : report imprecise method here
     mm = getMethodMatches(eng, ms)
@@ -1024,9 +1024,9 @@ function inferVar(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         return InferResult(ctx, node)
     elseif id == :&& || id == :||
         if id == :&&
-            val = makeConstVal(&)
+            val = unwrap(eng.globalCtx.rtctx.lookupBitAnd(), CompileType)
         else
-            val = makeConstVal(|)
+            val = unwrap(eng.globalCtx.rtctx.lookupBitOr(), CompileType)
         end
         node = makeGlobalVarFlowNode(ast, val)
         addFlowMapping!(eng, ast, node)
@@ -1036,7 +1036,7 @@ function inferVar(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         # we only support one-dimentional array!!!
         # this is incorrect
         node = eng.arrayContext[end]
-        ms = MethodCallStruct(makeLiteralFlowNode(ast, makeConstJuASTVal(Base.lastindex)), FlowNode[node])
+        ms = MethodCallStruct(makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.lastindex)), FlowNode[node])
         m = getMethodMatches(eng, ms)
         # TODO : check method !!!
         tt = extractUniqueMatch(m)
@@ -1046,7 +1046,7 @@ function inferVar(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     elseif id == :begin
         # firstindex
         node = eng.arrayContext[end]
-        ms = MethodCallStruct(makeLiteralFlowNode(ast, makeConstJuASTVal(Base.firstindex)), FlowNode[node])
+        ms = MethodCallStruct(makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.firstindex)), FlowNode[node])
         m = getMethodMatches(eng, ms)
         # TODO : check method !!!
         tt = extractUniqueMatch(m)
@@ -1060,7 +1060,7 @@ function inferVar(eng::Engine, ctx::Context, ast::JuAST)::InferResult
 end
 
 function inferGlobal(eng::Engine, ctx::Context, ast::JuAST)::InferResult
-    return InferResult(ctx, makeLiteralFlowNode(ast, makeConstJuASTVal(nothing)))
+    return InferResult(ctx, makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(nothing)))
 end
 
 function inferLocal(eng::Engine, ctx::Context, ast::JuAST)::InferResult
@@ -1082,7 +1082,7 @@ function inferLocal(eng::Engine, ctx::Context, ast::JuAST)::InferResult
             end
         end
     end
-    return InferResult(ctx, makeLiteralFlowNode(ast, makeConstJuASTVal(nothing)))
+    return InferResult(ctx, makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(nothing)))
 end
 
 function inferAssignUpdateHelper(eng::Engine, ctx::Context, ast::JuAST, lhsnode::FlowNode, rhsnode::FlowNode, op::UpdateOp)::FlowNode
@@ -1129,13 +1129,13 @@ function inferAssignLHSBroadcastHelper(eng::Engine, ctx::Context, ast::JuAST, lh
             # fix this, using a module here
             opnode = makeGlobalVarFlowNode(op.ast, opval)
             addFlowMapping!(eng, op.ast, opnode)
-            fargs = FlowNode[makeLiteralFlowNode(ast, makeConstJuASTVal(Base.broadcasted)), opnode, lhsnode, rhsnode]
+            fargs = FlowNode[makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.broadcasted)), opnode, lhsnode, rhsnode]
         else
             throw(InternalError("All the update assignment operators should be defined in module $(eng.mod)"))
         end
     else
-        opnode = makeGlobalVarFlowNode(ast, makeConstVal(Base.identity))
-        fargs = FlowNode[makeLiteralFlowNode(ast, makeConstJuASTVal(Base.broadcasted)), opnode, rhsnode]
+        opnode = makeGlobalVarFlowNode(ast, unwrap(eng.globalCtx.rtctx.lookupBaseIdentity(), CompileType))
+        fargs = FlowNode[makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.broadcasted)), opnode, rhsnode]
     end
     ms = MethodCallStruct(fargs)
     mm = getMethodMatches(eng, ms)
@@ -1148,7 +1148,7 @@ function inferAssignLHSBroadcastHelper(eng::Engine, ctx::Context, ast::JuAST, lh
         reportErrorBroadcastBottom(eng, ast, ms)
     end
     bnode = makeFunCallFlowNode(ast, ms, tt)
-    fargs = FlowNode[makeLiteralFlowNode(ast, makeConstJuASTVal(Base.materialize!)), lhsnode, bnode]
+    fargs = FlowNode[makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.materialize!)), lhsnode, bnode]
     ms = MethodCallStruct(fargs)
     mm = getMethodMatches(eng, ms)
     if length(mm) >= 2 || length(mm) == 0
@@ -1346,7 +1346,7 @@ function inferAssignLHSSetField(eng::Engine, ctx::Context, ast::JuAST, rhsnode::
         addFlowMapping!(eng, op.ast, rhsnode)
     end
     
-    opnode = makeLiteralFlowNode(ast, makeConstJuASTVal(Base.setproperty!))
+    opnode = makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.setproperty!))
     # TODO : this is incorrect...
     # ms should be setproperty!(x, v, i)
     ms = MethodCallStruct(opnode, FlowNode[xnode, rhsnode])
@@ -1376,7 +1376,7 @@ function inferAssignLHSTypedAssert(eng::Engine, ctx::Context, ast::JuAST, mrhsno
                 # TODO : distinguish bewteen these two kinds of node!!!
                 node1 = makeAssignLHSVarAssertFlowNode(ast, rel.node, declaretyp, false)
                 ctx = update(ctx, var, ContextValue(node1, node1))
-                node = makeLiteralFlowNode(ast, makeConstJuASTVal(nothing))
+                node = makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(nothing))
                 return InferResult(ctx, node)
             else
                 rhsnode = castJust(mrhsnode)
@@ -1423,14 +1423,19 @@ function inferAssignLHS(eng::Engine, ctx::Context, ast::JuAST, rhsnode::FlowNode
 end
 
 function tryDestructTuple(eng::Engine, ctx::Context, ast::JuAST, node::FlowNode)::Union{Nothing, Vector{FlowNode}}
-    t = node.typ.typ
-    if t isa DataType 
-        if length(t.parameters) >= length(ast.args)
-            if ((t <: Tuple) || (t <: Pair))
-                nodes = FlowNode[makeAssignLHSTupleDestructFlowNode(ast.args[i], node, makeType(t.parameters[i])) for i in 1:length(ast.args)]
-                if length(t.parameters) > length(ast.args)
-                    # TODO : add warning here to disallow such behaviour!!!
-                end
+    rtctx = eng.globalCtx.rtctx
+    # `tupleDestructInfo` peeks `node.typ.typ` driver-side, returns
+    # a 3-tuple (isStruct, lenOk, isTupleOrPair). Element types are
+    # pulled through the membrane via getTypeParameterOf so the
+    # inferencer never reaches into DataType.parameters directly.
+    isStruct, lenOk, isTupleOrPair = tupleDestructInfo(rtctx, node.typ, length(ast.args))
+    if isStruct
+        if lenOk
+            if isTupleOrPair
+                nodes = FlowNode[makeAssignLHSTupleDestructFlowNode(
+                                    ast.args[i], node,
+                                    unwrap(rtctx.getTypeParameterOf(node.typ, i), CompileType))
+                                 for i in 1:length(ast.args)]
                 return nodes
             else
                 reportErrorFailedToDestruct(eng, ast, "Failed to destruct rhs, not a pair or tuple. Got a $(toString(node.typ))")
@@ -1466,9 +1471,9 @@ function inferAssignLHSArrayRef(eng::Engine, ctx::Context, ast::JuAST, rhsnode::
     if op.isUpdate || op.isDotcall
         # TODO : extract this to a helper function
         if op.isDotcall
-            opnode = makeLiteralFlowNode(ast, makeConstJuASTVal(Base.dotview))
+            opnode = makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.dotview))
         else
-            opnode = makeLiteralFlowNode(ast, makeConstJuASTVal(Base.getindex))
+            opnode = makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.getindex))
         end
         ms = MethodCallStruct(opnode, args)
         # TODO : report imprecise method here
@@ -1489,7 +1494,7 @@ function inferAssignLHSArrayRef(eng::Engine, ctx::Context, ast::JuAST, rhsnode::
         end
     end
     insert!(args, 2, rhsnode)
-    opnode = makeLiteralFlowNode(ast, makeConstJuASTVal(Base.setindex!))
+    opnode = makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.setindex!))
     ms = MethodCallStruct(opnode, args)
     mm = getMethodMatches(eng, ms)
     if length(mm) >= 2 || length(mm) == 0
@@ -1562,7 +1567,7 @@ end
 function inferBlock(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     assertASTKind(ast, :block)
     if length(ast.args) == 0
-        newnode = makeEmptyBlockFlowNode(ast)
+        newnode = makeEmptyBlockFlowNode(eng.globalCtx.rtctx, ast)
         return InferResult(ctx, newnode)
     else
         for i in 1:length(ast.args)-1
@@ -1638,7 +1643,7 @@ function inferTryStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
             if catch_var.head == :identifier
                 vv = catch_var.val.val
                 if vv isa Symbol && vv != Symbol("")
-                    anynode = makeParamFlowNode(catch_var, makeType(Any))
+                    anynode = makeParamFlowNode(catch_var, unwrap(eng.globalCtx.rtctx.makeAnyType(), CompileType))
                     catch_ctx = update(catch_ctx, vv, ContextValue(anynode, anynode))
                 end
             end
@@ -1730,8 +1735,8 @@ function inferTupleValue(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     return InferResult(ctx, node) 
 end
 
-function makeMatrixType(typ::CompileType)::CompileType
-    return makeType(Matrix{typ.typ})
+function makeMatrixType(rtctx::RuntimeContext, typ::CompileType)::CompileType
+    return unwrap(rtctx.makeMatrixOf(typ), CompileType)
 end
 
 function inferCat(eng::Engine, ctx::Context, ast::JuAST)::InferResult
@@ -1789,10 +1794,10 @@ function inferCat(eng::Engine, ctx::Context, ast::JuAST)::InferResult
             end
         end
         if istyped
-            ttt = makeMatrixType(lift(eng.globalCtx.rtctx, castJust(prinType).typ))
+            ttt = makeMatrixType(eng.globalCtx.rtctx, lift(eng.globalCtx.rtctx, castJust(prinType).typ))
         else
             # TODO : test isNone of prinType
-            ttt = makeMatrixType(castJust(prinType).typ)
+            ttt = makeMatrixType(eng.globalCtx.rtctx, castJust(prinType).typ)
         end
         # TODO : fix this...
         return InferResult(ctx, FlowNode(ast, FlowNode[], ttt, nothing))
@@ -1803,13 +1808,13 @@ function inferCat(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         if length(ast.args) == 0
             reportErrorEmptyAnyArray(eng, ast)
         end
-        fnode = makeLiteralFlowNode(ast, makeConstJuASTVal(Base.vect))
+        fnode = makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.vect))
         return inferCatHelper(eng, ctx, ast, fnode, None(FlowNode))
     elseif ast.head == :hcat
-        fnode = makeLiteralFlowNode(ast, makeConstJuASTVal(Base.hcat))
+        fnode = makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.hcat))
         return inferCatHelper(eng, ctx, ast, fnode, None(FlowNode))
     elseif ast.head == :typed_hcat
-        fnode = makeLiteralFlowNode(ast, makeConstJuASTVal(Base.typed_hcat))
+        fnode = makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.typed_hcat))
         rel = inferExpr(eng, ctx, ast.args[1])
         ctx = rel.ctx
         return inferCatHelper(eng, ctx, ast, fnode, Just(rel.node))
@@ -1910,7 +1915,7 @@ function inferArrayRef(eng::Engine, ctx::Context, ast::JuAST)::InferResult
             pop!(eng.arrayContext)
         end
     end
-    opnode = makeLiteralFlowNode(ast, makeConstJuASTVal(Base.getindex))
+    opnode = makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.getindex))
     ms = MethodCallStruct(opnode, args)
     # TODO : report imprecise method here
     mm = getMethodMatches(eng, ms)
@@ -1991,7 +1996,7 @@ function inferComparison(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     end
     =#
     ms = MethodCallStruct(FlowNode[])
-    return InferResult(ctx, makeFunCallFlowNode(ast, ms, makeType(Bool)))
+    return InferResult(ctx, makeFunCallFlowNode(ast, ms, unwrap(eng.globalCtx.rtctx.makeBoolType(), CompileType)))
 end
 
 function tryNarrowType(eng::Engine, ctx::Context, ast::JuAST)::Pair{InferResult, Context}
@@ -2003,7 +2008,7 @@ function tryNarrowType(eng::Engine, ctx::Context, ast::JuAST)::Pair{InferResult,
             rhs = ast.args[3]
             if isa_.head == :identifier && cast2Symbol(isa_.val) == :isa
                 # TODO : we need to add FlowNode to all the JuExpr here
-                isanode = makeGlobalVarFlowNode(isa_, makeConstVal(isa))
+                isanode = makeGlobalVarFlowNode(isa_, unwrap(eng.globalCtx.rtctx.lookupIsa(), CompileType))
                 addFlowMapping!(eng, isa_, isanode)
                 if lhs.head == :identifier
                     lhsid = cast2Symbol(lhs.val)
@@ -2029,7 +2034,7 @@ function tryNarrowType(eng::Engine, ctx::Context, ast::JuAST)::Pair{InferResult,
                         reportErrorMismatchedSplit(eng, ast, xnode, rhsnode)
                     end
                     ms = MethodCallStruct(FlowNode[isanode, xnode, rhsnode])
-                    condnode = makeFunCallFlowNode(ast, ms, makeType(Bool))
+                    condnode = makeFunCallFlowNode(ast, ms, unwrap(eng.globalCtx.rtctx.makeBoolType(), CompileType))
                     addFlowMapping!(eng, ast, condnode)
                     # must hasVar here
                     ctxval = lookup(ctx, lhsid)
@@ -2204,7 +2209,7 @@ function inferWhileStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         end
     end
     leaveLoop(eng)
-    retnode = makeWhileStmtFlowNode(ast)
+    retnode = makeWhileStmtFlowNode(eng.globalCtx.rtctx, ast)
     return InferResult(Context(ImmutableDict(newmapping2)), retnode)
 end
 
@@ -2226,7 +2231,7 @@ function inferIfStmt(eng::Engine, ctx::Context, ast::JuAST, isOr::Bool, isAnd::B
         else_bast= ast.args[2]
         # we swap the context here
         rel1, ctx = tryNarrowType(eng, ctx, cond)
-        push!(rels, InferResult(rel1.ctx, makeLiteralFlowNode(cond, makeConstJuASTVal(true))))
+        push!(rels, InferResult(rel1.ctx, makeLiteralFlowNode(eng.globalCtx.rtctx, cond, makeConstJuASTVal(true))))
         rel2 = inferExpr(eng, ctx, else_bast)
         push!(rels, rel2)
     elseif isAnd
@@ -2243,7 +2248,7 @@ function inferIfStmt(eng::Engine, ctx::Context, ast::JuAST, isOr::Bool, isAnd::B
         # we swap the context here
         rel1, ctx = tryNarrowType(eng, ctx, cond)
         rel2 = inferExpr(eng, rel1.ctx, b1)
-        push!(rels, InferResult(ctx, makeLiteralFlowNode(cond, makeConstJuASTVal(false))))
+        push!(rels, InferResult(ctx, makeLiteralFlowNode(eng.globalCtx.rtctx, cond, makeConstJuASTVal(false))))
         push!(rels, rel2)
     else
         (branches, el) = collectIfBranches(eng, ast)
@@ -2255,7 +2260,7 @@ function inferIfStmt(eng::Engine, ctx::Context, ast::JuAST, isOr::Bool, isAnd::B
             push!(rels, rel2)
         end
         if isNone(el)
-            node = makeEmptyElseFlowNode(ast)
+            node = makeEmptyElseFlowNode(eng.globalCtx.rtctx, ast)
             # use the context of negative branch
             push!(rels, InferResult(ctx, node))
         else
@@ -2435,7 +2440,7 @@ end
 function iterateCheck(eng::Engine, node::FlowNode)::FlowNode
     # TODO : check Union here, all the input should be concrete type
     ast = node.ast
-    ms = MethodCallStruct(makeLiteralFlowNode(ast, makeConstJuASTVal(Base.iterate)), FlowNode[node])
+    ms = MethodCallStruct(makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.iterate)), FlowNode[node])
     matches = getMethodMatches(eng, ms)
     if length(matches) != 1
         error("iterate fails to match")
@@ -2445,9 +2450,9 @@ function iterateCheck(eng::Engine, node::FlowNode)::FlowNode
     if !isaUnion(eng.globalCtx.rtctx, tt)
         error("Not a union for iterator")
     end
-    tt = splitUnion(eng.globalCtx.rtctx, tt, makeType(Nothing))
+    tt = splitUnion(eng.globalCtx.rtctx, tt, unwrap(eng.globalCtx.rtctx.makeNothingType(), CompileType))
     if isaTuple(eng.globalCtx.rtctx, tt)
-        tt = getFirstParameter(tt)
+        tt = getFirstParameter(eng.globalCtx.rtctx, tt)
     else
         error("Not a tuple for iterator")
     end
@@ -2585,7 +2590,7 @@ function inferForStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     end
 
     leaveLoop(eng)
-    retnode = makeLiteralFlowNode(ast, makeConstJuASTVal(nothing))
+    retnode = makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(nothing))
     return InferResult(Context(ImmutableDict(newmapping2)), retnode)
 end
 
@@ -2736,9 +2741,9 @@ function prepareToplevelFunction(ctx::GlobalContext, ast::JuAST)::FunDef
     end
 end
 
-function makeKwargType(arg::Argument)::CompileType
+function makeKwargType(rtctx::RuntimeContext, arg::Argument)::CompileType
     # hack ...
-    makeType(Int)
+    unwrap(rtctx.makeIntType(), CompileType)
 end
 
 function checkToplevelFunction(eng::Engine, 
@@ -2772,7 +2777,9 @@ function checkToplevelFunction(eng::Engine,
     # branch. Using TypeVar values here doesn't work either — they break
     # the `<:` subtype machinery because TypeVar isn't <: Type.
     for i in (n_mi + 1):n_ast
-        node = makeSparamFlowNode(ast, makeConstVal(Any))
+        # `lookupAnyValue` returns `makeConstVal(Any)` constructed driver-side,
+        # so the `Any` value comes from the target runtime's type table.
+        node = makeSparamFlowNode(ast, unwrap(eng.globalCtx.rtctx.lookupAnyValue(), CompileType))
         smapping[fundef.sparams[i].first] = ContextValue(node, node)
     end
     mapping = Dict{Symbol, ContextValue}()

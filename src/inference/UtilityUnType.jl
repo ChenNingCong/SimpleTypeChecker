@@ -45,6 +45,12 @@ function constModuleGetField(rtctx::RuntimeContext, modct::CompileType, p::Symbo
     return unwrap(rtctx.constModuleGetField(modct, String(p)), CompileType)
 end
 
+# Tuple-destructure check — delegates to the driver. Returns (isStruct,
+# lenOk, isTupleOrPair) so the inferencer can report the right failure mode.
+function tupleDestructInfo(rtctx::RuntimeContext, ct::CompileType, n::Int)::Tuple{Bool, Bool, Bool}
+    return rtctx.tupleDestructInfo(ct, n)
+end
+
 
 
 # Inference primitives moved to CompilerAdaptor.jl. The interface below stays in
@@ -185,17 +191,11 @@ function isaTuple(rtctx::RuntimeContext, x::CompileType)::Bool
     return rtctx.isTupleType(x)
 end
 
-# Single-method `@nospecialize` escape hatch: the caller's typed
-# `CompileType.typ::Any` field flows in, dynamic-typed at the seam.
-# Body asserts DataType (typeassert is a Builtin, not dyn dispatch) then
-# reads the typed `.parameters::SimpleVector` field. runCheck! skips
-# checking this body via `_isEscapeHatchMethod`.
-function _firstTypeParam(@nospecialize t)
-    return (t::DataType).parameters[1]
-end
-
-function getFirstParameter(x::CompileType)::CompileType
-    return makeType(_firstTypeParam(x.typ))
+# Driver-side: get-first-parameter on a CompileType handle. Peeks `.typ`
+# and `t.parameters[1]` in the driver runtime; returns a freshly-wrapped
+# CompileType via the membrane.
+function getFirstParameter(rtctx::RuntimeContext, x::CompileType)::CompileType
+    return unwrap(rtctx.getFirstParameterOf(x), CompileType)
 end
 
 function tryMergeConstVal(rtctx::RuntimeContext, v1::CompileType, v2::CompileType)::Bool

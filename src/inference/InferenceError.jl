@@ -470,11 +470,7 @@ function reportErrorFunCallArgs(eng::Engine, ast::JuAST, ms::MethodCallStruct, i
     throwInferenceError(InferenceErrorFunCallArgs(eng, ast, ms, i, kwi, fargs, kwargs, isDotcall))
 end
 
-function explainAbstractType(rtctx::RuntimeContext, typ::CompileType)::String
-    # Driver-side: the entire UnionAll-walk + fully-applied display lives
-    # in the membrane op. Returns the diagnostic suffix already composed.
-    return rtctx.explainAbstractType(typ)
-end
+# `explainAbstractType(rtctx, ct)` lives in src/compiler/CompilerOps.jl.
 
 function isBuiltinEqual(rtctx::RuntimeContext, tt::CompileType)::Bool
     return rtctx.constEqualsBuiltinEq(tt)

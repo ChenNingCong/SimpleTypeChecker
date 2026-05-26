@@ -66,6 +66,15 @@ using SimpleTypeChecker
         include("standalone/test_standalone.jl")
     end
 
+    # Package-image smoke. Loads SimpleTypeChecker in a fresh subprocess
+    # (exercising the precompiled .so under ~/.julia/compiled/) and runs
+    # checkFile against a fixture. This is the supported deployment for
+    # the Julia-host case — distinct from the trim binary above. See
+    # docs/isolation.md for the three-artifact split.
+    @testset "Package-image smoke" begin
+        include("standalone/test_package_image.jl")
+    end
+
     @testset "Smoke — README self-check runs to completion" begin
         path = abspath(joinpath(splitdir(pathof(SimpleTypeChecker))[1], ".."))
         ctx = SimpleTypeChecker.Inference.GlobalContext()

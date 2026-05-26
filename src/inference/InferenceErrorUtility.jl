@@ -69,19 +69,9 @@ function _union_flatten!(parts::Vector{String}, @nospecialize t)::Nothing
     return nothing
 end
 
-# Membrane-aware entry: the driver owns the `_type_to_string` recursion
-# (it peeks `.parameters`, `.a`, `.b`, `.body`, `.var`, `.name` — all
-# target-runtime fields). Inferencer-side `toString` just hands the
-# handle across and receives the String back.
-function toString(rtctx::RuntimeContext, typ::CompileType)::String
-    return rtctx.typeToString(typ)
-end
-
-# Const-value display. Goes through the same seam — driver dispatches on
-# `isConst` and either `repr`s the `.val` or falls back to type display.
-function toConstString(rtctx::RuntimeContext, typ::CompileType)::String
-    return rtctx.constToString(typ)
-end
+# `toString(rtctx, ct)` / `toConstString(rtctx, ct)` live in
+# src/compiler/CompilerOps.jl alongside the other membrane-op wrappers.
+# Don't redefine them here — Julia precompile rejects method overwriting.
 
 function printErrorHead(eng::Engine, ast::JuAST, errkind::String)::Nothing
     loc = ast.loc

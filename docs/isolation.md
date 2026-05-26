@@ -259,6 +259,61 @@ Three phases landed:
   freeze at engine construction? Frozen is simpler; no use case
   for mutability yet.
 
+## Deployment artifacts
+
+Three artifact shapes, three roles. The membrane is what keeps the
+analyzer's contract honest across all three — but only one of them
+is the user-facing deployment.
+
+| Artifact | How built | How consumed | Role |
+|---|---|---|---|
+| **Package image** | Automatic on `using SimpleTypeChecker` (Julia ≥ 1.9). Lives under `~/.julia/compiled/v1.X/SimpleTypeChecker/`. | Host Julia process loads it through normal `using`. | **Supported deployment** for the Julia-host case. Lightweight (~1–20 MB) because it's a *patch* on the host's sysimage, not a replacement. |
+| **Custom sysimage** | `PackageCompiler.create_sysimage` (not currently wired). | `julia --sysimage=ours.so file.jl`. | Optional faster-startup deployment. Bigger (~150–300 MB) because it bakes a replacement sysimage. |
+| **Trim `--output-lib`** | `bin/build_standalone.jl lib`. Produces `bin/build/libsimpletypechecker.so` with a baked minimal sysimage. | Non-Julia host (see `bin/c_host.c`). **Cannot** be dlopen'd from host Julia — sysimage identity conflict. | **Membrane CI gate**: validates the analyzer is closed over its declared deps. Not a deployment. |
+| **Trim `--output-exe`** | `bin/build_standalone.jl exe`. Self-contained binary at `bin/build/sttc-check`. | `./sttc-check file.jl` from a shell. | Standalone-binary deployment for users who don't want a Julia runtime. |
+
+### Why dlopen-of-trim-lib from host Julia is forbidden
+
+Not a TLS issue and not a membrane violation — it's **sysimage identity**.
+
+- Trim `--output-lib` bakes a minimal sysimage into the .so as static
+  data. The compiled call sites contain absolute pointers into *that*
+  sysimage (method-table addresses, type tags, const-pool entries).
+- The host Julia process is running against the default sysimage,
+  with different method-table addresses.
+- libjulia is **one-sysimage-per-process by design**. Loading the
+  trim .so means "use *this* sysimage now", which is incompatible
+  with the host's already-installed sysimage. The visible symptom
+  is an abort in the `@ccallable` thread-adopt prologue, but that's
+  downstream of the sysimage conflict.
+
+The membrane is a *source-level* boundary: it controls which symbols
+the analyzer names. The sysimage coupling is a *binary-level* fact:
+codegen bakes whatever sysimage it was built against. Two separate
+concerns, two separate solutions.
+
+Package images dodge this because they're *patches* on top of the
+host's sysimage, not replacements. Trim `--output-lib` is a
+replacement sysimage — standalone by design, that's the product.
+
+### Why the membrane still matters in the package-image world
+
+Even though the package-image path doesn't *need* the membrane to
+load (it composes with the host sysimage automatically), the
+membrane earns its keep through three angles:
+
+1. **Driver swap**: live-JIT vs. mock vs. record-and-replay vs. a
+   future cross-process driver. Without the seam, every test that
+   wants to fake a method lookup has to monkey-patch globals.
+2. **Testability in isolation**: the analyzer can be unit-tested
+   with a fixture rtctx — no live Julia state required.
+3. **Documentation by construction**: the rtctx struct is the
+   exhaustive list of "what the analyzer needs from the world".
+   Anything not in there can't be a hidden dependency.
+
+The trim `--output-lib` artifact remains the strict pass/fail proof
+that the membrane is tight, exercised through `bin/c_host.c`.
+
 ## Non-goals
 
 - Not rewriting the inference algorithm — only re-routing its

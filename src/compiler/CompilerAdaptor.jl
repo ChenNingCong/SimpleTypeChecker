@@ -802,6 +802,25 @@ end
     end
 end
 
+# `whichMethod(sig)` -> `Base.which(sig)`. The single Method whose signature
+# best matches the lookup tuple. Driver-side because `Base.which` queries
+# the live method table.
+@nocheck function whichMethod(sig_h::OpaqueHandle{CallSigK})::MethodDef
+    return Base.which(sig_h.val)
+end
+
+# `includeFile(modCT, path)` -> `Base.include(mod, path)`. Materializes the
+# top-level statements (module decls, method defs, etc.) of `path` into
+# `mod`. Live-JIT driver does the real `include`; trim drivers would need
+# their own implementation (no-op or pre-baked module table). Returns
+# nothing — failure throws, caller handles.
+@nocheck function includeFile(modCT_h::OpaqueHandle{CompileTypeK}, path::String)::Nothing
+    modCT = unwrap(modCT_h, CompileType)
+    mod = modCT.val::Module
+    Base.include(mod, path)
+    return nothing
+end
+
 # Walk a UnionAll's `.body` chain to its non-UnionAll base, then format
 # the full diagnostic suffix. Driver-side because UnionAll peek is target-
 # runtime-only.
@@ -950,6 +969,8 @@ function defaultRuntimeContext(;
     constToStringFn::ConstToStringFn               = ConstToStringFn(constToString),
     explainAbstractTypeFn::ExplainAbstractTypeFn   = ExplainAbstractTypeFn(explainAbstractType),
     evalLambdaInModuleFn::EvalLambdaInModuleFn     = EvalLambdaInModuleFn(evalLambdaInModule),
+    whichMethodFn::WhichMethodFn                   = WhichMethodFn(whichMethod),
+    includeFileFn::IncludeFileFn                   = IncludeFileFn(includeFile),
     # Type-constant cluster
     makeAnyTypeFn::MakeAnyTypeFn                   = MakeAnyTypeFn(makeAnyType),
     makeBoolTypeFn::MakeBoolTypeFn                 = MakeBoolTypeFn(makeBoolType),
@@ -997,6 +1018,7 @@ function defaultRuntimeContext(;
                           splitUnionOfFn,
                           typeToStringFn, constToStringFn,
                           explainAbstractTypeFn, evalLambdaInModuleFn,
+                          whichMethodFn, includeFileFn,
                           makeAnyTypeFn, makeBoolTypeFn, makeNothingTypeFn,
                           makeExprTypeFn, makeIntTypeFn, makeTypeTypeFn,
                           makeFunctionTypeFn, makeBottomTypeOfFn,

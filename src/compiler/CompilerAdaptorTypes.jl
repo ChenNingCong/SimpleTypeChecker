@@ -168,6 +168,23 @@ const ExplainAbstractTypeFn = FunctionWrapper{String, Tuple{OpaqueHandle{Compile
 # analyzer-side but `Expr(ast.tree)` happens driver-side via the handle.
 const EvalLambdaInModuleFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}, OpaqueHandle{JuASTK}}}
 
+# ─── Source-file ingestion + method lookup ─────────────────────────────────
+#
+# `whichMethod(sig)` -> `Base.which(sig)`: the single Method whose signature
+# best matches `sig`. Used by mapAST2Method when attaching a parsed function
+# definition to a live method-table entry. CallSigK because the inferencer
+# already constructs the Tuple-shaped lookup signature via makeCallSig and
+# similar; whichMethod is the natural sink for that handle type.
+#
+# `includeFile(modCT, path)` -> `Base.include(mod, path)`: materializes the
+# modules/methods declared in `path` into the live runtime of `mod`. Live-JIT
+# driver does the real `include` so a fresh source file's `module CaseTest`
+# becomes a reachable binding before mapAST2Method walks it. A trim-mode
+# driver could no-op (binary's image must pre-bake the modules) or fail
+# loudly. Either way the analyzer stays clean.
+const WhichMethodFn = FunctionWrapper{MethodDef, Tuple{OpaqueHandle{CallSigK}}}
+const IncludeFileFn = FunctionWrapper{Nothing,   Tuple{OpaqueHandle{CompileTypeK}, String}}
+
 # ─── Type-constant ops ──────────────────────────────────────────────────────
 #
 # The inferencer's `Any` is not the target runtime's `Any` — same name, two
@@ -265,6 +282,8 @@ struct RuntimeContext
     constToString::ConstToStringFn
     explainAbstractType::ExplainAbstractTypeFn
     evalLambdaInModule::EvalLambdaInModuleFn
+    whichMethod::WhichMethodFn
+    includeFile::IncludeFileFn
     # Type-constant cluster
     makeAnyType::MakeAnyTypeFn
     makeBoolType::MakeBoolTypeFn

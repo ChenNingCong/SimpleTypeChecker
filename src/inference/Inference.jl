@@ -2885,30 +2885,34 @@ function checkToplevelFunction(eng::Engine,
     return InferReport(ast, eng, rel)
 end
 
-function evalMods(parent::Core.Module, s::Vector{Symbol})::Core.Module
-    val = evalGetPropertyChain(parent, s)
-    if val isa Module
+function evalMods(rtctx::RuntimeContext, parentCT::CompileType, s::Vector{Symbol})::CompileType
+    val = evalGetPropertyChain(rtctx, parentCT, s)
+    if rtctx.constIsModule(val)
         return val
     else
         error("Not here")
     end
 end
 
-# Walk a chain of module-level names: A.B.C resolves by repeatedly
-# reading the named global at each step. `getglobal` is a Builtin (so
-# the body is statically resolved even though intermediate `base`
-# widens to Any) and walks the module's full binding table including
-# self-references and imports — unlike `getfield` which only sees real
-# fields. Used both for module navigation (caller checks the result
-# isa Module) and for function lookup (caller uses the value directly).
-function evalGetPropertyChain(parent::Core.Module, s::Vector{Symbol})
-    local base::Any = parent
+# Walk a chain of module-level names through the rtctx seam: at each step we
+# ask the driver `isdefined?` then `getfield` via `constModuleGetField`. The
+# raw target-runtime Module + Symbol stay opaque inside CompileType.val on
+# the driver side — the inferencer sees only CompileType handles.
+#
+# Used for module navigation (caller checks `constIsModule` on the result)
+# and for function-name lookup (caller's `mapAST2Method` peeks `.val` to
+# pull out the function value — that peek is in an @nocheck zone).
+function evalGetPropertyChain(rtctx::RuntimeContext, parentCT::CompileType, s::Vector{Symbol})::CompileType
+    base = parentCT
     for i in s
-        if base isa Module
-            base = getglobal(base, i)
-        else
+        if !rtctx.constIsModule(base)
             error("intermediate value in module chain is not a Module")
         end
+        si = String(i)
+        if !rtctx.constModuleIsDefined(base, si)
+            error("Module field $si not defined")
+        end
+        base = unwrap(rtctx.constModuleGetField(base, si), CompileType)
     end
     return base
 end
@@ -2926,10 +2930,15 @@ function readString(io)
 end
 
 
-@nocheck function mapAST2Method(mod::Module, fundef::FunDef)::Vector{MethodDef}
+@nocheck function mapAST2Method(rtctx::RuntimeContext, modCT::CompileType, fundef::FunDef)::Vector{MethodDef}
     # Given an JuAST, we try to select an appropriate method for its definition
     # Currently, keywords and optional functions are not handled
     # we handle them lately !!!
+    #
+    # `modCT` wraps the live Module on the driver side; we crack it once here
+    # (this function is @nocheck) so `fasteval` can keep using its raw-Module
+    # API. Routing fasteval through the seam is task #53.
+    mod = modCT.val::Module
     paramMap = Dict{Symbol, TypeVar}()
     for (name, bound) in fundef.sparams
         if isNone(bound)
@@ -2949,17 +2958,18 @@ end
         end
         push!(result, v)
     end
-    f = evalGetPropertyChain(mod, fundef.fname)
+    fCT = evalGetPropertyChain(rtctx, modCT, fundef.fname)
+    f = fCT.val
     optresult = Any[]
     allmethods = MethodDef[]
 
     base = Tuple{Core.Typeof(f), result...}
-    # construct from inside out    
+    # construct from inside out
     for i in reverse(fundef.sparams)
         base = UnionAll(paramMap[i.first], base)
     end
-    push!(allmethods, Base.which(base))
-    
+    push!(allmethods, rtctx.whichMethod(OpaqueHandle{CallSigK}(base)))
+
     for arg in fundef.optargs
         tt = arg.typ
         if isNone(tt)
@@ -2974,7 +2984,7 @@ end
         for i in reverse(fundef.sparams)
             base = UnionAll(paramMap[i.first], base)
         end
-        push!(allmethods, Base.which(base))
+        push!(allmethods, rtctx.whichMethod(OpaqueHandle{CallSigK}(base)))
     end
     return allmethods
 end
@@ -3092,18 +3102,24 @@ end
     end
     str = open(readString, filename)
     ast = parseJuAST(str, filename)
+    # Wrap the caller's Module at the seam — once, here — so the recursive
+    # evalMods / mapAST2Method calls go through rtctx without each call site
+    # needing to know about Modules. addFile! is the API boundary, callers
+    # still pass raw Core.Module.
+    rtctx = ctx.rtctx
+    modCT0 = makeConstVal(mod)
     for pair in collectToplevelFunction(ctx, ast)
         mods = pair.first
-        mod = evalMods(mod, mods)
+        modCT = evalMods(rtctx, modCT0, mods)
         fundefs = pair.second
         for fundef in fundefs
             try
-                meths = mapAST2Method(mod, fundef)
+                meths = mapAST2Method(rtctx, modCT, fundef)
                 for i in meths
                     ctx.methodDefs[i] = fundef
                 end
                 meth = meths[end]
-                # meth is the corresponding method definition for ex 
+                # meth is the corresponding method definition for ex
                 if isConcreteMethodDef(meth)
                     ci = methodDefCodeInfo(meth)
                     if ci isa Core.CodeInfo

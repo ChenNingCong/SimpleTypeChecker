@@ -37,6 +37,14 @@ SimpleTypeChecker._apply_juliasyntax_patch!()
 function check_path(path::String)::Cint
     ctx = SimpleTypeChecker.Inference.GlobalContext()
     SimpleTypeChecker.Inference.getGlobalExpander(ctx)
+    # Materialize the source file's modules through the rtctx seam BEFORE
+    # addFile! walks the AST. addFile! uses reflection (module field lookup,
+    # Base.which) to attach parsed function defs to live Method objects,
+    # so the modules and methods declared in `path` must exist by then.
+    # In live-JIT mode this is a real `Base.include`; a trim driver could
+    # provide a pre-baked module table here instead.
+    mainCT = SimpleTypeChecker.Inference.makeConstVal(Main)
+    ctx.rtctx.includeFile(mainCT, path)
     SimpleTypeChecker.API.addFile!(ctx, Main, path)
     SimpleTypeChecker.API.runCheck!(ctx)
     return Cint(0)

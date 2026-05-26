@@ -17,16 +17,22 @@
 # It only runs when env STTC_STANDALONE_TEST=1 is set, so normal
 # `Pkg.test()` stays under 30s wall.
 #
-# Bypass intentional during early Phase D: the Base.JuliaSyntax
-# parse_block patch can't apply in a trim-built binary (Julia forbids
-# method redefinition during bootstrap), so we currently expect the
-# binary to fail at parser entry. Once upstream lands the typed
-# `where F` fix or we vendor a patched JuliaSyntax, switch
-# EXPECT_PASS=true.
+# Bypass intentional through Phase E (rtctx.includeFile membrane op):
+# Phase E routes Base.which + Base.include through the rtctx seam. The
+# parse_block patch from Phase 55 is applied at standalone_entry.jl's
+# top level, so parsing succeeds. The binary now fails at rtctx.includeFile
+# because Base.include's transitive callee `include_string` isn't trim-
+# resolved. Switching EXPECT_PASS=true needs either a trim-friendly
+# includeFile impl OR Base.include becoming trim-clean upstream.
 
 using Test
 
 const EXPECT_PASS = false  # see docstring above
+# Current failure mode after Phase E (rtctx.includeFile membrane op): the
+# binary reaches includeFile (Base.include via the seam) but Base.include's
+# transitive callee `include_string` isn't trim-resolved. Expected stderr
+# substring used to validate the binary at least got past parse_block_inner.
+const EXPECTED_STDERR_SUBSTRING = "include_string"
 const PKG_ROOT    = abspath(joinpath(@__DIR__, "..", ".."))
 const EXE         = joinpath(PKG_ROOT, "bin", "build", "sttc-check")
 const BUILD_JL    = joinpath(PKG_ROOT, "bin", "build_standalone.jl")
@@ -71,10 +77,11 @@ const FIXTURE     = joinpath(PKG_ROOT, "test", "case", "case.jl")
     if EXPECT_PASS
         @test rc == 0
     else
-        # Expected to fail until upstream Base.JuliaSyntax fix lands.
-        # We DO still want the exe to be runnable (no segfault before
-        # the parser MethodError fires).
+        # Expected to fail at the rtctx.includeFile seam until a trim-friendly
+        # includeFile impl lands (or until Base.include itself becomes trim-
+        # clean upstream). We DO still want the exe to be runnable (no
+        # segfault before the MethodError fires).
         @test rc != 0
-        @test occursin("parse_block_inner", run_log) || rc != -1
+        @test occursin(EXPECTED_STDERR_SUBSTRING, run_log) || rc != -1
     end
 end

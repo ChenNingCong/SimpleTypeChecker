@@ -185,6 +185,15 @@ const EvalLambdaInModuleFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{O
 const WhichMethodFn = FunctionWrapper{MethodDef, Tuple{OpaqueHandle{CallSigK}}}
 const IncludeFileFn = FunctionWrapper{Nothing,   Tuple{OpaqueHandle{CompileTypeK}, String}}
 
+# `createMainModule(name, stdImports, defaultUsing)` -> CompileType wrapping a
+# freshly constructed `Module(Symbol(name), stdImports, defaultUsing)`. The
+# analyzer-facing standalone entry uses this to get a clean scratch module
+# instead of referencing the host runtime's own `Main` (which, in the .so
+# form, is the embedded libjulia's Main — polluted with our package code).
+# Live-JIT driver creates a sibling Main; the host's actual Main stays
+# untouched. Symbol crosses as String per the seam rule.
+const CreateMainModuleFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{String, Bool, Bool}}
+
 # ─── Type-constant ops ──────────────────────────────────────────────────────
 #
 # The inferencer's `Any` is not the target runtime's `Any` — same name, two
@@ -284,6 +293,7 @@ struct RuntimeContext
     evalLambdaInModule::EvalLambdaInModuleFn
     whichMethod::WhichMethodFn
     includeFile::IncludeFileFn
+    createMainModule::CreateMainModuleFn
     # Type-constant cluster
     makeAnyType::MakeAnyTypeFn
     makeBoolType::MakeBoolTypeFn

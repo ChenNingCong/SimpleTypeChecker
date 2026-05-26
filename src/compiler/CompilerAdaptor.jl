@@ -849,6 +849,19 @@ end
     return nothing
 end
 
+# Construct a fresh Module via `Core.Module(Symbol(name), stdImports,
+# defaultUsing)` and wrap it in a CompileType for transport across the seam.
+# The analyzer asks for this when it needs a target Module for `includeFile`
+# but doesn't want to reference the driver's `Main` directly — important in
+# the standalone .so / .exe case where the embedded libjulia's `Main` is
+# polluted with the type-checker's own bindings. The driver chooses the
+# constructor flavor (stdImports / defaultUsing) so the caller can ask for
+# either a real-flavored Main or a clean isolated scratch namespace.
+@nocheck function createMainModule(name::String, stdImports::Bool, defaultUsing::Bool)::OpaqueHandle{CompileTypeK}
+    m = Core.Module(Symbol(name), stdImports, defaultUsing)
+    return OpaqueHandle{CompileTypeK}(makeConstVal(m))
+end
+
 # Walk a UnionAll's `.body` chain to its non-UnionAll base, then format
 # the full diagnostic suffix. Driver-side because UnionAll peek is target-
 # runtime-only.
@@ -999,6 +1012,7 @@ function defaultRuntimeContext(;
     evalLambdaInModuleFn::EvalLambdaInModuleFn     = EvalLambdaInModuleFn(evalLambdaInModule),
     whichMethodFn::WhichMethodFn                   = WhichMethodFn(whichMethod),
     includeFileFn::IncludeFileFn                   = IncludeFileFn(includeFile),
+    createMainModuleFn::CreateMainModuleFn         = CreateMainModuleFn(createMainModule),
     # Type-constant cluster
     makeAnyTypeFn::MakeAnyTypeFn                   = MakeAnyTypeFn(makeAnyType),
     makeBoolTypeFn::MakeBoolTypeFn                 = MakeBoolTypeFn(makeBoolType),
@@ -1046,7 +1060,7 @@ function defaultRuntimeContext(;
                           splitUnionOfFn,
                           typeToStringFn, constToStringFn,
                           explainAbstractTypeFn, evalLambdaInModuleFn,
-                          whichMethodFn, includeFileFn,
+                          whichMethodFn, includeFileFn, createMainModuleFn,
                           makeAnyTypeFn, makeBoolTypeFn, makeNothingTypeFn,
                           makeExprTypeFn, makeIntTypeFn, makeTypeTypeFn,
                           makeFunctionTypeFn, makeBottomTypeOfFn,

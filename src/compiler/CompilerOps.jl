@@ -152,6 +152,16 @@ whichMethod(rtctx::RuntimeContext, sig_h::OpaqueHandle{CallSigK})::MethodDef =
 includeFile(rtctx::RuntimeContext, modCT::CompileType, path::String)::Nothing =
     rtctx.includeFile(modCT, path)
 
+# Fresh Module construction via the seam. Lets standalone entries get a
+# scratch Module without naming `Main` directly — the driver decides whether
+# the new module is real-flavored (Base imports + default using) or a clean
+# isolated namespace. Use `:Main` as the default name to mirror the
+# conventional include target.
+createMainModule(rtctx::RuntimeContext, name::String, stdImports::Bool, defaultUsing::Bool)::CompileType =
+    unwrap(rtctx.createMainModule(name, stdImports, defaultUsing), CompileType)
+createMainModule(rtctx::RuntimeContext)::CompileType =
+    createMainModule(rtctx, "Main", true, true)
+
 # Callable extraction for methodsOf.
 getCallableFromConst(rtctx::RuntimeContext, v::CompileType)::OpaqueHandle{CallableK} =
     rtctx.getCallableFromConst(v)

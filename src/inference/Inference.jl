@@ -2588,33 +2588,42 @@ function inferForStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     return InferResult(Context(ImmutableDict(newmapping2)), retnode)
 end
 
-function fasteval(mod::Module, x::JuAST, params::Dict{Symbol, TypeVar})
-    return fasteval(mod, x, params, Vector{TypeVar}())
+function fasteval(rtctx::RuntimeContext, mod::Module, x::JuAST, params::Dict{Symbol, TypeVar})
+    return fasteval(rtctx, mod, x, params, Vector{TypeVar}())
 end
 
-@nocheck function fasteval(mod::Module, x::JuAST, params::Dict{Symbol, TypeVar}, implicit::Vector{TypeVar})
+# Walks a type expression AST and produces the raw target-runtime value
+# (Type / TypeVar / Module / literal). Module lookups route through the
+# rtctx seam via `constModuleGetField`; `Core.apply_type` / `UnionAll` /
+# `TypeVar` are Builtin-like constructors that statically resolve. The
+# function stays @nocheck because the return type is fundamentally
+# heterogeneous Any — Type, TypeVar, Module, literal value can all show
+# up depending on the expression head.
+@nocheck function fasteval(rtctx::RuntimeContext, mod::Module, x::JuAST, params::Dict{Symbol, TypeVar}, implicit::Vector{TypeVar})
     if x.head == :identifier
         var = cast2Symbol(x.val)
         if haskey(params, var)
             return params[var]
         end
-        return getglobal(mod, var)
+        modCT = makeConstVal(mod)
+        return constModuleGetField(rtctx, modCT, var).val
     elseif x.head == :literal
         return x.val.val
     elseif x.head == :(.)
-        parent = fasteval(mod, x.args[1], params, implicit)
+        parent = fasteval(rtctx, mod, x.args[1], params, implicit)
         sym = cast2Symbol(x.args[2].args[1].val)
         if parent isa Module
-            return getglobal(parent, sym)
+            parentCT = makeConstVal(parent)
+            return constModuleGetField(rtctx, parentCT, sym).val
         else
             error("Dot-access in type expression: left side did not resolve to a Module")
         end
     elseif x.head == :curly
         newimplicit = Vector{TypeVar}()
-        ty = fasteval(mod, x.args[1], params, implicit)
+        ty = fasteval(rtctx, mod, x.args[1], params, implicit)
         args = Any[]
         for i in 2:length(x.args)
-            push!(args, fasteval(mod, x.args[i], params, newimplicit))
+            push!(args, fasteval(rtctx, mod, x.args[i], params, newimplicit))
         end
         ty = Core.apply_type(ty, args...)
         for i in implicit
@@ -2622,7 +2631,7 @@ end
         end
         return ty
     elseif x.head == :(<:) && length(x.args) == 1
-        var = TypeVar(gensym(), fasteval(mod, x.args[1], params, implicit))
+        var = TypeVar(gensym(), fasteval(rtctx, mod, x.args[1], params, implicit))
         push!(implicit, var)
         return var
     else
@@ -2895,9 +2904,10 @@ function evalMods(rtctx::RuntimeContext, parentCT::CompileType, s::Vector{Symbol
 end
 
 # Walk a chain of module-level names through the rtctx seam: at each step we
-# ask the driver `isdefined?` then `getfield` via `constModuleGetField`. The
-# raw target-runtime Module + Symbol stay opaque inside CompileType.val on
-# the driver side — the inferencer sees only CompileType handles.
+# ask the driver `isdefined?` then `getfield` via the UtilityUnType wrappers
+# (which take CompileType + Symbol and handle the Symbol→String + unwrap).
+# The raw target-runtime Module stays opaque inside CompileType.val on the
+# driver side — the inferencer sees only CompileType handles.
 #
 # Used for module navigation (caller checks `constIsModule` on the result)
 # and for function-name lookup (caller's `mapAST2Method` peeks `.val` to
@@ -2908,11 +2918,10 @@ function evalGetPropertyChain(rtctx::RuntimeContext, parentCT::CompileType, s::V
         if !rtctx.constIsModule(base)
             error("intermediate value in module chain is not a Module")
         end
-        si = String(i)
-        if !rtctx.constModuleIsDefined(base, si)
-            error("Module field $si not defined")
+        if !constModuleIsDefined(rtctx, base, i)
+            error("Module field $i not defined")
         end
-        base = unwrap(rtctx.constModuleGetField(base, si), CompileType)
+        base = constModuleGetField(rtctx, base, i)
     end
     return base
 end
@@ -2936,15 +2945,17 @@ end
     # we handle them lately !!!
     #
     # `modCT` wraps the live Module on the driver side; we crack it once here
-    # (this function is @nocheck) so `fasteval` can keep using its raw-Module
-    # API. Routing fasteval through the seam is task #53.
+    # (this function is @nocheck) and hand the raw Module to `fasteval`, which
+    # threads rtctx for its own module-binding lookups but returns raw
+    # target-runtime values (Type / TypeVar / Module / literal) because the
+    # tuple-signature construction below needs them in that form.
     mod = modCT.val::Module
     paramMap = Dict{Symbol, TypeVar}()
     for (name, bound) in fundef.sparams
         if isNone(bound)
             boundv = Any
         else
-            boundv = fasteval(mod, castJust(bound), paramMap)
+            boundv = fasteval(rtctx, mod, castJust(bound), paramMap)
         end
         paramMap[name] = TypeVar(name, boundv)
     end
@@ -2954,7 +2965,7 @@ end
         if isNone(tt)
             v = Any
         else
-            v = fasteval(mod, castJust(tt), paramMap)
+            v = fasteval(rtctx, mod, castJust(tt), paramMap)
         end
         push!(result, v)
     end
@@ -2975,7 +2986,7 @@ end
         if isNone(tt)
             v = Any
         else
-            v = fasteval(mod, castJust(tt), paramMap)
+            v = fasteval(rtctx, mod, castJust(tt), paramMap)
         end
         push!(optresult, v)
         # iterate in reverse order

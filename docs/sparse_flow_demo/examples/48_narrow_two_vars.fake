@@ -1,0 +1,29 @@
+fn maybe_int() {
+  if true {
+    return 1
+  } else {
+    return "hi"
+  }
+}
+
+fn maybe_other() {
+  if true {
+    return "ok"
+  } else {
+    return true
+  }
+}
+
+fn main() {
+  let a = maybe_int()
+  let b = maybe_other()
+  if a is Int {
+    if b is Str {
+      return a + 1
+    } else {
+      return 0
+    }
+  } else {
+    return a
+  }
+}

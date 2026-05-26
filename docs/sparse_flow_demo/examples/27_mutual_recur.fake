@@ -1,0 +1,11 @@
+fn a() {
+  return b()
+}
+
+fn b() {
+  return a()
+}
+
+fn main() {
+  return a()
+}

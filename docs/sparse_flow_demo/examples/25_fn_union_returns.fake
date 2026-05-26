@@ -1,0 +1,11 @@
+fn pick() {
+  if 1 < 2 {
+    return 5
+  } else {
+    return "hi"
+  }
+}
+
+fn main() {
+  return pick()
+}

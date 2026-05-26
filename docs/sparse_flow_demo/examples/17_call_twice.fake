@@ -1,0 +1,9 @@
+fn forty_two() {
+  return 42
+}
+
+fn main() {
+  let a = forty_two()
+  let b = forty_two()
+  return a + b
+}

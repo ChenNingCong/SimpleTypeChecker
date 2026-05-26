@@ -1,0 +1,6 @@
+fn main() {
+  let unused = "never read"
+  let dead2 = unused
+  let live = 42
+  return live
+}

@@ -1,0 +1,11 @@
+fn make() {
+  return 1
+}
+
+fn main() {
+  let x = 0
+  while x < 5 {
+    x = make()
+  }
+  return x
+}

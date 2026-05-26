@@ -1,0 +1,19 @@
+fn unused_one() {
+  return 1
+}
+
+fn unused_two() {
+  return "two"
+}
+
+fn unused_three() {
+  return 3
+}
+
+fn used() {
+  return 99
+}
+
+fn main() {
+  return used()
+}

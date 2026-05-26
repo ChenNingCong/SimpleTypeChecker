@@ -1,0 +1,19 @@
+fn helper() {
+  return 1
+}
+
+fn one() {
+  return helper()
+}
+
+fn two() {
+  return helper()
+}
+
+fn three() {
+  return helper()
+}
+
+fn main() {
+  return one() + two() + three()
+}

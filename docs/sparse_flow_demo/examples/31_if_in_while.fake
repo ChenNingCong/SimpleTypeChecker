@@ -1,0 +1,11 @@
+fn main() {
+  let y = 1
+  while y < 10 {
+    if y > 5 {
+      y = "stop"
+    } else {
+      y = y + 1
+    }
+  }
+  return y
+}

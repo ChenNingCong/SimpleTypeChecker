@@ -1,0 +1,13 @@
+fn main() {
+  let y = 1
+  if y > 0 {
+    if y > 5 {
+      y = "big"
+    } else {
+      y = 5
+    }
+  } else {
+    y = 0
+  }
+  return y
+}

@@ -1,0 +1,7 @@
+fn val() {
+  return 10
+}
+
+fn main() {
+  return val() + 1
+}

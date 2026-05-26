@@ -1,0 +1,16 @@
+fn make_int() {
+  return 1
+}
+
+fn make_str() {
+  return "hi"
+}
+
+fn main() {
+  let cond = 1
+  if cond > 0 {
+    return make_int()
+  } else {
+    return make_str()
+  }
+}

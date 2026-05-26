@@ -1,0 +1,17 @@
+fn main() {
+  let x = 0
+  let i = 0
+  while i < 3 {
+    if i > 1 {
+      x = "later"
+    } else {
+      x = i + 1
+    }
+    i = i + 1
+  }
+  if x is Int {
+    return x + 100
+  } else {
+    return 0
+  }
+}

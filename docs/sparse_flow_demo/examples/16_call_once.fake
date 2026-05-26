@@ -1,0 +1,7 @@
+fn forty_two() {
+  return 42
+}
+
+fn main() {
+  return forty_two()
+}

@@ -1,0 +1,18 @@
+fn maybe() {
+  if true {
+    return 1
+  } else {
+    return "hi"
+  }
+}
+
+fn main() {
+  let a = maybe()
+  let b = "x"
+  if a is Int {
+    b = a + 1
+  } else {
+    b = "y"
+  }
+  return b
+}

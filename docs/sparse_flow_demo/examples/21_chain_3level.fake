@@ -1,0 +1,15 @@
+fn leaf() {
+  return 7
+}
+
+fn middle() {
+  return leaf()
+}
+
+fn top() {
+  return middle()
+}
+
+fn main() {
+  return top()
+}

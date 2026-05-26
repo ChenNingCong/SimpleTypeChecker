@@ -1,0 +1,17 @@
+fn shared() {
+  return 42
+}
+
+fn left() {
+  return shared()
+}
+
+fn right() {
+  return shared() + 1
+}
+
+fn main() {
+  let a = left()
+  let b = right()
+  return a + b
+}

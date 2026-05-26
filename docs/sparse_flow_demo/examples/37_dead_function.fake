@@ -1,0 +1,9 @@
+fn ghost() {
+  let a = 1
+  let b = 2
+  return a + b
+}
+
+fn main() {
+  return 7
+}

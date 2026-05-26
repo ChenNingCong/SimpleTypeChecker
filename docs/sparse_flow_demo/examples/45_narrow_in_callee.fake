@@ -1,0 +1,20 @@
+fn box() {
+  if true {
+    return 1
+  } else {
+    return "hi"
+  }
+}
+
+fn classify() {
+  let v = box()
+  if v is Int {
+    return v + 1
+  } else {
+    return v
+  }
+}
+
+fn main() {
+  return classify()
+}

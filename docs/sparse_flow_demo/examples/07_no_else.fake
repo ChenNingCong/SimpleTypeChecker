@@ -1,0 +1,7 @@
+fn main() {
+  let y = 1
+  if y > 0 {
+    y = "hi"
+  }
+  return y
+}

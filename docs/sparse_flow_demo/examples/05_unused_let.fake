@@ -1,0 +1,6 @@
+fn main() {
+  let unused = "ghost"
+  let other = 0
+  let y = 42
+  return y
+}

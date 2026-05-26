@@ -1,0 +1,16 @@
+fn box() {
+  if true {
+    return 1
+  } else {
+    return "hi"
+  }
+}
+
+fn main() {
+  let v = box()
+  if v is Str {
+    return v
+  } else {
+    return v + 1
+  }
+}

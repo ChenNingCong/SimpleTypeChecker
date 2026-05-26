@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sparse Backward Value Flow — demo</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <h1>Sparse Backward Value Flow</h1>
+    <div class="sub">
+      Demand-driven type checking on a tiny imperative language with
+      function calls, branches, and while loops. Pick an example,
+      run, then scrub the timeline. The highlight chases the analyzer
+      backward along def-use edges.
+    </div>
+  </header>
+
+  <div id="toolbar">
+    <select id="example-select">
+      {% for name in examples.keys() %}
+        <option value="{{ name }}"{% if name == '22_diamond' %} selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+    <button id="run-btn" class="primary">▶ Run</button>
+    <span class="sep"></span>
+    <button id="prev-btn">◀ prev</button>
+    <input type="range" id="slider" min="0" max="0" value="0" step="1">
+    <button id="next-btn">next ▶</button>
+    <button id="play-btn">⏵ auto</button>
+    <div id="step-label">Step 0 / 0</div>
+    <span id="rule-pill" class="pill none">—</span>
+    <span id="final-pill" class="pill final-pill none">final: —</span>
+  </div>
+
+  <main>
+    <div class="grid2">
+      <!-- LEFT: just the source code -->
+      <div class="col-left">
+        <div class="panel">
+          <h2>Source <span class="hint-inline">— line gutter always shown; current span highlighted</span></h2>
+          <div class="code-area">
+            <div class="gutter" id="gutter"></div>
+            <textarea id="source" class="code-pane" spellcheck="false">{{ examples['22_diamond'] }}</textarea>
+            <pre id="src-display" class="code-pane" hidden></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: explanation column — why-panel + history + cache + resolving -->
+      <div class="col-right">
+        <!-- "Why this step?" panel — the verdict + rationale + result. -->
+        <div id="why-panel">
+          <h2>At this step</h2>
+          <div id="why-body">
+            <div class="verdict">Pick an example and click Run to begin.</div>
+          </div>
+        </div>
+
+        <div class="panel history">
+          <h2>Step history <span class="hint-inline">— click to jump</span></h2>
+          <ol id="history-list"></ol>
+        </div>
+
+        <div class="panel">
+          <h2>Type cache <span class="hint-inline">— memoized answers (O(1) on re-ask)</span></h2>
+          <table id="cache-table"><tbody></tbody></table>
+        </div>
+
+        <div class="panel">
+          <h2>Resolving stack <span class="hint-inline">— cycle break fires on re-entry</span></h2>
+          <ul id="resolving-list"></ul>
+        </div>
+      </div>
+    </div>
+
+    <details class="panel rule-ref">
+      <summary><strong>Rule reference</strong></summary>
+      <table class="rule-table">
+        <thead><tr><th>Rule</th><th>Fires when</th><th>Effect</th></tr></thead>
+        <tbody>
+          <tr><td>LITERAL-INT/STR/BOOL</td><td>Reaching a literal</td><td>Map token to primitive type</td></tr>
+          <tr><td>VAR-SINGLE-DEF</td><td>Use with one reaching def</td><td>Recurse into the def</td></tr>
+          <tr><td>PHI-JOIN</td><td>Use with multiple reaching defs</td><td>Recurse into each; union the types</td></tr>
+          <tr><td>BINOP-{op}</td><td>Binary expression, both operands typed</td><td>Apply operator's type signature</td></tr>
+          <tr><td>ASSIGN-TYPE</td><td>Let / Assign node</td><td>Type is the RHS's type</td></tr>
+          <tr><td>CALL / SIG-COMPUTE</td><td>Call site / first signature request</td><td>Compute return type once, cache on function</td></tr>
+          <tr><td>SIG-CACHE-HIT</td><td>Re-calling with cached signature</td><td>Reuse the cached return type</td></tr>
+          <tr><td>CACHE-HIT</td><td>Re-querying a node</td><td>Return stored answer; O(1)</td></tr>
+          <tr><td>CYCLE-BREAK / SIG-CYCLE-BREAK</td><td>Re-entering a node / signature mid-computation</td><td>Return ⊥; outer union widens past it</td></tr>
+        </tbody>
+      </table>
+    </details>
+  </main>
+
+  <script>
+  const examples = {{ examples|tojson }};
+
+  let state = {
+    src: '',
+    lineStarts: [0],
+    steps: [],
+    cur: 0,
+    finalVisited: new Set(),
+    astById: {},
+    playTimer: null,
+  };
+
+  refreshGutter(document.getElementById('source').value);
+
+  document.getElementById('example-select').onchange = e => {
+    const src = examples[e.target.value];
+    document.getElementById('source').value = src;
+    refreshGutter(src);
+    run();
+  };
+  document.getElementById('source').addEventListener('input', e => {
+    refreshGutter(e.target.value);
+  });
+
+  document.getElementById('run-btn').onclick = run;
+  document.getElementById('prev-btn').onclick = () => move(-1);
+  document.getElementById('next-btn').onclick = () => move(1);
+  document.getElementById('play-btn').onclick = togglePlay;
+  document.getElementById('slider').oninput = e => {
+    state.cur = parseInt(e.target.value, 10);
+    render();
+  };
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'TEXTAREA') return;
+    if (e.key === 'ArrowRight' || e.key === 'j') { move(1); e.preventDefault(); }
+    if (e.key === 'ArrowLeft'  || e.key === 'k') { move(-1); e.preventDefault(); }
+  });
+
+  function refreshGutter(text) {
+    const lines = text.split('\n').length;
+    const out = [];
+    for (let i = 1; i <= lines; i++) out.push(i);
+    document.getElementById('gutter').textContent = out.join('\n');
+  }
+
+  function switchToEditMode() {
+    document.getElementById('source').hidden = false;
+    document.getElementById('src-display').hidden = true;
+    refreshGutter(document.getElementById('source').value);
+  }
+
+  function switchToViewMode() {
+    document.getElementById('source').hidden = true;
+    document.getElementById('src-display').hidden = false;
+  }
+
+  async function run() {
+    const src = document.getElementById('source').value;
+    const r = await fetch('/analyze', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({src}),
+    });
+    const data = await r.json();
+    if (data.error) {
+      document.getElementById('why-body').innerHTML =
+        `<div class="verdict err">Error: ${escapeHtml(data.error)}</div>`;
+      return;
+    }
+    state.src = src;
+    state.lineStarts = computeLineStarts(src);
+    state.steps = data.steps;
+    state.cur = 0;
+    state.finalVisited = new Set(data.visited);
+    state.astById = {};
+    for (const n of data.ast) state.astById[n.id] = n;
+    // Final result pill
+    const pill = document.getElementById('final-pill');
+    pill.className = 'pill final-pill';
+    pill.textContent = 'final: ' + data.final_type;
+    // Slider range
+    const slider = document.getElementById('slider');
+    slider.max = String(data.steps.length - 1);
+    slider.value = '0';
+    refreshGutter(src);
+    switchToViewMode();
+    render();
+  }
+
+  function computeLineStarts(src) {
+    const out = [0];
+    for (let i = 0; i < src.length; i++) {
+      if (src[i] === '\n') out.push(i + 1);
+    }
+    return out;
+  }
+
+  function renderSource(highlightStart, highlightEnd) {
+    const src = state.src;
+    const totalLines = state.lineStarts.length;
+    const hl = highlightStart != null && highlightEnd != null;
+    let firstHlLine = null, lastHlLine = null;
+    if (hl) {
+      for (let ln = 1; ln <= totalLines; ln++) {
+        const ls = state.lineStarts[ln - 1];
+        const le = ln < totalLines ? state.lineStarts[ln] - 1 : src.length;
+        if (highlightEnd <= ls || highlightStart > le) continue;
+        if (firstHlLine == null) firstHlLine = ln;
+        lastHlLine = ln;
+      }
+    }
+    const out = [];
+    for (let ln = 1; ln <= totalLines; ln++) {
+      const lineStart = state.lineStarts[ln - 1];
+      const lineEnd = ln < totalLines ? state.lineStarts[ln] - 1 : src.length;
+      const text = src.slice(lineStart, lineEnd);
+      let content;
+      const isCurrent = hl && ln >= firstHlLine && ln <= lastHlLine;
+      if (!hl || highlightEnd <= lineStart || highlightStart > lineEnd) {
+        content = escapeHtml(text);
+      } else {
+        const a = Math.max(highlightStart, lineStart) - lineStart;
+        const b = Math.min(highlightEnd, lineEnd) - lineStart;
+        content =
+          escapeHtml(text.slice(0, a)) +
+          '<mark class="hl">' + escapeHtml(text.slice(a, b) || ' ') + '</mark>' +
+          escapeHtml(text.slice(b));
+      }
+      const cls = isCurrent ? 'src-line current-line' : 'src-line';
+      out.push(`<span class="${cls}">${content || ' '}</span>`);
+    }
+    document.getElementById('src-display').innerHTML = out.join('');
+  }
+
+  function sparsenessLine() {
+    const allNodes = Object.keys(state.astById).length;
+    const finallyVisited = state.finalVisited.size;
+    if (allNodes === 0) return '';
+    const pct = Math.round(100 * finallyVisited / allNodes);
+    const cur = state.steps[state.cur];
+    const trail = cur ? cur.visited_so_far.length : 0;
+    return `<div class="sparseness">
+      Sparseness: query touched <strong>${finallyVisited}</strong> of
+      <strong>${allNodes}</strong> AST nodes (${pct}%).
+      Trail at this step: <strong>${trail}</strong>.
+    </div>`;
+  }
+
+  function renderHistory() {
+    const list = document.getElementById('history-list');
+    list.innerHTML = '';
+    if (state.steps.length === 0) {
+      list.innerHTML = '<li class="empty-row">no steps yet — run an example</li>';
+      return;
+    }
+    state.steps.forEach((s, idx) => {
+      const li = document.createElement('li');
+      if (idx === state.cur) li.classList.add('active');
+      const ruleCls = ruleClass(s.rule);
+      const node = state.astById[s.node_id];
+      const targetText = node ? `${node.label} <span class="muted">L${node.line}</span>` : '<span class="muted">—</span>';
+      const resultText = s.result ? `<span class="result-tok">${escapeHtml(s.result)}</span>` : '';
+      li.innerHTML = `
+        <span class="idx">${idx + 1}</span>
+        <span class="kind ${ruleCls}">${escapeHtml(s.rule)}</span>
+        <span class="target">${targetText} ${resultText}</span>`;
+      li.onclick = () => {
+        state.cur = idx;
+        document.getElementById('slider').value = String(idx);
+        render();
+        li.scrollIntoView({ block: 'nearest' });
+      };
+      list.appendChild(li);
+    });
+  }
+
+  function ruleClass(rule) {
+    if (rule.startsWith('LITERAL'))     return 'literal';
+    if (rule.startsWith('VAR'))         return 'var';
+    if (rule.startsWith('PHI'))         return 'phi';
+    if (rule.startsWith('BINOP'))       return 'binop';
+    if (rule.startsWith('ASSIGN'))      return 'assign';
+    if (rule.startsWith('CALL'))        return 'call';
+    if (rule.startsWith('SIG'))         return 'sig';
+    if (rule.startsWith('CACHE'))       return 'cache';
+    if (rule.includes('CYCLE'))         return 'cycle';
+    if (rule.startsWith('RETURN'))      return 'ret';
+    if (rule.startsWith('PARAM'))       return 'param';
+    return 'default';
+  }
+
+  function move(d) {
+    if (state.steps.length === 0) return;
+    state.cur = Math.max(0, Math.min(state.steps.length - 1, state.cur + d));
+    document.getElementById('slider').value = String(state.cur);
+    render();
+  }
+
+  function togglePlay() {
+    const playBtn = document.getElementById('play-btn');
+    if (state.playTimer) {
+      clearInterval(state.playTimer);
+      state.playTimer = null;
+      playBtn.textContent = '⏵ auto';
+    } else {
+      playBtn.textContent = '⏸ pause';
+      state.playTimer = setInterval(() => {
+        if (state.cur >= state.steps.length - 1) {
+          clearInterval(state.playTimer);
+          state.playTimer = null;
+          playBtn.textContent = '⏵ auto';
+          return;
+        }
+        state.cur += 1;
+        document.getElementById('slider').value = String(state.cur);
+        render();
+      }, 700);
+    }
+  }
+
+  function render() {
+    const n = state.steps.length;
+    document.getElementById('step-label').textContent =
+      n === 0 ? 'Step 0 / 0' : `Step ${state.cur + 1} / ${n}`;
+    document.getElementById('prev-btn').disabled = (state.cur === 0);
+    document.getElementById('next-btn').disabled = (n === 0 || state.cur >= n - 1);
+    if (n === 0) {
+      document.getElementById('why-body').innerHTML =
+        `<div class="verdict">No steps. Try running again.</div>`;
+      renderSource(null, null);
+      return;
+    }
+    const s = state.steps[state.cur];
+    const node = state.astById[s.node_id];
+    // Rule pill in toolbar
+    const rulePill = document.getElementById('rule-pill');
+    rulePill.className = 'pill ' + ruleClass(s.rule);
+    rulePill.textContent = s.rule;
+    // Why panel
+    const where = node
+      ? `at <code>${escapeHtml(node.label)}</code> (line ${node.line})`
+      : '(no node)';
+    const result = s.result
+      ? `<div class="result">→ <span class="muted">inferred type:</span> <code>${escapeHtml(s.result)}</code></div>`
+      : '';
+    document.getElementById('why-body').innerHTML = `
+      <div class="verdict">
+        ${where}: apply <code>${escapeHtml(s.rule)}</code>
+        because ${escapeHtml(s.why)}
+      </div>
+      <div class="action">${escapeHtml(s.action)}</div>
+      ${result}
+      ${sparsenessLine()}
+    `;
+    // Source
+    if (node && node.start_off != null) {
+      renderSource(node.start_off, node.end_off);
+    } else {
+      renderSource(null, null);
+    }
+    // Cache
+    const tb = document.querySelector('#cache-table tbody');
+    const cache = s.cache;
+    const ids = Object.keys(cache);
+    if (ids.length === 0) {
+      tb.innerHTML = `<tr><td colspan="2" class="empty">empty</td></tr>`;
+    } else {
+      tb.innerHTML = ids.map(id => {
+        const e = cache[id];
+        return `<tr>
+          <td><code>${escapeHtml(e.label)}</code> <span class="muted">L${e.line}</span></td>
+          <td><code>${escapeHtml(e.type)}</code></td>
+        </tr>`;
+      }).join('');
+    }
+    // Resolving
+    const rl = document.getElementById('resolving-list');
+    if (s.resolving.length === 0) {
+      rl.innerHTML = '<li class="empty">(empty)</li>';
+    } else {
+      rl.innerHTML = s.resolving.map(r => {
+        if (typeof r === 'string' && r.startsWith('__sig__:')) {
+          return `<li class="sig"><code>sig:${escapeHtml(r.slice('__sig__:'.length))}</code></li>`;
+        }
+        const nn = state.astById[r];
+        return `<li><code>${escapeHtml(nn ? nn.label : String(r))}</code>${nn ? ' <span class="muted">L' + nn.line + '</span>' : ''}</li>`;
+      }).join('');
+    }
+    renderHistory();
+  }
+
+  function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  // Auto-run for the initial example so the user sees results immediately.
+  run();
+  </script>
+</body>
+</html>

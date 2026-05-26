@@ -1,0 +1,16 @@
+fn box() {
+  if true {
+    return 1
+  } else {
+    return "hi"
+  }
+}
+
+fn main() {
+  let v = box()
+  if v is Int {
+    return v + 100
+  } else {
+    return 0
+  }
+}

@@ -1,0 +1,18 @@
+fn left() {
+  return 1
+}
+
+fn right() {
+  return "right"
+}
+
+fn main() {
+  let cond = 1
+  let x = 0
+  if cond > 0 {
+    x = left()
+  } else {
+    x = right()
+  }
+  return x
+}

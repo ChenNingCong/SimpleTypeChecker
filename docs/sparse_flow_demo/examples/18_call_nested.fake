@@ -1,0 +1,11 @@
+fn inner() {
+  return 7
+}
+
+fn outer() {
+  return inner()
+}
+
+fn main() {
+  return outer()
+}

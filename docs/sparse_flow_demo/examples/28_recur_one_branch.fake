@@ -1,0 +1,10 @@
+fn count() {
+  if 1 > 2 {
+    return count()
+  }
+  return 0
+}
+
+fn main() {
+  return count()
+}

@@ -1,0 +1,8 @@
+fn val() {
+  return 99
+}
+
+fn main() {
+  let x = val()
+  return x
+}

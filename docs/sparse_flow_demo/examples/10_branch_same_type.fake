@@ -1,0 +1,9 @@
+fn main() {
+  let y = 1
+  if y > 0 {
+    y = 100
+  } else {
+    y = 200
+  }
+  return y
+}

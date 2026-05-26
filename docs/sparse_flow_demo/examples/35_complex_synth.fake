@@ -1,0 +1,24 @@
+fn helper() {
+  return 1
+}
+
+fn dispatch(flag) {
+  if flag > 0 {
+    return helper()
+  } else {
+    return "alt"
+  }
+}
+
+fn main() {
+  let x = 0
+  let acc = 0
+  while x < 3 {
+    let v = dispatch(x)
+    if v > 0 {
+      acc = acc + 1
+    }
+    x = x + 1
+  }
+  return acc
+}

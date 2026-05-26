@@ -1,0 +1,18 @@
+fn box() {
+  if true {
+    return 1
+  } else {
+    return "hi"
+  }
+}
+
+fn main() {
+  let v = box()
+  if v is Int {
+    let r = v + 1
+    v = "wiped"
+    return v + r
+  } else {
+    return 0
+  }
+}

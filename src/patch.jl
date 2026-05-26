@@ -18,13 +18,20 @@
 # `parse_block` itself. The gap is unpatched on JuliaSyntax.jl `main`
 # and Julia `master` as of 2026-05-25.
 #
-# Applied from `__init__()` so it runs at load time, not precompile
-# time (Julia 1.12 forbids `eval` into another module during precompile,
-# and forbids method overwriting during precompile). NOTE: this means
-# `juliac --trim=safe` still flags the unspecialized method bodies as
-# verifier errors, since it snapshots the method table at compile time.
-# Use `--trim=unsafe-warn` to build anyway — the patched binary then
-# runs correctly because the patch fires from `__init__()` at startup.
+# Applied at module-LOAD time (top-level, NOT `__init__`). Reason: the
+# trim build (`juliac --trim`) does whole-program reachability analysis
+# against the method table as it stands when our module finishes loading.
+# `__init__` runs *after* that snapshot — in fact `__init__` cannot run
+# inside a trimmed binary at all (the eval machinery is stripped). So
+# patching from `__init__` is structurally too late for trim.
+#
+# Patching at top-level fails during `.ji` precompile generation
+# (Julia 1.12 forbids cross-module `eval` there), so we guard with
+# `JLOptions().outputji == C_NULL`. The parent module's `__init__`
+# re-applies the patch as a fallback for the precompile cache path.
+#
+# Idempotence: the function bails early if every `parse_block` method
+# already has a `UnionAll` signature, so double-application is safe.
 #
 # Delete this file once upstream lands the fix.
 
@@ -55,3 +62,21 @@ function _apply_juliasyntax_patch!()
     end
     return
 end
+
+# NOTE: a top-level `_apply_juliasyntax_patch!()` here is useless: when
+# SimpleTypeChecker is precompiled (the normal `using` path), Julia
+# loads the package from its `.ji` cache and DOES NOT re-execute
+# top-level statements — only `__init__` runs. And even if we ran the
+# top-level patch during precompile generation, the modification to
+# Base.JuliaSyntax's method table belongs to Base, not us, so it gets
+# discarded when the .ji is loaded into a fresh session.
+#
+# Two consequences:
+#   - Normal `using SimpleTypeChecker`: `__init__` (in SimpleTypeChecker.jl)
+#     re-applies the patch on every load. Works as before.
+#   - `juliac --trim`: `__init__` doesn't run before reachability
+#     analysis snapshots the method table. The standalone entry
+#     (`bin/standalone_entry.jl`) is a plain script, NOT a precompiled
+#     module, so its top-level DOES run at build time. We call
+#     `_apply_juliasyntax_patch!()` directly there, after `using`,
+#     so trim sees the typed `parse_block` methods.

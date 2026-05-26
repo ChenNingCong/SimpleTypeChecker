@@ -18,6 +18,15 @@
 
 using SimpleTypeChecker
 
+# Apply the JuliaSyntax patch HERE, at script-top-level, BEFORE the trim
+# driver walks the call graph. This script is `include`d by juliac (not
+# precompiled), so top-level statements run every build and the modified
+# Base.JuliaSyntax method table is what trim's reachability analysis
+# snapshots. Patching from SimpleTypeChecker's `__init__` would be too
+# late (a trim binary never runs `__init__` before its method table is
+# baked).
+SimpleTypeChecker._apply_juliasyntax_patch!()
+
 # Core check entry — given a path String, run the inferencer with the
 # default (live-JIT) driver rtctx. Returns 0 on success or 1 on errors
 # (the StringBuilder writers already wrote diagnostics to stderr).

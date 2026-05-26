@@ -20,9 +20,10 @@ module Inference
     include("compiler/CompilerOps.jl")
     include("compiler/StrictRuntimeContext.jl")
     include("inference/ScopeChecking.jl")
+    include("inference/DiagnosticRenderer.jl")
     include("inference/InferenceErrorUtility.jl")
     include("inference/InferenceError.jl")
-    include("inference/UtilityUnType.jl")
+    include("compiler/UtilityUnType.jl")
     include("inference/Inference.jl")
 end
 

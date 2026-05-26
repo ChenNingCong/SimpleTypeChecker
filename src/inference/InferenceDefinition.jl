@@ -573,6 +573,23 @@ mutable struct GlobalContext
     # message. Adds O(n) work per inferred frame, so opt-in. Use this when
     # you've hit a "won't trim" fire and want to know WHERE in the chain.
     printDispatchTrace::Bool
+    # When true, addFile! prints a `CompilerError : ...` line (plus the
+    # underlying exception) for every method whose `mapAST2Method` lookup
+    # fails. Off by default because the output is noisy and these "skips"
+    # are usually not actionable for the user — they reflect cases where
+    # we can't reflect on the method (parametric signatures whose where-
+    # clause we don't fully model, methods in modules we can't resolve,
+    # etc.). Turn this on when investigating why a function is missing
+    # from the checked set.
+    reportSkippedMethods::Bool
+    # When true, prepend each diagnostic with the checker-internal frame
+    # line — `in <module>.<func>(::Arg, ::Arg) [tag]` — naming the
+    # MethodInstance being inferred. Off by default because the file:line
+    # on the diagnostic's `-->` arrow already pinpoints the offending site,
+    # and the frame line otherwise just adds noise. Turn on when debugging
+    # the checker itself (e.g. self-check fires) to see *which* method
+    # instance produced each error.
+    printCheckerFrames::Bool
     const expanders::Dict{CompileType, MacroExpander}
     # Runtime-isolation seam. See docs/isolation.md and
     # src/compiler/CompilerAdaptorTypes.jl. Default factory is
@@ -591,6 +608,8 @@ function GlobalContext(; rtctx::RuntimeContext = defaultRuntimeContext())
                   Dict{Any, Vector{CompileType}}(),
                   Dict{Any, Bool}(),
                   Dict{Any, Vector{String}}(),
+                  false,
+                  false,
                   false,
                   false,
                   Dict{CompileType, MacroExpander}(),
@@ -727,12 +746,15 @@ mutable struct Engine
     retVal::Maybe{FlowNode}
 end
 
-function inferExpand(eng::Engine, ctx::Context, e::MacroExpander, ast::JuAST)::InferResult
-    # `e.expander` is a `FunctionWrapper{Any, Tuple{Any, Any, Any}}` —
-    # a concrete struct type, so this call dispatches statically. The
-    # wrapper ccalls into a C trampoline that re-enters Julia at the
-    # real expander, so we still get the heterogeneous dispatch table
-    # behavior; the static-dispatch check just no longer flags it.
+# `e.expander` is intentionally the heterogeneous-dispatch boundary —
+# different macros expand to different result types, hidden behind a
+# `FunctionWrapper{Any, Tuple{Any, Any, Any}}`. The dispatch CALL itself
+# is static (concrete FunctionWrapper type), but the return is `Any` by
+# design, so the deep-dispatch detector's shallow rule would still flag
+# this site. `@nocheck` declares "this Any return is intentional" —
+# downstream `result isa InferResult` re-narrows for the rest of the
+# function.
+@nocheck function inferExpand(eng::Engine, ctx::Context, e::MacroExpander, ast::JuAST)::InferResult
     result = e.expander(eng, ctx, ast)
     if result isa InferResult
         return result

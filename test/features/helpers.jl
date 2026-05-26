@@ -80,3 +80,29 @@ end
 function expect_error(rel::String, module_name::Symbol, pattern::String; deep::Bool=false)
     @test has_error_matching(check_case(rel, module_name; deep), pattern)
 end
+
+# Capture the rendered diagnostic text the way users see it. Used by
+# format-level tests (`test_diagnostics.jl`) that assert on the rustc-shape
+# output — error code, source-line gutter, secondary notes, help lines.
+function rendered_output(rel::String, module_name::Symbol; deep::Bool=false)::String
+    path = joinpath(FEATURES_DIR, "cases", rel)
+    wrapper = Module(:FeatureTestWrapper)
+    Base.invokelatest(Base.include, wrapper, path)
+    target_mod = Base.invokelatest(getfield, wrapper, module_name)
+    ctx = GlobalContext()
+    ctx.deepDispatchCheck = deep
+    Base.invokelatest(SimpleTypeChecker.API.addFile!, ctx, target_mod, path)
+    tmppath = tempname()
+    out_file = open(tmppath, "w")
+    saved_out = stdout
+    redirect_stdout(out_file)
+    try
+        Base.invokelatest(SimpleTypeChecker.API.runCheck!, ctx)
+    finally
+        redirect_stdout(saved_out)
+        close(out_file)
+    end
+    s = read(tmppath, String)
+    rm(tmppath; force=true)
+    return s
+end

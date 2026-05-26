@@ -18,4 +18,6 @@ include("helpers.jl")
     include("test_dispatch.jl")
     include("test_runtime_context.jl")
     include("test_strict.jl")
+    include("test_syntax_coverage.jl")
+    include("test_diagnostics.jl")
 end

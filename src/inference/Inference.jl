@@ -567,12 +567,22 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
     fargs = FlowNode[]
     kwargs = Pair{Symbol, FlowNode}[]
     local rel::InferResult
+    # `f(args) do x; body end` parses with the `:do` node as the trailing
+    # child of the call. Julia lowers it to `f((x,) -> body, args)` — the
+    # lambda becomes the first positional. Peel it off here, eval as a
+    # lambda via the membrane, and splice into fargs after the callee.
+    doLambdaAst::Maybe{JuAST} = None(JuAST)
+    nLastArg = length(args)
+    if nLastArg >= 2 && args[nLastArg].head == :do
+        doLambdaAst = Just(args[nLastArg])
+        nLastArg -= 1
+    end
     # TODO : we should add FlowNode for keyword assignment???
-    for i in 1:length(args)
+    for i in 1:nLastArg
         # parameters can only occur at last position
         local iast = args[i]
         if iast.head == :parameters
-            if i != length(args)
+            if i != nLastArg
                 reportASTError(eng, iast, "Keywords must be the last argument!")
             else
                 for index in eachindex(iast.args)
@@ -635,6 +645,15 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
     end
     if isDotcall && length(kwargs) > 0
         reportASTError(eng, ast, "Unsupported dotted call with keyword arguments")
+    end
+    if !isNone(doLambdaAst)
+        doAst = castJust(doLambdaAst)
+        lamCT = evalLambdaInModule(eng.globalCtx.rtctx, eng.modCT, doAst)
+        lamNode = makeCurlyCallFlowNode(doAst, FlowNode[], lamCT)
+        addFlowMapping!(eng, doAst, lamNode)
+        # Splice the lambda between the callee (fargs[1]) and the remaining
+        # positional args, mirroring Julia's lowering `f(lam, args...)`.
+        insert!(fargs, 2, lamNode)
     end
     imprecise = Int[]
     kwimprecise = Int[]
@@ -870,6 +889,9 @@ function inferExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         end
         if ast.head in Symbol[:hcat, :vect, :vcat, :typed_vcat, :typed_hcat]
             return inferCat(eng, ctx, ast)
+        end
+        if ast.head == :typed_comprehension
+            return inferTypedComprehension(eng, ctx, ast)
         end
         reportUnimplementedASTError(eng, ast, "Unsupported AST type $(ast.head)")
     end
@@ -1187,10 +1209,19 @@ function inferAssignLHSSetField(eng::Engine, ctx::Context, ast::JuAST, rhsnode::
         reportASTError(eng, ast, "Empty setproperty")
     end 
     fieldast = ast.args[2]
-    if fieldast.head == :quote && fieldast.args[1].head == :identifier
+    # JuliaSyntax emits `x.f = v` with field selector as bare identifier
+    # (`:.[id, id]`); the explicit `x.:f = v` form quotes it (`:.[id,
+    # :quote[id]]`). The read path (inferGetProperty) accepts both — the
+    # write path used to accept only the quoted form, which is why plain
+    # `ctx.walkTurn = i` in the checker's own source surfaced as the
+    # uninformative "Not a valid field" pre-inference error.
+    if fieldast.head == :identifier
+        p = cast2Symbol(fieldast.val)
+    elseif fieldast.head == :quote && length(fieldast.args) == 1 && fieldast.args[1].head == :identifier
         p = cast2Symbol(fieldast.args[1].val)
     else
-        reportASTError(eng, ast, "Not a valid field")
+        reportASTError(eng, ast,
+            "setproperty! target must be an identifier or quoted symbol; got AST head `$(fieldast.head)`")
     end
     refast = ast.args[1]
     rel = inferExpr(eng, ctx, ast.args[1])
@@ -1421,30 +1452,46 @@ end
 
 function inferAssign(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     opstr = String(ast.head)
-    isValid = false
     isDotcall = (ast.flag & 0x0002) != 0
-    op = UpdateOp(ast, isDotcall)
     # JuliaSyntax.DOTOP_FLAG == 0x0002
-    isUpdate = false
-    if length(opstr) >= 1
-        opchar = opstr[end]
-        if opchar == '='
-            isValid = true
-            if length(opstr) > 1
-                op = UpdateOp(ast, Symbol(opstr[1:end-1]), isDotcall)
+    # Augmented assignments (`x += 1`, `v[i] .*= 2`, etc.) parse as
+    # `head=:op=`, `args=[lhs, op_ident, rhs]`. The operator symbol lives
+    # in args[2] rather than encoded in the head; rhs is at args[3].
+    isOpEq = ast.head === Symbol("op=")
+    rhsIdx = isOpEq ? 3 : 2
+    local op::UpdateOp
+    if isOpEq
+        if length(ast.args) != 3
+            reportASTError(eng, ast, "op= expression should have 3 children, $(length(ast.args)) found")
+        end
+        opArg = ast.args[2]
+        if opArg.head != :identifier
+            reportASTError(eng, ast, "op= operator slot must be an identifier")
+        end
+        op = UpdateOp(ast, cast2Symbol(opArg.val), isDotcall)
+    else
+        isValid = false
+        op = UpdateOp(ast, isDotcall)
+        if length(opstr) >= 1
+            opchar = opstr[end]
+            if opchar == '='
+                isValid = true
+                if length(opstr) > 1
+                    op = UpdateOp(ast, Symbol(opstr[1:end-1]), isDotcall)
+                end
             end
         end
-    end
-    if !isValid
-        reportASTError(eng, ast, "Not a valid assignment $opstr")
-    end
-    if length(ast.args) != 2
-        reportASTError(eng, ast, "Assignment expression should only have 2 children, $(length(ast.args)) found")
+        if !isValid
+            reportASTError(eng, ast, "Not a valid assignment $opstr")
+        end
+        if length(ast.args) != 2
+            reportASTError(eng, ast, "Assignment expression should only have 2 children, $(length(ast.args)) found")
+        end
     end
     if ast.args[1].head == :call && !op.isDotcall
         reportASTError(eng, ast, "Shorthand function definition not supported")
     end
-    rel = inferExpr(eng, ctx, ast.args[2])
+    rel = inferExpr(eng, ctx, ast.args[rhsIdx])
     ctx = rel.ctx
     rhsnode = rel.node
     if isBottomType(eng.globalCtx.rtctx, rhsnode.typ)
@@ -1540,10 +1587,16 @@ function inferTryStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
             catch_body = c.args[2]
             catch_ctx = ctx
             if catch_var.head == :identifier
-                vv = catch_var.val.val
-                if vv isa Symbol && vv != Symbol("")
-                    anynode = makeParamFlowNode(catch_var, makeAnyType(eng.globalCtx.rtctx))
-                    catch_ctx = update(catch_ctx, vv, ContextValue(anynode, anynode))
+                # Split the narrowing into a standalone `isa` so the
+                # checker sees `vv` as a Symbol when passed to `update`.
+                # Folding it into `&& vv != …` works at runtime but the
+                # checker's isa-narrowing doesn't propagate through `&&`.
+                vvAny = catch_var.val.val
+                if vvAny isa Symbol
+                    if vvAny != Symbol("")
+                        anynode = makeParamFlowNode(catch_var, makeAnyType(eng.globalCtx.rtctx))
+                        catch_ctx = update(catch_ctx, vvAny, ContextValue(anynode, anynode))
+                    end
                 end
             end
             catch_rel = inferExpr(eng, catch_ctx, catch_body)
@@ -1636,6 +1689,62 @@ end
 
 function makeMatrixType(rtctx::RuntimeContext, typ::CompileType)::CompileType
     return makeMatrixOf(rtctx, typ)
+end
+
+function makeVectorType(rtctx::RuntimeContext, typ::CompileType)::CompileType
+    return makeVectorOf(rtctx, typ)
+end
+
+# `T[expr for x in xs]` — typed comprehension.
+#
+# As the user pointed out, this AST in Julia is semantically a typed
+# `getindex` on the type `T` — the result is `Vector{T}` (or `Array{T, N}`
+# for nested generators) and the body is collected into that container.
+# A faithful implementation would type-check the body in a scope where
+# `x` is bound to `eltype(xs)`, then verify the body's type is `<: T`.
+# That requires generator scope plumbing that this checker doesn't have
+# yet (the `:generator` head is currently a TODO at scope-check time).
+#
+# This minimum-viable handler covers the syntactic + outer-flow side:
+#   * the element type expression must evaluate to a `Type` constant;
+#   * the iterable expression is type-checked (its errors do surface);
+#   * the body expression is type-checked at the outer scope, so
+#     references to outer variables flag as they should — but the
+#     loop-introduced binding is missing, so name lookups of the iter
+#     var will (correctly) be undefined. Real generator scope is a
+#     follow-up; this unblocks every self-check fire on real Julia code
+#     that uses `T[...]` comprehensions, which is most of them.
+function inferTypedComprehension(eng::Engine, ctx::Context, ast::JuAST)::InferResult
+    assertASTKind(ast, :typed_comprehension)
+    if length(ast.args) < 2
+        reportASTError(eng, ast, "Malformed typed_comprehension: expected element type + generator")
+    end
+    rtctx = eng.globalCtx.rtctx
+    # Element type
+    rel = inferExpr(eng, ctx, ast.args[1])
+    ctx = rel.ctx
+    eltNode = rel.node
+    if !isConstVal(eltNode.typ)
+        reportASTError(eng, ast,
+            "Element type of typed comprehension must be a compile-time constant")
+    end
+    elt = lift(rtctx, eltNode.typ)
+    # Walk the iterable so its errors surface. The generator's body is
+    # left un-checked until proper generator scope handling lands.
+    gen = ast.args[2]
+    if gen.head == :generator && length(gen.args) >= 2
+        iter = gen.args[2]
+        if iter.head == :iteration
+            for binding in iter.args
+                if length(binding.args) >= 2
+                    relIter = inferExpr(eng, ctx, binding.args[2])
+                    ctx = relIter.ctx
+                end
+            end
+        end
+    end
+    vecTyp = makeVectorType(rtctx, elt)
+    return InferResult(ctx, FlowNode(ast, FlowNode[], vecTyp, nothing))
 end
 
 function inferCat(eng::Engine, ctx::Context, ast::JuAST)::InferResult
@@ -2342,7 +2451,7 @@ function iterateCheck(eng::Engine, node::FlowNode)::FlowNode
     ms = MethodCallStruct(makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.iterate)), FlowNode[node])
     matches = getMethodMatches(eng, ms)
     if length(matches) != 1
-        error("iterate fails to match")
+        error("iterate fails to match at $(formatLocation(ast.loc)) over $(toString(eng.globalCtx.rtctx, node.typ))")
     end
     # TODO check another part of iterate, iterate(iterator, val)
     tt = extractUniqueMatch(matches)
@@ -2493,7 +2602,11 @@ function inferForStmt(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     return InferResult(Context(ImmutableDict(newmapping2)), retnode)
 end
 
-function fasteval(rtctx::RuntimeContext, mod::Module, x::JuAST, params::Dict{Symbol, TypeVar})
+# Convenience wrapper around the 5-arg `fasteval` — same heterogeneous
+# return character (Any: Type | TypeVar | Module | literal), so it inherits
+# the `@nocheck` opt-out. Without this the self-check fires JTC-DEEP-DISPATCH
+# on a callee that the 5-arg version already opts out of by the same rule.
+@nocheck function fasteval(rtctx::RuntimeContext, mod::Module, x::JuAST, params::Dict{Symbol, TypeVar})
     return fasteval(rtctx, mod, x, params, Vector{TypeVar}())
 end
 
@@ -2516,7 +2629,16 @@ end
         return x.val.val
     elseif x.head == :(.)
         parent = fasteval(rtctx, mod, x.args[1], params, implicit)
-        sym = cast2Symbol(x.args[2].args[1].val)
+        # JuliaSyntax emits `A.B` as `:.[identifier A, identifier B]` for
+        # plain field access and `:.[identifier A, :quote[identifier B]]`
+        # for the explicit `A.:B` form. Accept both — otherwise the
+        # quote-only path BoundsErrors on rhs.args[1].
+        rhs = x.args[2]
+        if rhs.head == :identifier
+            sym = cast2Symbol(rhs.val)
+        else
+            sym = cast2Symbol(rhs.args[1].val)
+        end
         if parent isa Module
             parentCT = makeConstVal(parent)
             return constModuleGetField(rtctx, parentCT, sym).val
@@ -2546,6 +2668,12 @@ end
 end
 
 function collectQualifiedName(ctx::GlobalContext, ast::JuAST)::Vector{Symbol}
+    # Parametric function names: `function Foo{T,U}(...)` — the type
+    # parameters are bound in the surrounding `where`, so the function
+    # itself is named by the curly's head identifier. Peel and recurse.
+    if ast.head == :curly && length(ast.args) >= 1
+        ast = ast.args[1]
+    end
     rel = Symbol[]
     while true
         if ast.head == :identifier
@@ -2554,6 +2682,15 @@ function collectQualifiedName(ctx::GlobalContext, ast::JuAST)::Vector{Symbol}
         elseif ast.head == :(.)
             lhs = ast.args[1]
             rhs = ast.args[2]
+            # JuliaSyntax emits `Base.f` as `:(.) [identifier, identifier]`
+            # for plain field access (the common case for `function Base.f`)
+            # and as `:(.) [identifier, :quote [identifier]]` for the
+            # explicit `Base.:f` form. Accept both.
+            if lhs.head == :identifier && rhs.head == :identifier
+                push!(rel, cast2Symbol(lhs.val))
+                ast = rhs
+                continue
+            end
             if lhs.head == :identifier && rhs.head == :quote && rhs.args[1].head == :identifier
                 push!(rel, cast2Symbol(lhs.val))
                 ast = rhs.args[1]
@@ -2571,6 +2708,20 @@ function constructParam(ctx::GlobalContext, ast::JuAST)::Argument
     if ast.head == :(=)
         initializer = Just(ast.args[2])
         ast = ast.args[1]
+    end
+    # `@nospecialize(x)` / `@nospecialize x` / `@specialize x` in a
+    # parameter slot is an annotation, not a real wrapper — unwrap to the
+    # underlying parameter. We don't otherwise model the annotation here;
+    # the `@nospecialize`-related checks are driven later off Method
+    # reflection (`method.nospecialize`), not the AST.
+    if ast.head == :macrocall && length(ast.args) >= 2
+        head = ast.args[1]
+        if head.head == :identifier
+            macname = cast2Symbol(head.val)
+            if macname === Symbol("@nospecialize") || macname === Symbol("@specialize")
+                ast = ast.args[2]
+            end
+        end
     end
     if ast.head == :(::)
         if length(ast.args) == 1
@@ -2607,8 +2758,21 @@ function prepareToplevelFunction(ctx::GlobalContext, ast::JuAST)::FunDef
     body = ast.args[2]
     # TODO ：handle multiple where ? or maybe just disallow it!!!
     if f.head == :where
-        for i in 2:length(f.args)
-            sparam = f.args[i]
+        # `where T` and `where T<:Bound` produce f.args = [sig, sparam].
+        # `where {T<:Bound, S}` produces f.args = [sig, braces(sparam, ...)] —
+        # the braces wrap the parameter list. Materialize a Vector{JuAST}
+        # either way so the iteration type stays concrete.
+        sparam_iter = JuAST[]
+        if length(f.args) == 2 && f.args[2].head == :braces
+            for s in f.args[2].args
+                push!(sparam_iter, s)
+            end
+        else
+            for i in 2:length(f.args)
+                push!(sparam_iter, f.args[i])
+            end
+        end
+        for sparam in sparam_iter
             if sparam.head == :(<:)
                 if length(sparam.args) != 2
                     reportASTError(ctx, f, "<: should contain two children")
@@ -3000,10 +3164,7 @@ function collectToplevelFunction!(ctx::GlobalContext, rel::Dict{Vector{Symbol}, 
             push!(rel[mod], def)
         catch e
             if e isa SyntaxError
-                writelog!(ctx.errio, "At ")
-                writelog!(ctx.errio, formatLocation(e.ast.loc))
-                writelogln!(ctx.errio)
-                writelogln!(ctx.errio, e.msg)
+                renderSyntaxError(ctx.errio, e.ast, e.msg)
             else
                 rethrow(e)
             end
@@ -3046,14 +3207,47 @@ end
                     end
                 end
             catch e
-                println("CompilerError : At $(formatLocation(fundef.ast.loc)) : Failed to analyze this method, maybe the type signature too complicated, skip it")
+                if ctx.reportSkippedMethods
+                    println("CompilerError : At $(formatLocation(fundef.ast.loc)) : Failed to analyze this method, maybe the type signature too complicated, skip it")
+                    println("  ", sprint(showerror, e))
+                end
             end
         end
     end
 end
 
+@nocheck function _errorTag(e)::String
+    if e isa SyntaxError
+        return "[unsupported]"
+    end
+    s = string(typeof(e))
+    if occursin("TopLevelDispatch", s) || occursin("FunCallArgs", s) || occursin("FunCallUseBottom", s)
+        return "[dispatch]"
+    end
+    return "[type]"
+end
+
+@nocheck function _shortenMethodSig(s::String)::String
+    pre = "MethodInstance for "
+    return startswith(s, pre) ? String(SubString(s, length(pre)+1)) : s
+end
+
 @nocheck function runCheck!(ctx::GlobalContext;checkSyntax::Bool = true)
-    printTop = true
+    # Drain pre-inference errors that addFile! buffered into errio. Print
+    # them as their own [unsupported] section up front, otherwise they
+    # leak into the first method-instance's output and look misattributed.
+    preamble = takelog!(ctx.errio)
+    if length(preamble) > 0 && checkSyntax
+        # Pre-inference diagnostics (reportASTError /
+        # reportUnimplementedASTError) are now rendered as full
+        # rustc-shape Diagnostics in the buffer — each one is
+        # self-describing, so no umbrella header is needed.
+        print(preamble)
+        if !endswith(preamble, "\n")
+            println()
+        end
+    end
+    isFirst = true
     while !isempty(ctx.queue)
         kmi = popfirst!(ctx.queue)
         # this specialization is checked
@@ -3100,23 +3294,35 @@ end
                 if !checkSyntax && e isa SyntaxError
                     continue
                 end
-                if printTop
-                    println("────────────────────────────────────────────────────────────────")
-                    printTop = false
+                if !isFirst
+                    println()
                 end
-                println("Checking $mi\n")
+                isFirst = false
+                if ctx.printCheckerFrames
+                    tag = _errorTag(e)
+                    miStr = _shortenMethodSig(string(mi))
+                    println("in ", miStr, "   ", tag)
+                end
                 # replace with a error
                 ctx.hasChecked[mi][end] = ctx.hasChecked[mi][end].first=>e
                 if e isa SyntaxError
-                    println("At $(formatLocation(e.ast.loc))\n", e.msg)
+                    renderSyntaxError(ctx.errio, e.ast, e.msg)
+                    body = String(take!(ctx.errio.io))
+                    print(body)
+                    if !endswith(body, "\n")
+                        println()
+                    end
                 else
                     typname = split(string(typeof(e)), '.')[end]
                     x = "displayError" * typname[length("InferenceError")+1:end]
                     f = eval(Symbol(x))
                     f(e)
-                    println(String(take!(ctx.errio.io)))
+                    body = String(take!(ctx.errio.io))
+                    print(body)
+                    if !endswith(body, "\n")
+                        println()
+                    end
                 end
-                println("────────────────────────────────────────────────────────────────")
             else
                 rethrow(e)
             end

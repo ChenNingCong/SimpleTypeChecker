@@ -73,25 +73,75 @@ end
 # src/compiler/CompilerOps.jl alongside the other membrane-op wrappers.
 # Don't redefine them here — Julia precompile rejects method overwriting.
 
+# Legacy entry point for emitters that haven't been individually migrated
+# to build a rich `Diagnostic` (with notes / helps / labeled spans). It
+# parses the established `<Category>Error[ ]:[ ]<msg>` headline shape into
+# a stable code (`JTC-ASSIGN`, `JTC-BOTTOM`, `JTC-METHOD`, ...) and renders
+# the rustc-shape layout with a primary span at `ast`. Emitters that need
+# secondary notes should build a `Diagnostic` directly and call
+# `renderDiagnostic` — this shim is for the simple headline-only cases.
 function printErrorHead(eng::Engine, ast::JuAST, errkind::String)::Nothing
-    loc = ast.loc
-    writelogln!(eng.errio, formatLocation(loc))
-    writelog!(eng.errio, " ")
-    writelogln!(eng.errio, errkind)
-    try
-        code = loc.file.code[loc.span[1]:loc.span[2]]
-        needTab = !occursin('\n', code)
-        if needTab
-            writelog!(eng.errio, "    ")
-            writelogln!(eng.errio, code)
-        else
-            writelogln!(eng.errio)
-            writelogln!(eng.errio, code)
-        end
-    catch e
-        writelogln!(eng.errio, "    (Failed to extract code)")
-    end
+    codeAndHead = _legacyHeadlineToCode(errkind)
+    primary = LabeledSpan[LabeledSpan(ast.loc, "", true)]
+    diag = Diagnostic(codeAndHead.first, true, codeAndHead.second,
+                      primary, DiagNote[], String[])
+    renderDiagnostic(eng.errio, diag)
     return nothing
+end
+
+# Split a legacy "<CategoryError>: <msg>" headline into (code, headline).
+# "AssignError: rhs is a bottom value" → ("JTC-ASSIGN", "rhs is a bottom
+# value"). The "Error" suffix is stripped; the prefix is uppercased.
+# Headlines that don't match the pattern get `JTC-MISC` and pass through
+# verbatim.
+function _legacyHeadlineToCode(s::String)::Pair{String, String}
+    colonPos = 0
+    i = 1
+    n = sizeof(s)
+    while i <= n
+        if s[i] == ':'
+            colonPos = i
+            break
+        end
+        i += 1
+    end
+    if colonPos == 0
+        return "JTC-MISC" => s
+    end
+    # rstrip whitespace before ':'
+    prefixEnd = colonPos - 1
+    while prefixEnd >= 1 && (s[prefixEnd] == ' ' || s[prefixEnd] == '\t')
+        prefixEnd -= 1
+    end
+    # lstrip whitespace after ':'
+    bodyStart = colonPos + 1
+    while bodyStart <= n && (s[bodyStart] == ' ' || s[bodyStart] == '\t')
+        bodyStart += 1
+    end
+    if prefixEnd < 1
+        return "JTC-MISC" => s
+    end
+    prefix = SubString(s, 1, prefixEnd)
+    body = bodyStart <= n ? SubString(s, bodyStart, n) : SubString(s, 1, 0)
+
+    # Drop the trailing "Error" if present
+    pstr::String = String(prefix)
+    if endswith(pstr, "Error")
+        cut = sizeof(pstr) - sizeof("Error")
+        pstr = String(SubString(pstr, 1, cut))
+    end
+    if isempty(pstr)
+        return "JTC-MISC" => s
+    end
+    # Uppercase only — keep names short and simple. CamelCase splits could
+    # come later if we want JTC-UNDEF-VAR vs JTC-UNDEFVAR.
+    buf = IOBuffer()
+    write(buf, "JTC-")
+    for c in pstr
+        write(buf, uppercase(c))
+    end
+    code = String(take!(buf))
+    return code => String(body)
 end
 
 function printSignature(rtctx::RuntimeContext, io::IOBuffer,

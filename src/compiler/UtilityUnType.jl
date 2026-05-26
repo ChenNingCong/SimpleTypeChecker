@@ -1,14 +1,13 @@
-# UtilityUnType — analyzer-side helpers that compose membrane wrappers.
+# UtilityUnType — driver-side adapter glue.
 #
-# All rtctx-touching, unwrap-doing primitives live in src/compiler/CompilerOps.jl.
-# This file holds analyzer-only logic: per-call caching for inferReturnType,
-# the method-match assembly that drives the type checker queue, and the
-# flow-node merge helpers.
-
-# Inference cache layer. `cacheLookup` and `inferReturnType` queue side
-# effects (push to ctx.queue, populate dynDispatchCache) live driver-side
-# in the membrane op; this layer adds per-sig memoization on the analyzer
-# side so we don't re-cross the seam for repeated signatures.
+# This file lives in `src/compiler/` (and is excluded from self-check)
+# because it legitimately peeks `OpaqueHandle.val::Any` — using the
+# wrapped Tuple-type as a Dict key for per-signature memoization on top
+# of the `inferReturnType` membrane op. Reaching past the opaque handle
+# is *driver privilege*; from the analyzer side it would be a layering
+# violation. The other unwrap-doing membrane wrappers live next to it
+# in `src/compiler/CompilerOps.jl`; this file adds the same kind of
+# unwrap-using behavior, just with memoization on top.
 function cacheLookup(eng::Engine, sig_h::OpaqueHandle{CallSigK})::Vector{CompileType}
     ctx = eng.globalCtx
     # Cache key is the raw Tuple type — the OpaqueHandle wraps it for

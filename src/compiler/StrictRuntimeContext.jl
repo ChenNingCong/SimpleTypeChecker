@@ -78,7 +78,7 @@ function strictRuntimeContext(base::RuntimeContext = defaultRuntimeContext())::R
         base.wrapLiteralNothing,
         base.lookupBaseIdentity, base.lookupIsa,
         base.lookupBitAnd, base.lookupBitOr, base.lookupAnyValue,
-        base.makeMatrixOf, base.getFirstParameterOf,
+        base.makeMatrixOf, base.makeVectorOf, base.getFirstParameterOf,
         base.getTypeParameterOf, base.removeConstOf,
         base.tupleDestructInfo,
         ApproveCallSiteFn(approveCallSiteStrict),

@@ -244,6 +244,7 @@ const LookupAnyValueFn     = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}
 #   used in tuple-destructure to wrap each element type).
 # `removeConstOf(h)` -> `makeType(t.typ)` if isConst else t itself.
 const MakeMatrixOfFn         = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}}}
+const MakeVectorOfFn         = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}}}
 const GetFirstParameterOfFn  = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}}}
 const GetTypeParameterOfFn   = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}, Int}}
 const RemoveConstOfFn        = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{OpaqueHandle{CompileTypeK}}}
@@ -326,6 +327,7 @@ struct RuntimeContext
     lookupAnyValue::LookupAnyValueFn
     # Composite type derivation
     makeMatrixOf::MakeMatrixOfFn
+    makeVectorOf::MakeVectorOfFn
     getFirstParameterOf::GetFirstParameterOfFn
     getTypeParameterOf::GetTypeParameterOfFn
     removeConstOf::RemoveConstOfFn

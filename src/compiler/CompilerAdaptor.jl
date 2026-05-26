@@ -823,6 +823,12 @@ end
     ast = unwrap(ast_h, JuAST)
     try
         lam_expr = Expr(ast.tree)
+        # JuliaSyntax materializes `f(args) do x; body end` as
+        # `Expr(:do_lambda, params_tuple, body_block)` — a non-standard
+        # head Core.eval can't handle. Rewrite to a real `:->` lambda.
+        if lam_expr isa Expr && lam_expr.head === :do_lambda
+            lam_expr = Expr(:(->), lam_expr.args[1], lam_expr.args[2])
+        end
         fn = Core.eval(mod, lam_expr)
         return makeConstVal(fn)
     catch
@@ -927,6 +933,14 @@ lookupAnyValue()::CompileType     = makeConstVal(Any)
 @nocheck function makeMatrixOf(h::OpaqueHandle{CompileTypeK})::CompileType
     elt = unwrap(h, CompileType).typ
     return makeType(Matrix{elt})
+end
+
+# `makeVectorOf(eltype) = makeType(Vector{eltype.typ})`. Mirrors
+# `makeMatrixOf` for 1-D results — used by typed-comprehension support
+# (`T[expr for x in xs]` returns `Vector{T}`).
+@nocheck function makeVectorOf(h::OpaqueHandle{CompileTypeK})::CompileType
+    elt = unwrap(h, CompileType).typ
+    return makeType(Vector{elt})
 end
 
 # `getFirstParameterOf(h) = makeType(t.parameters[1])` for a DataType.
@@ -1045,6 +1059,7 @@ function defaultRuntimeContext(;
     lookupAnyValueFn::LookupAnyValueFn             = LookupAnyValueFn(lookupAnyValue),
     # Composite type derivation
     makeMatrixOfFn::MakeMatrixOfFn                 = MakeMatrixOfFn(makeMatrixOf),
+    makeVectorOfFn::MakeVectorOfFn                 = MakeVectorOfFn(makeVectorOf),
     getFirstParameterOfFn::GetFirstParameterOfFn   = GetFirstParameterOfFn(getFirstParameterOf),
     getTypeParameterOfFn::GetTypeParameterOfFn     = GetTypeParameterOfFn(getTypeParameterOf),
     removeConstOfFn::RemoveConstOfFn               = RemoveConstOfFn(removeConstOf),
@@ -1079,7 +1094,8 @@ function defaultRuntimeContext(;
                           wrapLiteralNothingFn,
                           lookupBaseIdentityFn, lookupIsaFn,
                           lookupBitAndFn, lookupBitOrFn, lookupAnyValueFn,
-                          makeMatrixOfFn, getFirstParameterOfFn,
+                          makeMatrixOfFn, makeVectorOfFn,
+                          getFirstParameterOfFn,
                           getTypeParameterOfFn, removeConstOfFn,
                           tupleDestructInfoFn,
                           approveCallSiteFn)

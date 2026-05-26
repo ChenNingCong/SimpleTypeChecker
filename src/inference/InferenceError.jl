@@ -494,37 +494,300 @@ function isBuiltinEqual(rtctx::RuntimeContext, tt::CompileType)::Bool
     return rtctx.constEqualsBuiltinEq(tt)
 end
 
-function displayErrorFunCallArgs(err::InferenceErrorFunCallArgs)::Nothing
-    eng = err.eng
-    ast = err.ast
-    ms = err.ms
-    i = err.i
-    kwi = err.kwi
-    fargs = err.fargs
-    kwargs = err.kwargs
-    isDotcall = err.isDotcall
-    str = getSignature(eng.globalCtx.rtctx, ms)
-    if isDotcall
-        printErrorHead(eng, ast, "DispatchError: this broadcast call won't statically dispatch (and won't trim)")
+# ─── value-flow tracing ──────────────────────────────────────────────
+#
+# A FlowNode carries a `.source` vector linking it back to the value(s)
+# it derives from. For pass-through kinds (variable use, assignment,
+# block result, pi-narrowing) the chain bottoms out at a genuine
+# *origin* — a parameter, global, field access, call result, branch
+# merge, or for-loop widening. The origin is the only actionable site
+# the user can change; show it instead of generic "make it concrete"
+# advice.
+
+# Predecessor used to climb past pass-through kinds. `nothing` ends
+# the walk and treats the current node as the origin.
+function valueFlowPredecessor(rtctx::RuntimeContext, node::FlowNode)::Maybe{FlowNode}
+    k = node.kind
+    if k isa VarFlowNode || k isa AssignExprFlowNode ||
+       k isa AssignLHSVarFlowNode || k isa BlockFlowNode ||
+       k isa LetFlowNode || k isa PiFlowNode
+        return isempty(node.source) ? None(FlowNode) : Just(node.source[1])
+    elseif k isa PhiFlowNode
+        # Branch merge — prefer a source whose type isn't concrete; it's
+        # the one widening the joined type. Otherwise take the first.
+        for s in node.source
+            if !isConcreteType(rtctx, s.typ)
+                return Just(s)
+            end
+        end
+        return isempty(node.source) ? None(FlowNode) : Just(node.source[1])
     else
-        printErrorHead(eng, ast, "DispatchError: this call won't statically dispatch (and won't trim)")
+        return None(FlowNode)
     end
-    for ii in i
-        if ii != 1
-            writelogln!(eng.errio, "  argument $(ii-1) is abstract ($(explainAbstractType(eng.globalCtx.rtctx, fargs[ii].typ)))")
-        else
-            writelogln!(eng.errio, "  the called function itself is abstract ($(explainAbstractType(eng.globalCtx.rtctx, fargs[ii].typ)))")
+end
+
+# Walk back through pass-through nodes until we hit an origin.
+function findValueOrigin(rtctx::RuntimeContext, node::FlowNode)::FlowNode
+    cur::FlowNode = node
+    seen = IdDict{FlowNode, Bool}()
+    while !haskey(seen, cur)
+        seen[cur] = true
+        nxt = valueFlowPredecessor(rtctx, cur)
+        if isNone(nxt)
+            return cur
+        end
+        cur = castJust(nxt)
+    end
+    return cur
+end
+
+# Pull the field name out of a `:.` AST. Returns "?" if the shape is
+# unfamiliar (defensive — avoid crashing the diagnostic path).
+function fieldNameOfGetProperty(ast::JuAST)::String
+    if ast.head == :(.) && length(ast.args) >= 2
+        f = ast.args[2]
+        if f.head == :identifier
+            return string(cast2Symbol(f.val))
+        elseif f.head == :quote && length(f.args) >= 1 && f.args[1].head == :identifier
+            return string(cast2Symbol(f.args[1].val))
         end
     end
-    for ii in kwi
-        name, node = kwargs[ii]
-        writelogln!(eng.errio, "  keyword argument $(name) is abstract ($(explainAbstractType(eng.globalCtx.rtctx, node.typ)))")
+    return "?"
+end
+
+# Slice the source for the receiver of a `:.` access (i.e. the `obj` in
+# `obj.field`). Returns "" when the AST shape is unfamiliar or the span
+# can't be sliced, so the diagnostic path can fall back gracefully.
+function receiverTextOfGetProperty(ast::JuAST)::String
+    if ast.head == :(.) && length(ast.args) >= 1
+        recv = ast.args[1]
+        loc = recv.loc
+        s1 = Int(loc.span[1])
+        s2 = Int(loc.span[2])
+        code = loc.file.code
+        if s1 >= 1 && s2 >= s1 && s2 <= sizeof(code)
+            return String(SubString(code, s1, s2))
+        end
     end
-    writelogln!(eng.errio, "  Calls through this site fall into Julia's open-world dispatch and can't be resolved at compile time.")
-    writelogln!(eng.errio, "  Fix: make the abstract slot concrete at this site, or wrap it in a parametric struct so the type is carried through the call chain.")
-    if isBuiltinEqual(eng.globalCtx.rtctx, ms.fargs[1].typ)
-        writelogln!(eng.errio, "  Note: don't use ===/!== to compare values of different types — use (<var> isa Nothing) to narrow the type explicitly.")
+    return ""
+end
+
+function identNameOr(ast::JuAST, fallback::String)::String
+    if ast.head == :identifier
+        return string(cast2Symbol(ast.val))
     end
+    return fallback
+end
+
+# One-line description of an origin node — what kind of expression
+# introduced the abstract type and any name we can recover.
+function describeValueOrigin(rtctx::RuntimeContext, node::FlowNode)::String
+    # The CALLER prints the type on the line above (e.g. `argument 2: Any`),
+    # so this description must not repeat the type. Describe the *origin
+    # kind* and any name we can recover — never the resulting type.
+    k = node.kind
+    ast = node.ast
+    if k isa ParamFlowNode
+        return "function parameter `$(identNameOr(ast, "?"))`"
+    elseif k isa KeyParamFlowNode
+        return "keyword parameter `$(identNameOr(ast, "?"))`"
+    elseif k isa SparamFlowNode
+        return "type parameter `$(identNameOr(ast, "?"))`"
+    elseif k isa GlobalVarFlowNode
+        return "global binding `$(identNameOr(ast, "?"))`"
+    elseif k isa GetPropertyFlowNode
+        # The reader can see `.val` in the source — what they need to know
+        # is *why* it's `Any`. Two distinct cases:
+        #
+        #  1. Receiver is concrete (e.g. `JuASTVal`) but the field is
+        #     declared with an abstract type (e.g. `JuASTVal.val :: Any`).
+        #     The struct definition itself is the leak — typical
+        #     "forgot to parametrize" scenario.
+        #
+        #  2. Receiver is already abstract — the Any leaked upstream; this
+        #     access just propagates it.
+        #
+        # The label distinguishes the two so the reader knows where to fix.
+        field = fieldNameOfGetProperty(ast)
+        recvText = receiverTextOfGetProperty(ast)
+        if !isempty(node.source)
+            recvTyp = node.source[1].typ
+            recvTypStr = toString(rtctx, recvTyp)
+            if isConcreteType(rtctx, recvTyp) && hasField(rtctx, recvTyp, Symbol(field))
+                ftypeStr = toString(rtctx, getFieldType(rtctx, recvTyp, Symbol(field)))
+                if recvText != "" && length(recvText) <= 40
+                    return "reads `.$field` of `$recvText` — field `$recvTypStr.$field` declared `::$ftypeStr`"
+                end
+                return "reads `.$field` — `$recvTypStr.$field` declared `::$ftypeStr`"
+            end
+            if recvText != "" && length(recvText) <= 40
+                return "reads `.$field` of `$recvText`, but that receiver is already `$recvTypStr`"
+            end
+            return "reads `.$field` of receiver typed `$recvTypStr`"
+        end
+        return "field access `.$field`"
+    elseif k isa FunCallFlowNode
+        cstr = toString(rtctx, k.ms.fargs[1].typ)
+        return "return of call to `$(cstr)`"
+    elseif k isa ArrayRefFlowNode
+        return "array indexing"
+    elseif k isa IfStmtFlowNode
+        return "if-expression branches yield distinct types"
+    elseif k isa PhiFlowNode
+        return "branch-merge of $(length(node.source)) definitions"
+    elseif k isa LiteralFlowNode
+        return "literal"
+    elseif k isa CurlyCallFlowNode
+        return "type expression"
+    elseif k isa ForUpdateFlowNode
+        return "loop-mutated variable (widened across iterations)"
+    elseif k isa ConditionalFlowNode
+        return "variable defined only on some branches"
+    elseif k isa TupleFlowNode
+        return "tuple literal"
+    elseif k isa SetPropertyFlowNode
+        return "setproperty! result"
+    else
+        return "$(nameof(typeof(k)))"
+    end
+end
+
+# Pick the byte range that should be underlined for an origin node.
+# Default is the origin AST's own location. For `getproperty` origins, narrow
+# to just the `.field` segment — pointing at the *specific* field that
+# returned `Any` rather than the whole `obj.field.field` chain. Without
+# this, a chained access like `catch_var.val.val` underlines all 17 chars
+# and the reader can't tell which `.val` is the culprit.
+function originSpan(node::FlowNode)::Location
+    ast = node.ast
+    # Bind `kind` to a local — the checker's `isa` narrowing only sees a
+    # bare variable on the LHS, not a field access, and rejects
+    # `node.kind isa GetPropertyFlowNode` outright. Same shape pops up
+    # elsewhere in `valueFlowPredecessor` / `describeValueOrigin`; those
+    # work because `k = node.kind` is already extracted earlier.
+    kind = node.kind
+    if kind isa GetPropertyFlowNode && ast.head == :(.) && length(ast.args) >= 2
+        lhs = ast.args[1]
+        rhs = ast.args[2]
+        file = ast.loc.file
+        dot_start = lhs.loc.span[2] + UInt32(1)
+        end_byte = rhs.loc.span[2]
+        return Location(file, dot_start => end_byte)
+    end
+    return ast.loc
+end
+
+# Origin-specific actionable suggestion. Renders as a second `help:` line
+# *only* when the abstract-type leak traces to a struct field with an
+# abstract declared type (the "fix the struct" case). Refers to the
+# specific receiver/field the user just saw in the label — no generic
+# `Vector{T}` boilerplate.
+function originHelp(rtctx::RuntimeContext, node::FlowNode)::String
+    k = node.kind
+    if k isa GetPropertyFlowNode && !isempty(node.source)
+        recvTyp = node.source[1].typ
+        if isConcreteType(rtctx, recvTyp)
+            field = fieldNameOfGetProperty(node.ast)
+            if field != "?" && hasField(rtctx, recvTyp, Symbol(field))
+                ftype = getFieldType(rtctx, recvTyp, Symbol(field))
+                if !isConcreteType(rtctx, ftype)
+                    # The label above already names the field + its declared
+                    # type — don't repeat it. Just state the two fix paths.
+                    return "or fix the struct: give the field a concrete type, or parametrize the struct via `{T}`"
+                end
+            end
+        end
+    end
+    return ""
+end
+
+function printValueOriginLine(eng::Engine, node::FlowNode)::Nothing
+    rtctx = eng.globalCtx.rtctx
+    origin = findValueOrigin(rtctx, node)
+    desc = describeValueOrigin(rtctx, origin)
+    if origin === node
+        writelogln!(eng.errio, "    ← $(desc)")
+    else
+        writelogln!(eng.errio, "    ← $(desc) ($(formatLocation(origin.ast.loc)))")
+    end
+    return nothing
+end
+
+function displayErrorFunCallArgs(err::InferenceErrorFunCallArgs)::Nothing
+    eng = err.eng
+    ms = err.ms
+    rtctx = eng.globalCtx.rtctx
+
+    primary = LabeledSpan[]
+    notes = DiagNote[]
+    helps = String[]
+
+    for ii in err.i
+        n = err.fargs[ii]
+        argName = identNameOr(n.ast, "")
+        typeStr = explainAbstractType(rtctx, n.typ)
+        slotDesc = ii == 1 ? "callee" : "argument"
+        local label::String
+        if argName != ""
+            label = "$slotDesc `$argName` has type $typeStr"
+        else
+            label = "this $slotDesc has type $typeStr"
+        end
+        push!(primary, LabeledSpan(n.ast.loc, label, true))
+
+        origin = findValueOrigin(rtctx, n)
+        local oh::String = ""
+        if origin !== n
+            originLabel = describeValueOrigin(rtctx, origin)
+            noteHead = argName != "" ?
+                "`$argName` became $typeStr here" :
+                "value became $typeStr here"
+            push!(notes, DiagNote(noteHead, LabeledSpan[
+                LabeledSpan(originSpan(origin), originLabel, false)
+            ]))
+            oh = originHelp(rtctx, origin)
+        end
+
+        # Two crisp options, rustc-style — short imperatives, not paragraphs.
+        # 1) Guard at the call site (always applicable, low-friction).
+        # 2) Fix the struct field declaration (only when that's the root
+        #    cause — `oh` is empty otherwise).
+        guardHelp = argName != "" ?
+            "guard with `$argName isa T` (or `if-elseif` on each variant) before the call" :
+            "guard with `isa` (or `if-elseif` on each variant) before the call"
+        push!(helps, guardHelp)
+        if oh != ""
+            push!(helps, oh)
+        end
+    end
+
+    for ii in err.kwi
+        kw = err.kwargs[ii]
+        n = kw.second
+        typeStr = explainAbstractType(rtctx, n.typ)
+        push!(primary, LabeledSpan(n.ast.loc,
+            "keyword `$(kw.first)` has type $typeStr", true))
+        origin = findValueOrigin(rtctx, n)
+        if origin !== n
+            originLabel = describeValueOrigin(rtctx, origin)
+            push!(notes, DiagNote("keyword `$(kw.first)` became $typeStr here",
+                LabeledSpan[LabeledSpan(originSpan(origin), originLabel, false)]))
+        end
+    end
+
+    # Spanless `note:` — same shape as rustc's free-floating notes.
+    if isBuiltinEqual(rtctx, ms.fargs[1].typ)
+        push!(notes, DiagNote(
+            "`===`/`!==` treats different types as unequal — use `isa` to narrow instead.",
+            LabeledSpan[]))
+    end
+
+    headline = err.isDotcall ?
+        "broadcast call has an argument of abstract type" :
+        "call has an argument of abstract type"
+    diag = Diagnostic("JTC-DISPATCH", true, headline, primary, notes, helps)
+    renderDiagnostic(eng.errio, diag)
+    return nothing
 end
 
 # Emitted when the call-site args are all concrete, but the inferencer found
@@ -549,25 +812,40 @@ function displayErrorTopLevelDispatch(err::InferenceErrorTopLevelDispatch)::Noth
     eng = err.eng
     ast = err.ast
     ms = err.ms
-    if err.isDotcall
-        printErrorHead(eng, ast, "DispatchError: this broadcast call won't trim — dynamic dispatch somewhere in the call chain")
-    else
-        printErrorHead(eng, ast, "DispatchError: this call won't trim — dynamic dispatch somewhere in the call chain")
-    end
-    writelogln!(eng.errio, "  All arguments at this site are concrete, but somewhere in the transitive call tree Julia couldn't statically resolve dispatch (a post-inference `:call` survived where `:invoke` was needed).")
-    writelogln!(eng.errio, "  This top-level call is the user-actionable cause. The deeper blame lives inside the callee (likely Base / a third-party package), where the user can't fix it.")
-    writelogln!(eng.errio, "  Fix options:")
-    writelogln!(eng.errio, "    - Use a different concrete-dispatch-friendly callee (e.g. Core.stdout instead of Base.stdout; libc snprintf via ccall instead of string(::Any)).")
-    writelogln!(eng.errio, "    - Wrap the callee with a type-stable callable struct or FunctionWrapper.")
-    writelogln!(eng.errio, "    - Mark the enclosing function @nocheck if this dispatch is intentional.")
+
+    callName = identNameOr(ast, "")
+    label = callName != "" ?
+        "this call to `$callName` triggers dynamic dispatch deeper in the tree" :
+        "this call triggers dynamic dispatch deeper in the tree"
+    primary = LabeledSpan[LabeledSpan(ast.loc, label, true)]
+    notes = DiagNote[]
+    helps = String[]
+
     trace = dispatchTraceForCall(eng, ms)
-    if length(trace) > 0
-        writelogln!(eng.errio, "  Dispatch trace (transitive `:call` survivors, set ctx.printDispatchTrace=true to enable):")
-        for line in trace
-            writelog!(eng.errio, "    · ")
-            writelogln!(eng.errio, line)
+    if length(trace) == 0
+        push!(helps, "set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites")
+    else
+        # First survivor is the most actionable. Render it as the leading
+        # note; remaining sites become a list inside a second spanless note.
+        push!(notes, DiagNote("unresolved :call deeper in the tree — $(trace[1])",
+                              LabeledSpan[]))
+        if length(trace) > 1
+            io = IOBuffer()
+            write(io, "$(length(trace) - 1) other site(s):")
+            for k in 2:length(trace)
+                write(io, "\n  · ")
+                write(io, trace[k])
+            end
+            push!(notes, DiagNote(String(take!(io)), LabeledSpan[]))
         end
     end
+
+    headline = err.isDotcall ?
+        "broadcast call triggers deep dynamic dispatch" :
+        "call triggers deep dynamic dispatch"
+    diag = Diagnostic("JTC-DEEP-DISPATCH", true, headline, primary, notes, helps)
+    renderDiagnostic(eng.errio, diag)
+    return nothing
 end
 
 struct InferenceErrorNoConstructor <: InferenceError
@@ -788,11 +1066,14 @@ function reportErrorIsaBadForm(eng::Engine, ast::JuAST, msg::String)::Union{}
     throwInferenceError(InferenceErrorIsaBadForm(eng, ast, msg))
 end
 
-function displayErrorIsaBadFor(err::InferenceErrorIsaBadForm)::Nothing
+function displayErrorIsaBadForm(err::InferenceErrorIsaBadForm)::Nothing
     eng = err.eng
     ast = err.ast
     msg = err.msg
-    printErrorHead(eng, ast, msg)
+    # Prefix with the conventional `<Category>Error:` shape so
+    # `printErrorHead`'s prefix parser routes it to `JTC-ISA` rather
+    # than the catch-all `JTC-MISC`.
+    printErrorHead(eng, ast, "IsaError: " * msg)
 end
 
 struct InferenceErrorIfEnlargeType <: InferenceError

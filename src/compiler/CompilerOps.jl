@@ -112,6 +112,9 @@ makeTypeVarOf(rtctx::RuntimeContext, name::String)::CompileType =
 makeMatrixOf(rtctx::RuntimeContext, eltype::CompileType)::CompileType =
     unwrap(rtctx.makeMatrixOf(eltype), CompileType)
 
+makeVectorOf(rtctx::RuntimeContext, eltype::CompileType)::CompileType =
+    unwrap(rtctx.makeVectorOf(eltype), CompileType)
+
 getFirstParameter(rtctx::RuntimeContext, x::CompileType)::CompileType =
     unwrap(rtctx.getFirstParameterOf(x), CompileType)
 

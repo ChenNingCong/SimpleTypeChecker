@@ -14,10 +14,6 @@ function makeBottomType()
     CompileType(true, nothing, Union{})
 end
 
-function isBottomType(rtctx::RuntimeContext, t::CompileType)::Bool
-    return rtctx.isBottom(t)
-end
-
 function makeConstVal(@nospecialize val)
     CompileType(true, val, Core.Typeof(val))
 end
@@ -38,45 +34,32 @@ function isConstVal(typ::CompileType)
     return typ.isConst
 end
 
-function removeConst(rtctx::RuntimeContext, typ::CompileType)::CompileType
-    if typ.isConst
-        return unwrap(rtctx.removeConstOf(typ), CompileType)
-    else
-        return typ
-    end
-end
-
-function lift(rtctx::RuntimeContext, v::CompileType)::CompileType
-    if isConstVal(v)
-        return unwrap(rtctx.liftConstToType(v), CompileType)
-    else
-        error("Internal error")
-    end
-end
+# `isBottomType`, `removeConst`, `lift`, and the rtctx-wrapping primitives
+# live in src/compiler/CompilerOps.jl — the analyzer calls those wrappers
+# (no `unwrap` on this side of the seam).
 
 # JuASTVal carries a parsed source literal — Bool / Int / Float / String /
 # Char / Symbol. The value lives in the analyzer runtime (it came from the
-# parser). To get a target-runtime CompileType, dispatch on the literal
-# type and call the appropriate `wrapLiteral*` membrane op so the driver
-# constructs `makeConstVal` on its side.
+# parser). Dispatch on the literal type and call the matching wrapper
+# (CompilerOps.jl) so the driver constructs the CompileType on its side.
 function convert2ConstVal(rtctx::RuntimeContext, val::JuASTVal)::CompileType
     v = val.val
     if v isa Bool
-        return unwrap(rtctx.wrapLiteralBool(v), CompileType)
+        return wrapLiteralBool(rtctx, v)
     elseif v isa Int
-        return unwrap(rtctx.wrapLiteralInt(v), CompileType)
+        return wrapLiteralInt(rtctx, v)
     elseif v isa Float64
-        return unwrap(rtctx.wrapLiteralFloat64(v), CompileType)
+        return wrapLiteralFloat64(rtctx, v)
     elseif v isa String
-        return unwrap(rtctx.wrapLiteralString(v), CompileType)
+        return wrapLiteralString(rtctx, v)
     elseif v isa Char
-        return unwrap(rtctx.wrapLiteralChar(v), CompileType)
+        return wrapLiteralChar(rtctx, v)
     elseif v isa Symbol
         # Symbols cross the seam as String; driver re-interns into its
         # own Symbol table.
-        return unwrap(rtctx.wrapLiteralSymbolName(String(v)), CompileType)
+        return wrapLiteralSymbolName(rtctx, String(v))
     elseif v === nothing
-        return unwrap(rtctx.wrapLiteralNothing(), CompileType)
+        return wrapLiteralNothing(rtctx)
     else
         # Fallback for literal types we haven't enumerated yet (e.g. BigInt,
         # complex literals). Keeps the inferencer functional in the short
@@ -281,10 +264,10 @@ function makeLiteralFlowNode(rtctx::RuntimeContext, ast::JuAST, val::JuASTVal)
 end
 
 function makeLiteralExprFlowNode(rtctx::RuntimeContext, ast::JuAST)
-    FlowNode(ast, FlowNode[], unwrap(rtctx.makeExprType(), CompileType), LiteralExprFlowNode())
+    FlowNode(ast, FlowNode[], makeExprType(rtctx), LiteralExprFlowNode())
 end
 function makeMacroCallFlowNode(rtctx::RuntimeContext, ast::JuAST)
-    FlowNode(ast, FlowNode[], unwrap(rtctx.makeNothingType(), CompileType), MacroCallFlowNode())
+    FlowNode(ast, FlowNode[], makeNothingType(rtctx), MacroCallFlowNode())
 end
 
 function makeAssignLHSVarFlowNode(ast::JuAST, rhs::FlowNode, updateOp::UpdateOp)
@@ -337,7 +320,7 @@ function makeFunCallFlowNode(ast::JuAST, ms::MethodCallStruct, typ::CompileType)
 end
 
 function makeEmptyBlockFlowNode(rtctx::RuntimeContext, ast::JuAST)
-    FlowNode(ast, FlowNode[], unwrap(rtctx.wrapLiteralNothing(), CompileType), BlockFlowNode())
+    FlowNode(ast, FlowNode[], wrapLiteralNothing(rtctx), BlockFlowNode())
 end
 
 function makeBlockFlowNode(ast::JuAST, last::FlowNode)
@@ -377,7 +360,7 @@ function makeGetPropertyFlowNode(ast::JuAST, node::FlowNode, typ::CompileType)
 end
 
 function makeEmptyElseFlowNode(rtctx::RuntimeContext, ast::JuAST)
-    FlowNode(ast, FlowNode[], unwrap(rtctx.wrapLiteralNothing(), CompileType), IfStmtFlowNode())
+    FlowNode(ast, FlowNode[], wrapLiteralNothing(rtctx), IfStmtFlowNode())
 end
 
 function makeIfStmtFlowNode(ast::JuAST, typ::CompileType)
@@ -430,7 +413,7 @@ function makeSetPropertyFlowNode(ast::JuAST, xnode::FlowNode, rhsnode::FlowNode,
 end
 
 function makeWhileStmtFlowNode(rtctx::RuntimeContext, ast::JuAST)
-    FlowNode(ast, FlowNode[], unwrap(rtctx.makeNothingType(), CompileType), WhileStmtFlowNode())
+    FlowNode(ast, FlowNode[], makeNothingType(rtctx), WhileStmtFlowNode())
 end
 
 struct ErrorLogger <: IO

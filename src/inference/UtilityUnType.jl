@@ -1,45 +1,14 @@
-function hasField(rtctx::RuntimeContext, ft::CompileType, p::Symbol)::Bool
-    # Symbols are interned per-runtime — pass as String so the driver can
-    # intern into its own Symbol table on its side.
-    return rtctx.hasFieldOf(ft, String(p))
-end
+# UtilityUnType — analyzer-side helpers that compose membrane wrappers.
+#
+# All rtctx-touching, unwrap-doing primitives live in src/compiler/CompilerOps.jl.
+# This file holds analyzer-only logic: per-call caching for inferReturnType,
+# the method-match assembly that drives the type checker queue, and the
+# flow-node merge helpers.
 
-function isConcreteType(rtctx::RuntimeContext, ft::CompileType)::Bool
-    return rtctx.isConcrete(ft)
-end
-
-function getFieldType(rtctx::RuntimeContext, ft::CompileType, p::Symbol)::CompileType
-    pstr = String(p)
-    if rtctx.hasFieldOf(ft, pstr)
-        return unwrap(rtctx.getFieldTypeOf(ft, pstr), CompileType)
-    else
-        error("Internal error : getFieldType not checked")
-    end
-end
-
-# Membrane-aware accessors that take a const CompileType handle (wrapping
-# a Module) instead of a raw Module reference. The Module value stays on
-# the driver side; the inferencer sees only the opaque CompileType handle.
-function constModuleIsDefined(rtctx::RuntimeContext, modct::CompileType, p::Symbol)::Bool
-    return rtctx.constModuleIsDefined(modct, String(p))
-end
-
-function constModuleGetField(rtctx::RuntimeContext, modct::CompileType, p::Symbol)::CompileType
-    return unwrap(rtctx.constModuleGetField(modct, String(p)), CompileType)
-end
-
-# Tuple-destructure check — delegates to the driver. Returns (isStruct,
-# lenOk, isTupleOrPair) so the inferencer can report the right failure mode.
-function tupleDestructInfo(rtctx::RuntimeContext, ct::CompileType, n::Int)::Tuple{Bool, Bool, Bool}
-    return rtctx.tupleDestructInfo(ct, n)
-end
-
-
-
-# Inference primitives moved to CompilerAdaptor.jl. The interface below stays in
-# this file because it's not compiler-internals — it's the per-Engine caching layer
-# that wraps inferReturnType / inferKeywordMethodHandles.
-
+# Inference cache layer. `cacheLookup` and `inferReturnType` queue side
+# effects (push to ctx.queue, populate dynDispatchCache) live driver-side
+# in the membrane op; this layer adds per-sig memoization on the analyzer
+# side so we don't re-cross the seam for repeated signatures.
 function cacheLookup(eng::Engine, sig_h::OpaqueHandle{CallSigK})::Vector{CompileType}
     ctx = eng.globalCtx
     # Cache key is the raw Tuple type — the OpaqueHandle wraps it for
@@ -50,9 +19,7 @@ function cacheLookup(eng::Engine, sig_h::OpaqueHandle{CallSigK})::Vector{Compile
     if haskey(ctx.cache, sig_raw)
         return ctx.cache[sig_raw]
     else
-        # FunctionWrapper auto-wraps the return into OpaqueHandle{CompileTypeVecK};
-        # unwrap to recover the typed Vector here.
-        v = unwrap(ctx.rtctx.inferReturnType(ctx, sig_h), Vector{CompileType})
+        v = inferReturnType(ctx.rtctx, ctx, sig_h)
         ctx.cache[sig_raw] = v
         return v
     end
@@ -65,7 +32,7 @@ function getMethodMatches(eng::Engine, ms::MethodCallStruct)::Vector{CompileType
     arg_types  = CompileType[fn.typ for fn in args]
     kwarg_types_for_lookup = Pair{Symbol, CompileType}[]
     if length(kwargs) > 0
-        positional_sig_h = rtctx.makeCallSig(arg_types, kwarg_types_for_lookup)
+        positional_sig_h = makeCallSig(rtctx, arg_types, kwarg_types_for_lookup)
         mis = inferKeywordMethodHandles(eng.globalCtx, positional_sig_h.val)
         if length(mis) == 0
             error("No method instance for keyword call")
@@ -81,7 +48,7 @@ function getMethodMatches(eng::Engine, ms::MethodCallStruct)::Vector{CompileType
             push!(kwarg_types_for_lookup, k => node.typ)
         end
     end
-    sig_h = rtctx.makeCallSig(arg_types, kwarg_types_for_lookup)
+    sig_h = makeCallSig(rtctx, arg_types, kwarg_types_for_lookup)
     result = cacheLookup(eng, sig_h)
     return result
 end
@@ -96,7 +63,7 @@ end
 function hasDynamicDispatchForCall(eng::Engine, ms::MethodCallStruct)::Bool
     arg_types   = CompileType[fn.typ for fn in ms.fargs]
     kwarg_types = Pair{Symbol, CompileType}[k => node.typ for (k, node) in ms.kwargs]
-    sig_h = eng.globalCtx.rtctx.makeCallSig(arg_types, kwarg_types)
+    sig_h = makeCallSig(eng.globalCtx.rtctx, arg_types, kwarg_types)
     return get(eng.globalCtx.dynDispatchCache, sig_h.val, false)
 end
 
@@ -107,20 +74,15 @@ end
 function dispatchTraceForCall(eng::Engine, ms::MethodCallStruct)::Vector{String}
     arg_types   = CompileType[fn.typ for fn in ms.fargs]
     kwarg_types = Pair{Symbol, CompileType}[k => node.typ for (k, node) in ms.kwargs]
-    sig_h = eng.globalCtx.rtctx.makeCallSig(arg_types, kwarg_types)
+    sig_h = makeCallSig(eng.globalCtx.rtctx, arg_types, kwarg_types)
     return get(eng.globalCtx.dynDispatchTraceCache, sig_h.val, String[])
 end
 
-function checkFieldCompatibility(rtctx::RuntimeContext, dest::CompileType, src::CompileType)::Bool
-    return rtctx.subtypeOf(src, dest)
-end
-
-function isConstructor(rtctx::RuntimeContext, v::CompileType)::Bool
-    return isConstVal(v) && rtctx.constIsTypeValue(v)
-end
-
+# `tryApplyType` returns Just(t) if Core.apply_type succeeds, None otherwise.
+# Driver-side applyTypeOf returns a bottom CompileType on failure; we test
+# via isBottomType and project that into Maybe{CompileType}.
 function tryApplyType(rtctx::RuntimeContext, args::Vector{CompileType})::Maybe{CompileType}
-    tt = unwrap(rtctx.applyTypeOf(args), CompileType)
+    tt = applyTypeOf(rtctx, args)
     if isBottomType(rtctx, tt)
         return None(CompileType)
     else
@@ -147,90 +109,15 @@ function tryMergeReturnFlowNode(rtctx::RuntimeContext, v1::FlowNode, v2::FlowNod
     return tryMergeFlowType(rtctx, v1, v2)
 end
 
-# `collectUnion` / `splitUnion` moved behind the seam — both peek `.a`/`.b`
-# on Union values, which is target-runtime data. The driver does the
-# decomposition and hands back a fresh CompileType handle.
-function splitUnion(rtctx::RuntimeContext, x::CompileType, y::CompileType)::CompileType
-    return unwrap(rtctx.splitUnionOf(x, y), CompileType)
-end
-
-function isaType(rtctx::RuntimeContext, x::CompileType)::Bool
-    return rtctx.isTypeValue(x)
-end
-
-function isaAny(rtctx::RuntimeContext, x::CompileType)::Bool
-    return rtctx.isAny(x)
-end
-
-function isaBool(rtctx::RuntimeContext, x::CompileType)::Bool
-    return rtctx.isBool(x)
-end
-
-function isaUnion(rtctx::RuntimeContext, x::CompileType)::Bool
-    return rtctx.isUnion(x)
-end
-
-function isaTuple(rtctx::RuntimeContext, x::CompileType)::Bool
-    return rtctx.isTupleType(x)
-end
-
-# Driver-side: get-first-parameter on a CompileType handle. Peeks `.typ`
-# and `t.parameters[1]` in the driver runtime; returns a freshly-wrapped
-# CompileType via the membrane.
-function getFirstParameter(rtctx::RuntimeContext, x::CompileType)::CompileType
-    return unwrap(rtctx.getFirstParameterOf(x), CompileType)
-end
-
 function tryMergeConstVal(rtctx::RuntimeContext, v1::CompileType, v2::CompileType)::Bool
     if isConstVal(v1) && isConstVal(v2)
-        return rtctx.constEqualsConst(v1, v2)
+        return isConstEqualsConst(rtctx, v1, v2)
     else
         return false
     end
 end
-#=
-function tryMergeVarDefFlowNode(eng::Engine, ast::JuAST, v::Vector{FlowNode}, allowUnion::Bool)::FlowNode
-    # println("join node $([i.typ for i in v])")
-    tmptyp = v[1].typ
-    for i in v
-        if !isBottomType(i.typ)
-            tmptyp = i.typ
-            break
-        end
-    end
-    if isBottomType(tmptyp)
-        # TODO : shouldn't be here
-        return makePhiFlowNode(ast, v, makeBottomType())
-    end
-    allConst = true
-    for i in 1:length(v)
-        # skip all bottom value
-        if isBottomType(v[i].typ)
-            continue
-        end
-        v1 = tmptyp.typ
-        v2 = v[i].typ.typ
-        if !allowUnion
-            if !(v1 === v2)
-                reportErrorIfEnlargeType(eng, v[1], v[i])
-            end
-        end
-        # Note, if we allow union, then type may not equal
-        if allConst && isConstVal(tmptyp) && isConstVal(v[i].typ)
-            allConst = tryMergeConstVal(tmptyp, v[i].typ)
-        else
-            allConst = false
-        end
-        if !allConst
-            tmptyp = makeType(Union{v1, v2})
-        end
-    end
-    return makePhiFlowNode(ast, v, tmptyp)
-end
-=#
 
 function tryMergeFlowNode(eng::Engine, ast::JuAST, v::Vector{FlowNode}, allowUnion::Bool)::FlowNode
-    # println("join node $([i.typ for i in v])")
     rtctx = eng.globalCtx.rtctx
     tmptyp = v[1].typ
     for i in v
@@ -250,7 +137,7 @@ function tryMergeFlowNode(eng::Engine, ast::JuAST, v::Vector{FlowNode}, allowUni
             continue
         end
         if !allowUnion
-            if !rtctx.typeEq(tmptyp, v[i].typ)
+            if !isTypeEq(rtctx, tmptyp, v[i].typ)
                 reportErrorIfEnlargeType(eng, v[1], v[i])
             end
         end
@@ -261,9 +148,8 @@ function tryMergeFlowNode(eng::Engine, ast::JuAST, v::Vector{FlowNode}, allowUni
             allConst = false
         end
         if !allConst
-            tmptyp = unwrap(rtctx.makeUnionOf(tmptyp, v[i].typ), CompileType)
+            tmptyp = makeUnionOf(rtctx, tmptyp, v[i].typ)
         end
     end
     return makePhiFlowNode(ast, v, tmptyp)
 end
-

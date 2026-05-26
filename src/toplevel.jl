@@ -18,6 +18,7 @@ module Inference
     include("inference/InferenceDefinition.jl")
     include("compiler/CompilerAdaptor.jl")
     include("compiler/CompilerOps.jl")
+    include("compiler/StrictRuntimeContext.jl")
     include("inference/ScopeChecking.jl")
     include("inference/InferenceErrorUtility.jl")
     include("inference/InferenceError.jl")

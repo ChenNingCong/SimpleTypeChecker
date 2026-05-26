@@ -737,6 +737,13 @@ function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::I
             reportErrorFunCall(eng, ast, ms, length(mm), isDotcall)
         end
         tt = extractUniqueMatch(mm)
+        # Strategy-overlay hook: consult the rtctx's policy on this call.
+        # Default rtctx approves everything; strict factories may reject.
+        let strict_msg = approveCallSite(eng.globalCtx.rtctx, CompileType[n.typ for n in fargs])
+            if !isempty(strict_msg)
+                reportErrorStrictReject(eng, ast, strict_msg)
+            end
+        end
         if isBottomType(eng.globalCtx.rtctx, tt) && checkConstructor
             reportErrorNoConstructor(eng, ast, ms)
         end

@@ -158,7 +158,25 @@ function displayErrorFunCall(err::InferenceErrorFunCall)::Nothing
     end
 end
 
-struct InferenceErrorKeywordUseBottom <: InferenceError 
+# Strategy-overlay rejection. Fires when rtctx.approveCallSite returns a
+# non-empty message — the strict-mode factory's rule said "no" even though
+# Julia's dispatch resolved cleanly.
+struct InferenceErrorStrictReject <: InferenceError
+    eng::Engine
+    ast::JuAST
+    msg::String
+end
+
+function reportErrorStrictReject(eng::Engine, ast::JuAST, msg::String)::Union{}
+    throwInferenceError(InferenceErrorStrictReject(eng, ast, msg))
+end
+
+function displayErrorStrictReject(err::InferenceErrorStrictReject)::Nothing
+    printErrorHead(err.eng, err.ast, "Strict-mode rejection: " * err.msg)
+    return nothing
+end
+
+struct InferenceErrorKeywordUseBottom <: InferenceError
     eng::Engine
     ast::JuAST
     sym::Symbol

@@ -170,3 +170,9 @@ getCallableFromConst(rtctx::RuntimeContext, v::CompileType)::OpaqueHandle{Callab
 # pointer to the callable on the driver side). Returns Vector{MethodDef}.
 methodsOf(rtctx::RuntimeContext, callable::OpaqueHandle{CallableK})::Vector{MethodDef} =
     rtctx.methodsOf(callable)
+
+# Strategy-overlay hook. Returns empty string if the call site is permitted
+# under the active policy, or a non-empty rejection message otherwise.
+# Default rtctx always returns "" — only strict factories reject.
+approveCallSite(rtctx::RuntimeContext, fargs::Vector{CompileType})::String =
+    rtctx.approveCallSite(fargs)

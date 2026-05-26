@@ -253,6 +253,13 @@ const RemoveConstOfFn        = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple
 # specific failure mode without peeking `.typ`/`.parameters`.
 const TupleDestructInfoFn    = FunctionWrapper{Tuple{Bool, Bool, Bool}, Tuple{OpaqueHandle{CompileTypeK}, Int}}
 
+# Strategy-overlay hook. After dispatch resolves a call site, the analyzer
+# asks the membrane "is this call permitted under the active policy?".
+# Empty string ⇒ approved. Non-empty ⇒ rejection message displayed to the
+# user. Default impl returns "" unconditionally; a strict-mode factory
+# wraps the default with rules like push!(::Vector{T}, ::T) where {T}.
+const ApproveCallSiteFn      = FunctionWrapper{String, Tuple{OpaqueHandle{CompileTypeVecK}}}
+
 struct RuntimeContext
     methodsOf::MethodsOfFn
     inferReturnType::InferReturnTypeFn
@@ -323,4 +330,6 @@ struct RuntimeContext
     getTypeParameterOf::GetTypeParameterOfFn
     removeConstOf::RemoveConstOfFn
     tupleDestructInfo::TupleDestructInfoFn
+    # Strategy-overlay hook (see ApproveCallSiteFn above).
+    approveCallSite::ApproveCallSiteFn
 end

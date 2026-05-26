@@ -972,6 +972,13 @@ end
     return (true, lenOk, isTupleOrPair)
 end
 
+# Default approveCallSite: every dispatch-clean call is allowed. The
+# strict-mode factory (StrictRuntimeContext.jl) overrides this slot to
+# enforce stricter rules like `push!(::Vector{T}, ::T) where {T}`.
+@nocheck function approveCallSiteDefault(fargs_h::OpaqueHandle{CompileTypeVecK})::String
+    return ""
+end
+
 # Per-field kwargs default to the live-JIT driver. Tests pass only the
 # fields they want to override; adding a new field to RuntimeContext
 # does not break existing call sites.
@@ -1042,6 +1049,8 @@ function defaultRuntimeContext(;
     getTypeParameterOfFn::GetTypeParameterOfFn     = GetTypeParameterOfFn(getTypeParameterOf),
     removeConstOfFn::RemoveConstOfFn               = RemoveConstOfFn(removeConstOf),
     tupleDestructInfoFn::TupleDestructInfoFn       = TupleDestructInfoFn(tupleDestructInfo),
+    # Strategy overlay — default is no-op; strict factory overrides this slot.
+    approveCallSiteFn::ApproveCallSiteFn           = ApproveCallSiteFn(approveCallSiteDefault),
 )::RuntimeContext
     return RuntimeContext(methodsOfFn, inferReturnTypeFn,
                           makeCallSigFn, makeTupleTypeFn,
@@ -1072,5 +1081,6 @@ function defaultRuntimeContext(;
                           lookupBitAndFn, lookupBitOrFn, lookupAnyValueFn,
                           makeMatrixOfFn, getFirstParameterOfFn,
                           getTypeParameterOfFn, removeConstOfFn,
-                          tupleDestructInfoFn)
+                          tupleDestructInfoFn,
+                          approveCallSiteFn)
 end

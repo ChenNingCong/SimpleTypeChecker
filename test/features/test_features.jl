@@ -17,4 +17,5 @@ include("helpers.jl")
     include("test_try.jl")
     include("test_dispatch.jl")
     include("test_runtime_context.jl")
+    include("test_strict.jl")
 end

@@ -483,30 +483,10 @@ function inferCCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     return InferResult(ctx, node)
 end
 
-# Body-side companion to `_escapeHatchMask`. Returns true if THIS method
-# is the only one on its function AND declares `@nospecialize` on some
-# positional slot AND has no kwargs/varargs/optional args. When true,
-# `runCheck!` skips checking the body — the user has explicitly opted out
-# at the typed-to-Any seam.
-function _isEscapeHatchMethod(meth::MethodDef)::Bool
-    if methodDefNKw(meth) != 0 || methodDefIsVarArg(meth)
-        return false
-    end
-    if methodDefNospecializeMask(meth) == UInt32(0)
-        return false
-    end
-    # Resolve the function value via (module, name) and count its methods.
-    mod = meth.module
-    name = meth.name
-    if !isdefined(mod, name)
-        return false
-    end
-    fval = getfield(mod, name)
-    if !(fval isa Function)
-        return false
-    end
-    return length(methodsOf(fval)) == 1
-end
+# `_isEscapeHatchMethod` lives driver-side (CompilerAdaptor.jl) because it
+# peeks `.module` / `.name` on a MethodDef and resolves the function value
+# via `getfield` — both target-runtime ops. Called from runCheck! where
+# the result (Bool) flows back across the seam by value.
 
 # Detects "escape-hatch" callees — a function that the user has
 # deliberately marked `@nospecialize` to accept Any at certain slots.

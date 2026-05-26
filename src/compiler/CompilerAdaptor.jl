@@ -517,6 +517,34 @@ function methodDefNKw(meth::MethodDef)::Int
     return Int(meth.nkw)
 end
 
+# Body-side companion to `_escapeHatchMask` (Inference.jl). Returns true
+# if THIS method is the only one on its function AND declares
+# `@nospecialize` on some positional slot AND has no kwargs/varargs.
+# When true, `runCheck!` skips checking the body — the user has explicitly
+# opted out at the typed-to-Any seam.
+#
+# Driver-side because it peeks `meth.module` / `meth.name` on a Core.Method
+# and resolves the function value via `getfield(mod, name)` — both
+# target-runtime ops that the inferencer side cannot see.
+@nocheck function _isEscapeHatchMethod(meth::MethodDef)::Bool
+    if methodDefNKw(meth) != 0 || methodDefIsVarArg(meth)
+        return false
+    end
+    if methodDefNospecializeMask(meth) == UInt32(0)
+        return false
+    end
+    mod = meth.module
+    name = meth.name
+    if !isdefined(mod, name)
+        return false
+    end
+    fval = getfield(mod, name)
+    if !(fval isa Function)
+        return false
+    end
+    return length(_methodsOfImpl(fval)) == 1
+end
+
 # Seam-facing variant: callable arrives as an opaque handle. Unwraps to
 # `Any` (the callable is still untyped — we can't narrow further before
 # `methods()` is called). The inner @nospecialize impl is the escape

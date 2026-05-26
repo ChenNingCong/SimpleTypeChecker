@@ -433,18 +433,6 @@ function makeWhileStmtFlowNode(rtctx::RuntimeContext, ast::JuAST)
     FlowNode(ast, FlowNode[], unwrap(rtctx.makeNothingType(), CompileType), WhileStmtFlowNode())
 end
 
-#=
-#=========begin here =======#
-function makeDeclarationListNode(ex::JuExpr)
-    FlowNode(ex, DeclarationListFlowNode, FlowNode[], makeConstVal(nothing))
-end
-
-function makePhiFlowNode(ex::JuExpr, v::Vector{FlowNode}, typ::CompileType)
-    FlowNode(ex, PhiFlowNode, v, typ)
-end
-
-=#
-
 struct ErrorLogger <: IO
     io::IOBuffer
 end

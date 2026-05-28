@@ -24,7 +24,7 @@ end
 
 # === Inference primitives ===
 
-@nocheck function inferReturnType(ctx::GlobalContext, sig, f, types; world = currentWorld())::Vector{CompileType}
+@nocheck function inferReturnType(ctx::GlobalContext, @nospecialize(sig), @nospecialize(f), @nospecialize(types); world = currentWorld())::Vector{CompileType}
     interp = Core.Compiler.NativeInterpreter(world; inf_params = Core.Compiler.InferenceParams())
     if isInPureContext()
         error("code reflection cannot be used from generated functions")
@@ -60,6 +60,52 @@ end
     for match in Base._methods_by_ftype(sig, -1, world)::Vector
         match = match::Core.MethodMatch
         mi = Core.Compiler.specialize_method(match.method, match.spec_types, match.sparams)::MethodHandle
+        # Concrete-signature fast path. When the flag is on AND the call sig
+        # is fully concrete AND the cached CodeInstance has a concrete
+        # rettype (or a `rettype_const`), trust it and skip transitive-edge
+        # queuing. Parametric methods like `getindex(::Vector{T}, ::Int)::T`
+        # are handled implicitly: `specialize_method` resolves T from
+        # `match.spec_types`, so the cached CI's rettype is already the
+        # substituted leaf type (`Float64` for a `Vector{Float64}` call).
+        # No manual sparam dance needed.
+        if ctx.concreteShortCircuit && !ctx.deepDispatchCheck && _is_concrete_call_sig(sig)
+            ci = get(Core.Compiler.code_cache(interp), mi, nothing)
+            if ci isa Core.CodeInstance
+                if isdefined(ci, :rettype_const)
+                    push!(rts, makeConstVal(ci.rettype_const))
+                    continue
+                elseif Base.isconcretetype(ci.rettype)
+                    push!(rts, makeType(ci.rettype))
+                    continue
+                end
+                # Cached but rettype not concrete (e.g. Any, Union) — fall
+                # through to the conservative path so we keep queuing
+                # transitive edges and don't lose diagnostic depth.
+            end
+        end
+        # Cache short-circuit. When deep-dispatch detection is off (the
+        # common path), a cached CodeInstance already carries rettype +
+        # transitive edges, so we can skip the full inference + optimizer
+        # pipeline that typeinf would otherwise re-run. The deep-dispatch
+        # path still needs `result.src` for the dyncall scan, so we fall
+        # through to the original code when ctx.deepDispatchCheck is true.
+        if !ctx.deepDispatchCheck
+            ci = get(Core.Compiler.code_cache(interp), mi, nothing)
+            if ci isa Core.CodeInstance
+                # rettype_const is #undef unless const-prop produced a value
+                if isdefined(ci, :rettype_const)
+                    push!(rts, makeConstVal(ci.rettype_const))
+                else
+                    push!(rts, makeType(ci.rettype))
+                end
+                for edge in ci.edges
+                    if edge isa MethodHandle
+                        push!(ctx.queue, KwFunCall(edge))
+                    end
+                end
+                continue
+            end
+        end
         result = Core.Compiler.InferenceResult(mi)
         frame = Core.Compiler.InferenceState(result, :global, interp)
         if frame === nothing
@@ -127,6 +173,28 @@ end
     end
     return rts
 end
+
+# Concrete-call-sig predicate. The sig that reaches `inferReturnType` is a
+# Tuple type whose first parameter is the function type (`typeof(f)` or a
+# singleton Type) and whose remaining parameters are the argument types.
+# We need every component to be a concrete leaf type: no `UnionAll`, no
+# `Union` (other than the single-element Bottom edge case), no abstract
+# supertype. `Base.isconcretetype` already checks all of these uniformly.
+# We also reject sigs whose first parameter isn't a concrete function tag
+# (e.g. when the caller passes `nothing` as the placeholder for a callable
+# struct whose type isn't a singleton — covered by the 2-arg `inferReturnType`
+# dispatcher's third branch).
+@nocheck function _is_concrete_call_sig(@nospecialize(sig))::Bool
+    sig isa DataType || return false
+    sig <: Tuple || return false
+    params = sig.parameters
+    isempty(params) && return false
+    for p in params
+        Base.isconcretetype(p) || return false
+    end
+    return true
+end
+
 
 # A post-inference call statement is "statically resolved" iff its head is
 # `:invoke` (Julia turned the dispatch into a known MethodInstance) OR its head
@@ -361,7 +429,7 @@ end
     return nothing
 end
 
-function inferReturnType(ctx::GlobalContext, sig)::Vector{CompileType}
+function inferReturnType(ctx::GlobalContext, @nospecialize(sig))::Vector{CompileType}
     param1 = sig.parameters[1]
     if param1 <: Type
         inferReturnType(ctx, sig, param1.parameters[1], Base.to_tuple_type(sig.parameters[2:end]))
@@ -386,11 +454,11 @@ function inferReturnType(ctx_h::OpaqueHandle{GlobalContextK}, sig_h::OpaqueHandl
     return inferReturnType(unwrap(ctx_h, GlobalContext), sig_h.val)
 end
 
-function inferReturnType(ctx::GlobalContext, f, tt)::Vector{CompileType}
+function inferReturnType(ctx::GlobalContext, @nospecialize(f), @nospecialize(tt))::Vector{CompileType}
     inferReturnType(ctx, Tuple{Core.Typeof(f), tt...}, f, tt)
 end
 
-@nocheck function inferKeywordMethodHandles(ctx::GlobalContext, sig)::Vector{MethodHandle}
+@nocheck function inferKeywordMethodHandles(ctx::GlobalContext, @nospecialize(sig))::Vector{MethodHandle}
     results = MethodHandle[]
     for match in Base._methods_by_ftype(sig, -1, currentWorld())::Vector
         match = match::Core.MethodMatch

@@ -590,6 +590,19 @@ mutable struct GlobalContext
     # the checker itself (e.g. self-check fires) to see *which* method
     # instance produced each error.
     printCheckerFrames::Bool
+    # When true, `inferReturnType` short-circuits aggressively for call sites
+    # whose full signature is concrete AND whose cached rettype is concrete
+    # (or — for parametric methods like `getindex(::Vector{T}, ::Int)::T` —
+    # gets resolved to a concrete leaf type once Core.Compiler caches the
+    # specialized CodeInstance for the concrete-instantiated sig). On a hit
+    # we return the rettype without queuing transitive edges or invoking
+    # typeinf. Sound because: concrete inputs → unique method dispatch +
+    # Julia's runtime `convert(rettype, _)` enforces declared return; concrete
+    # cached rettype → no widening to widen back from. Off by default to
+    # leave the conservative path in place; flip on for hot-path workloads
+    # (numerical code, IDE rechecks) where every microsecond of per-call
+    # overhead matters.
+    concreteShortCircuit::Bool
     const expanders::Dict{CompileType, MacroExpander}
     # Runtime-isolation seam. See docs/isolation.md and
     # src/compiler/CompilerAdaptorTypes.jl. Default factory is
@@ -608,6 +621,7 @@ function GlobalContext(; rtctx::RuntimeContext = defaultRuntimeContext())
                   Dict{Any, Vector{CompileType}}(),
                   Dict{Any, Bool}(),
                   Dict{Any, Vector{String}}(),
+                  false,
                   false,
                   false,
                   false,

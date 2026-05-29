@@ -1,0 +1,806 @@
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/block_diag.jl:15:11
+    |
+ 15 | same_idim(As::LinearMapAX...) = all(map(A -> A._idim == As[1]._idim, As))
+    |           ^^^^^^^^^^^^^^^^^^
+    |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/block_diag.jl:16:11
+    |
+ 16 | same_odim(As::LinearMapAX...) = all(map(A -> A._odim == As[1]._odim, As))
+    |           ^^^^^^^^^^^^^^^^^^
+    |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/block_diag.jl:28:12
+    |
+ 28 | block_diag(As::LinearMapAX... ; tryop::Bool = false) = block_diag(tryop, As...)
+    |            ^^^^^^^^^^^^^^^^^^
+    |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/block_diag.jl:30:33
+    |
+ 30 | function block_diag(tryop::Bool, As::LinearMapAX...)
+    |                                 ^^^^^^^^^^^^^^^^^^^
+    |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:62:27
+    |
+ 62 | Base.hcat(A1::LinearMapAX, As::LMcat...) =
+    |                           ^^^^^^^^^^^^^
+    |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:64:27
+    |
+ 64 | Base.vcat(A1::LinearMapAX, As::LMcat...) =
+    |                           ^^^^^^^^^^^^^
+    |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:66:61
+    |
+ 66 | Base.hvcat(rows::NTuple{nr,Int} where {nr}, A1::LinearMapAX, As::LMcat...) =
+    |                                                             ^^^^^^^^^^^^^
+    |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:70:47
+    |
+ 70 | Base.hcat(A1::UniformScaling, A2::LinearMapAX, As::LMcat...) =
+    |                                               ^^^^^^^^^^^^^
+    |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:72:47
+    |
+ 72 | Base.vcat(A1::UniformScaling, A2::LinearMapAX, As::LMcat...) =
+    |                                               ^^^^^^^^^^^^^
+    |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:75:45
+    |
+ 75 |         A1::UniformScaling, A2::LinearMapAX, As::LMcat...) =
+    |                                             ^^^^^^^^^^^^^
+    |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:81:28
+    |
+ 81 | function _hcat(tryop::Bool, As::LinearMapAO...)
+    |                            ^^^^^^^^^^^^^^^^^^^
+    |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:94:28
+    |
+ 94 | function _vcat(tryop::Bool, As::LinearMapAO...)
+    |                            ^^^^^^^^^^^^^^^^^^^
+    |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/getindex.jl:8:30
+   |
+ 8 | Base.getindex(A::LinearMapAX, args...) = Base.getindex(A._lmap, args...)
+   |                              ^^^^^^^^
+   |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:105:35
+     |
+ 105 | LinearMapAA(L, prop::NamedTuple ; kwargs...) =
+     |                                   ^^^^^^^^^
+     |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:150:71
+     |
+ 150 | LinearMapAA(f::Function, fc::Function, D::Dims{2}, prop::NamedTuple ; kwargs...) =
+     |                                                                       ^^^^^^^^^
+     |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:176:57
+     |
+ 176 | LinearMapAA(f::Function, D::Dims{2}, prop::NamedTuple ; kwargs...) =
+     |                                                         ^^^^^^^^^
+     |
+error[JTC-INTERNAL]: checker crashed on this method instance
+   exception: ErrorException("No method instance for keyword call")
+   on: LinearMapsAA.AM_M(::LinearMapsAA.LinearMapAM{Float64, 1, 1, LinearMaps.WrappedMap{Float64, Matrix{Float64}}, @NamedTuple{}}, ::LinearAlgebra.Diagonal{Int64, UnitRange{Int64}})
+   trace (top frames from src/):
+     getMethodMatches at UtilityUnType.jl:37
+     inferFunCall at Inference.jl:764
+     inferExpr at Inference.jl:854
+     inferBlock at Inference.jl:1538
+     inferExpr at Inference.jl:842
+     checkToplevelFunction at Inference.jl:3070
+     #runCheck!#12 at Inference.jl:3409
+     runCheck! at Inference.jl:3353
+
+error[JTC-INTERNAL]: checker crashed on this method instance
+   exception: ErrorException("No method instance for keyword call")
+   on: LinearMapsAA.AM_M(::LinearMapsAA.LinearMapAM{Float64, 1, 1, LinearMaps.WrappedMap{Float64, Matrix{Float64}}, @NamedTuple{}}, ::LinearAlgebra.UpperTriangular{Float64, Matrix{Float64}})
+   trace (top frames from src/):
+     getMethodMatches at UtilityUnType.jl:37
+     inferFunCall at Inference.jl:764
+     inferExpr at Inference.jl:854
+     inferBlock at Inference.jl:1538
+     inferExpr at Inference.jl:842
+     checkToplevelFunction at Inference.jl:3070
+     #runCheck!#12 at Inference.jl:3409
+     runCheck! at Inference.jl:3353
+
+error[JTC-INTERNAL]: checker crashed on this method instance
+   exception: ErrorException("No method instance for keyword call")
+   on: LinearMapsAA.AM_M(::LinearMapsAA.LinearMapAM{Float64, 1, 1, LinearMaps.WrappedMap{Float64, Matrix{Float64}}, @NamedTuple{}}, ::LinearAlgebra.Transpose{Float64, LinearAlgebra.Symmetric{Float64, Matrix{Float64}}})
+   trace (top frames from src/):
+     getMethodMatches at UtilityUnType.jl:37
+     inferFunCall at Inference.jl:764
+     inferExpr at Inference.jl:854
+     inferBlock at Inference.jl:1538
+     inferExpr at Inference.jl:842
+     checkToplevelFunction at Inference.jl:3070
+     #runCheck!#12 at Inference.jl:3409
+     runCheck! at Inference.jl:3353
+
+error[JTC-INTERNAL]: checker crashed on this method instance
+   exception: ErrorException("No method instance for keyword call")
+   on: LinearMapsAA.AM_M(::LinearMapsAA.LinearMapAM{Float64, 1, 1, LinearMaps.WrappedMap{Float64, Matrix{Float64}}, @NamedTuple{}}, ::LinearAlgebra.Adjoint{ComplexF32, LinearAlgebra.Hermitian{ComplexF32, Matrix{ComplexF32}}})
+   trace (top frames from src/):
+     getMethodMatches at UtilityUnType.jl:37
+     inferFunCall at Inference.jl:764
+     inferExpr at Inference.jl:854
+     inferBlock at Inference.jl:1538
+     inferExpr at Inference.jl:842
+     checkToplevelFunction at Inference.jl:3070
+     #runCheck!#12 at Inference.jl:3409
+     runCheck! at Inference.jl:3353
+
+error[JTC-INTERNAL]: checker crashed on this method instance
+   exception: ErrorException("No method instance for keyword call")
+   on: LinearMapsAA.AM_M(::LinearMapsAA.LinearMapAM{Float32, 1, 1, LinearMaps.FunctionMap{Float32, Main.__S__.var"#34#35", Main.__S__.var"#37#38", false}, @NamedTuple{name::String, extra::Int64}}, ::Matrix{Float64})
+   trace (top frames from src/):
+     getMethodMatches at UtilityUnType.jl:37
+     inferFunCall at Inference.jl:764
+     inferExpr at Inference.jl:854
+     inferBlock at Inference.jl:1538
+     inferExpr at Inference.jl:842
+     checkToplevelFunction at Inference.jl:3070
+     #runCheck!#12 at Inference.jl:3409
+     runCheck! at Inference.jl:3353
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:55:17
+    |
+ 55 |     LinearMapAA(A._lmap * LinearMap(B) ; prop=A._prop, odim=A._odim)
+    |                 ^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+    |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:55:17
+    |
+ 55 |     LinearMapAA(A._lmap * LinearMap(B) ; prop=A._prop, odim=A._odim)
+    |                 ^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+    |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+error[JTC-INTERNAL]: checker crashed on this method instance
+   exception: ErrorException("No method instance for keyword call")
+   on: LinearMapsAA.AM_M(::LinearMapsAA.LinearMapAM{Float32, 1, 1, LinearMaps.FunctionMap{Float32, Main.__S__.var"#34#35", Main.__S__.var"#37#38", false}, @NamedTuple{name::String, extra::Int64}}, ::LinearAlgebra.Adjoint{Float32, Matrix{Float32}})
+   trace (top frames from src/):
+     getMethodMatches at UtilityUnType.jl:37
+     inferFunCall at Inference.jl:764
+     inferExpr at Inference.jl:854
+     inferBlock at Inference.jl:1538
+     inferExpr at Inference.jl:842
+     checkToplevelFunction at Inference.jl:3070
+     #runCheck!#12 at Inference.jl:3409
+     runCheck! at Inference.jl:3353
+
+
+error[JTC-METHOD]: no matching method for *(::Array{Any, 1}, ::WrappedMap{Float64, Array{Float64, 2}})
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:59:17
+    |
+ 59 |     LinearMapAA(LinearMap(A) * B._lmap ; prop=B._prop, idim=B._idim)
+    |                 ^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-METHOD]: no matching method for *(::Array{Any, 1}, ::WrappedMap{Float64, Array{Float64, 2}})
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:59:17
+    |
+ 59 |     LinearMapAA(LinearMap(A) * B._lmap ; prop=B._prop, idim=B._idim)
+    |                 ^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-METHOD]: no matching method for *(::Array{Any, 1}, ::WrappedMap{Float64, Array{Float64, 2}})
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:59:17
+    |
+ 59 |     LinearMapAA(LinearMap(A) * B._lmap ; prop=B._prop, idim=B._idim)
+    |                 ^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-METHOD]: no matching method for *(::Array{Any, 1}, ::WrappedMap{Float64, Array{Float64, 2}})
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:59:17
+    |
+ 59 |     LinearMapAA(LinearMap(A) * B._lmap ; prop=B._prop, idim=B._idim)
+    |                 ^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-METHOD]: no matching method for *(::Array{Any, 1}, ::FunctionMap{Float32, #34#35, #37#38, false})
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:59:17
+    |
+ 59 |     LinearMapAA(LinearMap(A) * B._lmap ; prop=B._prop, idim=B._idim)
+    |                 ^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-METHOD]: no matching method for *(::Array{Any, 1}, ::CompositeMap{Float32, Tuple{FunctionMap{Float32, #34#35, #37#38, false}, TransposeMap{Float32, FunctionMap{Float32, #34#35, #37#38, false}}, FunctionMap{Float32, #34#35, #37#38, false}}})
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:59:17
+    |
+ 59 |     LinearMapAA(LinearMap(A) * B._lmap ; prop=B._prop, idim=B._idim)
+    |                 ^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-METHOD]: no matching method for *(::Array{Any, 1}, ::FunctionMap{Float32, #34#35, #37#38, false})
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:59:17
+    |
+ 59 |     LinearMapAA(LinearMap(A) * B._lmap ; prop=B._prop, idim=B._idim)
+    |                 ^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:83:21
+    |
+ 83 |     LinearMaps.mul!(y, Lm, x, α, β) # todo: composite buffer
+    |                     ^ argument `y` has type AbstractArray{#s8, 1} where #s8, 
+fully applied type should be AbstractArray{#s8, 1}
+    |
+note: `y` became AbstractArray{#s8, 1} where #s8, 
+fully applied type should be AbstractArray{#s8, 1} here
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:81:1
+    |
+ 81 | function lm_mul!(y::AbstractVector{<:Number}, Lm::LinearMaps.CompositeMap,
+    | -------------------------------------------------------------------------- function parameter `?`
+    |
+help: guard with `y isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:83:21
+    |
+ 83 |     LinearMaps.mul!(y, Lm, x, α, β) # todo: composite buffer
+    |                     ^ argument `y` has type AbstractArray{#s8, 1} where #s8, 
+fully applied type should be AbstractArray{#s8, 1}
+    |
+note: `y` became AbstractArray{#s8, 1} where #s8, 
+fully applied type should be AbstractArray{#s8, 1} here
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:81:1
+    |
+ 81 | function lm_mul!(y::AbstractVector{<:Number}, Lm::LinearMaps.CompositeMap,
+    | -------------------------------------------------------------------------- function parameter `?`
+    |
+help: guard with `y isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:89:21
+    |
+ 89 |     LinearMaps.mul!(y, Lm, x, α, β)
+    |                     ^ argument `y` has type AbstractArray{#s8, 1} where #s8, 
+fully applied type should be AbstractArray{#s8, 1}
+    |
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:89:28
+    |
+ 89 |     LinearMaps.mul!(y, Lm, x, α, β)
+    |                            ^ argument `x` has type AbstractArray{#s7, 1} where #s7, 
+fully applied type should be AbstractArray{#s7, 1}
+    |
+note: `y` became AbstractArray{#s8, 1} where #s8, 
+fully applied type should be AbstractArray{#s8, 1} here
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:87:1
+    |
+ 87 | lm_mul!(y::AbstractVector{<:Number}, Lm::LinearMap,
+    | --------------------------------------------------- function parameter `?`
+    |
+note: `x` became AbstractArray{#s7, 1} where #s7, 
+fully applied type should be AbstractArray{#s7, 1} here
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:87:1
+    |
+ 87 | lm_mul!(y::AbstractVector{<:Number}, Lm::LinearMap,
+    | --------------------------------------------------- function parameter `?`
+    |
+help: guard with `y isa T` (or `if-elseif` on each variant) before the call
+help: guard with `x isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:89:21
+    |
+ 89 |     LinearMaps.mul!(y, Lm, x, α, β)
+    |                     ^ argument `y` has type AbstractArray{#s8, 1} where #s8, 
+fully applied type should be AbstractArray{#s8, 1}
+    |
+note: `y` became AbstractArray{#s8, 1} where #s8, 
+fully applied type should be AbstractArray{#s8, 1} here
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:87:1
+    |
+ 87 | lm_mul!(y::AbstractVector{<:Number}, Lm::LinearMap,
+    | --------------------------------------------------- function parameter `?`
+    |
+help: guard with `y isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-FIELD]: calling getproperty on non-concrete type LinearMapAM{#s6, 2, 1, WrappedMap{Float64, Array{Float64, 2}}, NamedTuple{(), Tuple}} where #s6
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:41:6
+    |
+ 41 |     (A._idim != B._odim) && throw("dim mismatch")
+    |      ^^^^^^^
+    |
+
+error[JTC-FIELD]: calling getproperty on non-concrete type LinearMapAO{#s6, 2, 1, WrappedMap{Float64, Array{Float64, 2}}, NamedTuple{(), Tuple}} where #s6
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:41:6
+    |
+ 41 |     (A._idim != B._odim) && throw("dim mismatch")
+    |      ^^^^^^^
+    |
+
+error[JTC-FIELD]: calling getproperty on non-concrete type LinearMapAM{#s6, 2, 1, WrappedMap{Float64, Array{Float64, 2}}, NamedTuple{(), Tuple}} where #s6
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:41:6
+    |
+ 41 |     (A._idim != B._odim) && throw("dim mismatch")
+    |      ^^^^^^^
+    |
+
+error[JTC-FIELD]: calling getproperty on non-concrete type LinearMapAO{#s6, 2, 1, WrappedMap{Float64, Array{Float64, 2}}, NamedTuple{(), Tuple}} where #s6
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:41:6
+    |
+ 41 |     (A._idim != B._odim) && throw("dim mismatch")
+    |      ^^^^^^^
+    |
+
+error[JTC-FIELD]: calling getproperty on non-concrete type LinearMapAM{#s6, 1, 2, WrappedMap{Float64, Array{Float64, 2}}, NamedTuple{(), Tuple}} where #s6
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:41:17
+    |
+ 41 |     (A._idim != B._odim) && throw("dim mismatch")
+    |                 ^^^^^^^
+    |
+
+error[JTC-FIELD]: calling getproperty on non-concrete type LinearMapAM{#s6, 1, 2, WrappedMap{Float64, Array{Float64, 2}}, NamedTuple{(), Tuple}} where #s6
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:41:17
+    |
+ 41 |     (A._idim != B._odim) && throw("dim mismatch")
+    |                 ^^^^^^^
+    |
+
+error[JTC-FIELD]: calling getproperty on non-concrete type LinearMapAO{#s6, 1, 2, WrappedMap{Float64, Array{Float64, 2}}, NamedTuple{(), Tuple}} where #s6
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:41:17
+    |
+ 41 |     (A._idim != B._odim) && throw("dim mismatch")
+    |                 ^^^^^^^
+    |
+
+error[JTC-FIELD]: calling getproperty on non-concrete type LinearMapAO{#s6, 1, 2, WrappedMap{Float64, Array{Float64, 2}}, NamedTuple{(), Tuple}} where #s6
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:41:17
+    |
+ 41 |     (A._idim != B._odim) && throw("dim mismatch")
+    |                 ^^^^^^^
+    |
+
+error[JTC-FIELD]: calling getproperty on non-concrete type LinearMapAO{Float32, 1, 1, CompositeMap{Float32, Tuple{FunctionMap{Float32, #34#35, #37#38, false}, TransposeMap{Float32, FunctionMap{Float32, #34#35, #37#38, false}}}}, P} where P
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:41:17
+    |
+ 41 |     (A._idim != B._odim) && throw("dim mismatch")
+    |                 ^^^^^^^
+    |
+
+error[JTC-FIELD]: calling getproperty on non-concrete type LinearMapAM{Float32, 1, 1, CompositeMap{Float32, Tuple{FunctionMap{Float32, #34#35, #37#38, false}, TransposeMap{Float32, FunctionMap{Float32, #34#35, #37#38, false}}}}, P} where P
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:41:17
+    |
+ 41 |     (A._idim != B._odim) && throw("dim mismatch")
+    |                 ^^^^^^^
+    |
+
+error[JTC-ISA]: can't split type UniformScaling{Bool} to Type{Union{LinearMapAM{T, Do, Di, LM, P}, LinearMapAO{T, Do, Di, LM, P}} where P where LM where Di where Do where T}
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:30:5
+    |
+ 30 |     A isa LinearMapAX ? A._lmap :
+    |     ^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-ISA]: can't split type LinearMapAM{Float32, 1, 1, FunctionMap{Float32, #9#10, #12#13, false}, NamedTuple{(), Tuple}} to Type{Union{LinearMapAM{T, Do, Di, LM, P}, LinearMapAO{T, Do, Di, LM, P}} where P where LM where Di where Do where T}
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:30:5
+    |
+ 30 |     A isa LinearMapAX ? A._lmap :
+    |     ^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-ISA]: can't split type LinearMapAM{Float32, 1, 1, ScaledMap{Float32, Int64, FunctionMap{Float32, #9#10, #12#13, false}}, NamedTuple{(), Tuple}} to Type{Union{LinearMapAM{T, Do, Di, LM, P}, LinearMapAO{T, Do, Di, LM, P}} where P where LM where Di where Do where T}
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:30:5
+    |
+ 30 |     A isa LinearMapAX ? A._lmap :
+    |     ^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-ISA]: can't split type LinearMapAO{Float32, 1, 1, ScaledMap{Float32, Int64, FunctionMap{Float32, #9#10, #12#13, false}}, NamedTuple{(), Tuple}} to Type{Union{LinearMapAM{T, Do, Di, LM, P}, LinearMapAO{T, Do, Di, LM, P}} where P where LM where Di where Do where T}
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:30:5
+    |
+ 30 |     A isa LinearMapAX ? A._lmap :
+    |     ^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-ISA]: can't split type UniformScaling{T} where T to Type{Union{LinearMapAM{T, Do, Di, LM, P}, LinearMapAO{T, Do, Di, LM, P}} where P where LM where Di where Do where T}
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:30:5
+    |
+ 30 |     A isa LinearMapAX ? A._lmap :
+    |     ^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-ISA]: can't split type LinearMapAM{Float32, 1, 1, LM, NamedTuple{(), Tuple}} where LM to Type{Union{LinearMapAM{T, Do, Di, LM, P}, LinearMapAO{T, Do, Di, LM, P}} where P where LM where Di where Do where T}
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:30:5
+    |
+ 30 |     A isa LinearMapAX ? A._lmap :
+    |     ^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-ISA]: can't split type UniformScaling{Int64} to Type{Union{LinearMapAM{T, Do, Di, LM, P}, LinearMapAO{T, Do, Di, LM, P}} where P where LM where Di where Do where T}
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:30:5
+    |
+ 30 |     A isa LinearMapAX ? A._lmap :
+    |     ^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-ISA]: can't split type FunctionMap{Float32, #LinearMapAA_test_cat##0#LinearMapAA_test_cat##1{LinearMapAM{Float32, 1, 1, FunctionMap{Float32, #9#10, #12#13, false}, NamedTuple{(), Tuple}}}, #LinearMapAA_test_cat##2#LinearMapAA_test_cat##3{LinearMapAM{Float32, 1, 1, FunctionMap{Float32, #9#10, #12#13, false}, NamedTuple{(), Tuple}}}, _A} where _A to Type{Union{LinearMapAM{T, Do, Di, LM, P}, LinearMapAO{T, Do, Di, LM, P}} where P where LM where Di where Do where T}
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:30:5
+    |
+ 30 |     A isa LinearMapAX ? A._lmap :
+    |     ^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-ISA]: can't split type FunctionMap{Float32, #LinearMapAA_test_cat##0#LinearMapAA_test_cat##1{LinearMapAM{Float32, 1, 1, FunctionMap{Float32, #9#10, #12#13, false}, NamedTuple{(), Tuple}}}, #LinearMapAA_test_cat##2#LinearMapAA_test_cat##3{LinearMapAM{Float32, 1, 1, FunctionMap{Float32, #9#10, #12#13, false}, NamedTuple{(), Tuple}}}, false} to Type{Union{LinearMapAM{T, Do, Di, LM, P}, LinearMapAO{T, Do, Di, LM, P}} where P where LM where Di where Do where T}
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:30:5
+    |
+ 30 |     A isa LinearMapAX ? A._lmap :
+    |     ^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-ISA]: can't split type LinearMapAM{T, 1, 1, LM, NamedTuple{(), Tuple}} where LM where T to Type{Union{LinearMapAM{T, Do, Di, LM, P}, LinearMapAO{T, Do, Di, LM, P}} where P where LM where Di where Do where T}
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:30:5
+    |
+ 30 |     A isa LinearMapAX ? A._lmap :
+    |     ^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-ISA]: can't split type LinearMapAM{Float32, 2, 2, ScaledMap{Float32, Int64, FunctionMap{Float32, #11#12{Tuple{Int64, Int64}, Tuple{Int64, Int64}, #15#16}, #15#16{Tuple{Int64, Int64}, Tuple{Int64, Int64}, #18#19}, false}}, NamedTuple{(), Tuple}} to Type{Union{LinearMapAM{T, Do, Di, LM, P}, LinearMapAO{T, Do, Di, LM, P}} where P where LM where Di where Do where T}
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:30:5
+    |
+ 30 |     A isa LinearMapAX ? A._lmap :
+    |     ^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-ISA]: can't split type LinearMapAO{Float32, 2, 2, FunctionMap{Float32, #11#12{Tuple{Int64, Int64}, Tuple{Int64, Int64}, #15#16}, #15#16{Tuple{Int64, Int64}, Tuple{Int64, Int64}, #18#19}, false}, NamedTuple{(), Tuple}} to Type{Union{LinearMapAM{T, Do, Di, LM, P}, LinearMapAO{T, Do, Di, LM, P}} where P where LM where Di where Do where T}
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:30:5
+    |
+ 30 |     A isa LinearMapAX ? A._lmap :
+    |     ^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-ISA]: can't split type LinearMapAO{Float32, 2, 2, ScaledMap{Float32, Int64, FunctionMap{Float32, #11#12{Tuple{Int64, Int64}, Tuple{Int64, Int64}, #15#16}, #15#16{Tuple{Int64, Int64}, Tuple{Int64, Int64}, #18#19}, false}}, NamedTuple{(), Tuple}} to Type{Union{LinearMapAM{T, Do, Di, LM, P}, LinearMapAO{T, Do, Di, LM, P}} where P where LM where Di where Do where T}
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:30:5
+    |
+ 30 |     A isa LinearMapAX ? A._lmap :
+    |     ^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-ISA]: can't split type LinearMapAM{#s6, 2, 3, FunctionMap{Float32, #11#12{Tuple{Int64, Int64}, Tuple{Int64, Int64}, #15#16}, #15#16{Tuple{Int64, Int64}, Tuple{Int64, Int64}, #18#19}, false}, NamedTuple{(), Tuple}} where #s6 to Type{Union{LinearMapAM{T, Do, Di, LM, P}, LinearMapAO{T, Do, Di, LM, P}} where P where LM where Di where Do where T}
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:30:5
+    |
+ 30 |     A isa LinearMapAX ? A._lmap :
+    |     ^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-ISA]: can't split type FunctionMap{Float32, #11#12{Tuple{Int64, Int64}, Tuple{Int64, Int64}, #15#16}, #15#16{Tuple{Int64, Int64}, Tuple{Int64, Int64}, #18#19}, false} to Type{Union{LinearMapAM{T, Do, Di, LM, P}, LinearMapAO{T, Do, Di, LM, P}} where P where LM where Di where Do where T}
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:30:5
+    |
+ 30 |     A isa LinearMapAX ? A._lmap :
+    |     ^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-ISA]: can't split type LinearMapAM{#s6, 1, 1, FunctionMap{Float32, #11#12{Tuple{Int64, Int64}, Tuple{Int64, Int64}, #15#16}, #15#16{Tuple{Int64, Int64}, Tuple{Int64, Int64}, #18#19}, false}, NamedTuple{(), Tuple}} where #s6 to Type{Union{LinearMapAM{T, Do, Di, LM, P}, LinearMapAO{T, Do, Di, LM, P}} where P where LM where Di where Do where T}
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:30:5
+    |
+ 30 |     A isa LinearMapAX ? A._lmap :
+    |     ^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-ISA]: can't split type LinearMapAO{T, Do, Di, FunctionMap{Float32, #11#12{Tuple{Int64, Int64}, Tuple{Int64, Int64}, #15#16}, #15#16{Tuple{Int64, Int64}, Tuple{Int64, Int64}, #18#19}, false}, NamedTuple{(), Tuple}} where Di where Do where T to Type{Union{LinearMapAM{T, Do, Di, LM, P}, LinearMapAO{T, Do, Di, LM, P}} where P where LM where Di where Do where T}
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:30:5
+    |
+ 30 |     A isa LinearMapAX ? A._lmap :
+    |     ^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-ISA]: can't split type LinearMapAM{Float32, 1, 1, FunctionMap{Float32, #11#12{Tuple{Int64, Int64}, Tuple{Int64, Int64}, #15#16}, #15#16{Tuple{Int64, Int64}, Tuple{Int64, Int64}, #18#19}, false}, NamedTuple{(), Tuple}} to Type{Union{LinearMapAM{T, Do, Di, LM, P}, LinearMapAO{T, Do, Di, LM, P}} where P where LM where Di where Do where T}
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:30:5
+    |
+ 30 |     A isa LinearMapAX ? A._lmap :
+    |     ^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-ISA]: can't split type LinearMapAM{Float32, 1, 1, ScaledMap{Float32, Int64, FunctionMap{Float32, #11#12{Tuple{Int64, Int64}, Tuple{Int64, Int64}, #15#16}, #15#16{Tuple{Int64, Int64}, Tuple{Int64, Int64}, #18#19}, false}}, NamedTuple{(), Tuple}} to Type{Union{LinearMapAM{T, Do, Di, LM, P}, LinearMapAO{T, Do, Di, LM, P}} where P where LM where Di where Do where T}
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:30:5
+    |
+ 30 |     A isa LinearMapAX ? A._lmap :
+    |     ^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:17
+     |
+ 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
+     |                 ^ argument `X` has type Array{Float64, N} where N, 
+fully applied type should be Array{Float64, N}
+     |
+note: `X` became Array{Float64, N} where N, 
+fully applied type should be Array{Float64, N} here
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:204:1
+     |
+ 204 | function lmax_mul(A::LinearMapAX{T}, X::AbstractArray{<:Number}) where {T}
+     | -------------------------------------------------------------------------- function parameter `?`
+     |
+help: guard with `X isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
+     |
+ 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
+     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
+     |
+ 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
+     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
+     |
+ 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
+     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
+     |
+ 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
+     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
+     |
+ 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
+     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
+     |
+ 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
+     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
+     |
+ 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
+     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
+     |
+ 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
+     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
+     |
+ 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
+     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
+     |
+ 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
+     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
+     |
+ 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
+     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
+     |
+ 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
+     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
+     |
+ 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
+     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
+     |
+ 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
+     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
+     |
+ 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
+     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
+     |
+ 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
+     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
+     |
+ 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
+     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
+     |
+ 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
+     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:107:10
+     |
+ 107 |     mul!(Y, A, X, 1, 0)
+     |          ^ argument `Y` has type AbstractArray{T, N} where N where T, 
+fully applied type should be AbstractArray{T, N}
+     |
+note: `Y` became AbstractArray{T, N} where N where T, 
+fully applied type should be AbstractArray{T, N} here
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:106:1
+     |
+ 106 | mul!(Y::AbstractArray, A::LinearMapAO, X::AbstractArray) =
+     | ---------------------------------------------------------- function parameter `?`
+     |
+help: guard with `Y isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:107:10
+     |
+ 107 |     mul!(Y, A, X, 1, 0)
+     |          ^ argument `Y` has type AbstractArray{T, N} where N where T, 
+fully applied type should be AbstractArray{T, N}
+     |
+note: `Y` became AbstractArray{T, N} where N where T, 
+fully applied type should be AbstractArray{T, N} here
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:106:1
+     |
+ 106 | mul!(Y::AbstractArray, A::LinearMapAO, X::AbstractArray) =
+     | ---------------------------------------------------------- function parameter `?`
+     |
+help: guard with `Y isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:115:15
+     |
+ 115 |     lmao_mul!(Y, A._lmap, X, α, β ; idim=A._idim, odim=A._odim)
+     |               ^ argument `Y` has type Array{Float64, N} where N, 
+fully applied type should be Array{Float64, N}
+     |
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:115:27
+     |
+ 115 |     lmao_mul!(Y, A._lmap, X, α, β ; idim=A._idim, odim=A._odim)
+     |                           ^ argument `X` has type Array{Float64, N} where N, 
+fully applied type should be Array{Float64, N}
+     |
+note: `Y` became Array{Float64, N} where N, 
+fully applied type should be Array{Float64, N} here
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:114:1
+     |
+ 114 | mul!(Y::AbstractArray, A::LinearMapAO, X::AbstractArray, α::Number, β::Number) =
+     | -------------------------------------------------------------------------------- function parameter `?`
+     |
+note: `X` became Array{Float64, N} where N, 
+fully applied type should be Array{Float64, N} here
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:114:1
+     |
+ 114 | mul!(Y::AbstractArray, A::LinearMapAO, X::AbstractArray, α::Number, β::Number) =
+     | -------------------------------------------------------------------------------- function parameter `?`
+     |
+help: guard with `Y isa T` (or `if-elseif` on each variant) before the call
+help: guard with `X isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:73:13
+    |
+ 73 |     lm_mul!(y, A._lmap, x, 1, 0)
+    |             ^ argument `y` has type AbstractArray{T, 1} where T, 
+fully applied type should be AbstractArray{T, 1}
+    |
+note: `y` became AbstractArray{T, 1} where T, 
+fully applied type should be AbstractArray{T, 1} here
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:72:1
+    |
+ 72 | mul!(y::AbstractVector, A::LinearMapAM, x::AbstractVector) =
+    | ------------------------------------------------------------ function parameter `?`
+    |
+help: guard with `y isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:73:13
+    |
+ 73 |     lm_mul!(y, A._lmap, x, 1, 0)
+    |             ^ argument `y` has type AbstractArray{T, 1} where T, 
+fully applied type should be AbstractArray{T, 1}
+    |
+note: `y` became AbstractArray{T, 1} where T, 
+fully applied type should be AbstractArray{T, 1} here
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:72:1
+    |
+ 72 | mul!(y::AbstractVector, A::LinearMapAM, x::AbstractVector) =
+    | ------------------------------------------------------------ function parameter `?`
+    |
+help: guard with `y isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:73:13
+    |
+ 73 |     lm_mul!(y, A._lmap, x, 1, 0)
+    |             ^ argument `y` has type AbstractArray{T, 1} where T, 
+fully applied type should be AbstractArray{T, 1}
+    |
+note: `y` became AbstractArray{T, 1} where T, 
+fully applied type should be AbstractArray{T, 1} here
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:72:1
+    |
+ 72 | mul!(y::AbstractVector, A::LinearMapAM, x::AbstractVector) =
+    | ------------------------------------------------------------ function parameter `?`
+    |
+help: guard with `y isa T` (or `if-elseif` on each variant) before the call
+
+
+[STATS]
+package: LinearMapsAA
+version: 0.12.0
+test_outcome: ok
+mis_harvested: 815
+files_added: 11
+methods_checked: 167
+errors: 73
+elapsed_sec: 8.35
+class InferenceErrorFunCallArgs: 29
+class InferenceErrorMismatchedSplit: 19
+class InferenceErrorFieldType: 10
+class InferenceErrorFunCall: 7
+class ErrorException: 6
+class InferenceErrorTopLevelDispatch: 2

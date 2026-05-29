@@ -1,0 +1,11 @@
+
+
+[STATS]
+package: StableTasks
+version: 0.1.7
+test_outcome: ok
+mis_harvested: 2
+files_added: 2
+methods_checked: 1
+errors: 0
+elapsed_sec: 0.21

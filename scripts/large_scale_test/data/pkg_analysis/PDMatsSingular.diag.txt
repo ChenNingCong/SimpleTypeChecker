@@ -1,0 +1,27 @@
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/PDMatsSingular/TOx3A/src/Covariance.jl:25:58
+    |
+ 25 | Covariance(M::LinearAlgebra.Symmetric) = covariance_from(PDMats.chol_lower(LinearAlgebra.cholesky(M)))
+    |                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Union{LowerTriangular{Float64, Array{Float64, 2}}, LowerTriangular{Float64, Adjoint{Float64, Array{Float64, 2}}}}
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-FIELD]: type PDiagMat{Float64, SparseVector{Float64, Int64}} has no field dim
+   --> /home/chenningcong/.julia/packages/PDMatsSingular/TOx3A/src/Covariance.jl:30:19
+    |
+ 30 |     trafo = zeros(D.dim, length(first(nz)))
+    |                   ^^^^^
+    |
+
+
+[STATS]
+package: PDMatsSingular
+version: 0.1.0
+test_outcome: ok
+mis_harvested: 15
+files_added: 2
+methods_checked: 11
+errors: 2
+elapsed_sec: 0.31
+class InferenceErrorNoField: 1
+class InferenceErrorFunCallArgs: 1

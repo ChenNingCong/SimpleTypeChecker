@@ -1,0 +1,52 @@
+/home/chenningcong/.julia/packages/Compat/FiBO2/src/compatmacro.jl:13:5
+ Macro is not implemented. Inferred as a nothing
+
+@static if VERSION < v"1.7.0-DEV.364"
+        if Meta.isexpr(ex, :(=)) && Meta.isexpr(ex.args[1], :tuple) &&
+            Meta.isexpr(ex.args[1].args[1], :parameters)
+
+            ex = _destructure_named_tuple(ex)
+        end
+    end
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/Compat/FiBO2/src/compatmacro.jl:21:25
+    |
+ 21 |     return Expr(ex.head, map(_compat, ex.args)...)
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-ISA]: `isa` is not in a predicative form, lhs of type splitting must be a single variable
+   --> /home/chenningcong/.julia/packages/Compat/FiBO2/src/compatmacro.jl:31:5
+    |
+ 31 |     ex.args[1].args[1] isa Expr && ex.args[1].args[1].head === :parameters
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/Compat/FiBO2/src/compatmacro.jl:69:29
+    |
+ 69 |         elseif _valid_macro(arg)
+    |                             ^^^ argument `arg` has type Any
+    |
+note: `arg` became Any here
+   --> /home/chenningcong/.julia/packages/Compat/FiBO2/src/compatmacro.jl:66:13
+    |
+ 66 |     for (i, arg) in enumerate(expr.args)
+    |             --- AssignLHSTupleDestructFlowNode
+    |
+help: guard with `arg isa T` (or `if-elseif` on each variant) before the call
+
+
+[STATS]
+package: Compat
+version: 4.18.1
+test_outcome: test_failed
+mis_harvested: 8
+files_added: 3
+methods_checked: 5
+errors: 3
+elapsed_sec: 0.37
+class InferenceErrorIsaBadForm: 1
+class InferenceErrorFunCallArgs: 1
+class SyntaxError: 1

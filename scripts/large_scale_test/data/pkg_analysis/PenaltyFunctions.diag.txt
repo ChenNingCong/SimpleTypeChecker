@@ -1,0 +1,88 @@
+error[JTC-UNSUPPORTED]: Unsupported AST type juxtapose
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/penalties/arraywise.jl:38:26
+    |
+ 38 |     MahalanobisPenalty(C, C'C, lu(C'C + I), λ)
+    |                          ^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type juxtapose
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/penalties/arraywise.jl:38:26
+    |
+ 38 |     MahalanobisPenalty(C, C'C, lu(C'C + I), λ)
+    |                          ^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-METHOD]: no matching method for Any(::Int64)
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/penalties/elementwise.jl:87:33
+    |
+ 87 | SCADPenalty(a::T = 3.7, γ::T = T(1)) where {T <: Number} = SCADPenalty{T}(a, γ)
+    |                                 ^^^^
+    |
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/penalties/elementwise.jl:88:50
+    |
+ 88 | SCADPenalty(a::Number, γ::Number) = SCADPenalty(promote(a, γ)...)
+    |                                                  ^^^^^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/penalties/elementwise.jl:88:50
+    |
+ 88 | SCADPenalty(a::Number, γ::Number) = SCADPenalty(promote(a, γ)...)
+    |                                                  ^^^^^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/penalties/elementwise.jl:88:50
+    |
+ 88 | SCADPenalty(a::Number, γ::Number) = SCADPenalty(promote(a, γ)...)
+    |                                                  ^^^^^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-ISA]: can't split type Float64 to Type{Number}
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/penalties/elementwise.jl:146:5
+     |
+ 146 |     isa(λ, Number) || throw(ArgumentError("Scale factor λ must be a Number"))
+     |     ^^^^^^^^^^^^^^^
+     |
+
+
+[STATS]
+package: PenaltyFunctions
+version: 0.3.0
+test_outcome: ok
+mis_harvested: 349
+files_added: 7
+methods_checked: 21
+errors: 7
+elapsed_sec: 0.52
+check_threw: KeyError(/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:50:15
+for 2521:2598
+ iteration 2524:2547
+  in 2524:2547
+   identifier 2525:2525
+   call 2530:2547
+    identifier 2530:2538
+    identifier 2540:2542
+    identifier 2545:2546
+ block 2548:2595
+  = 2557:2590
+   ref 2557:2562
+    identifier 2557:2559
+    identifier 2561:2561
+   call 2566:2590
+    identifier 2566:2572
+    ref 2574:2579
+     identifier 2574:2576
+     identifier 2578:2578
+    identifier 2582:2582
+    ref 25
+class SyntaxError: 5
+class InferenceErrorMismatchedSplit: 1
+class InferenceErrorFunCall: 1

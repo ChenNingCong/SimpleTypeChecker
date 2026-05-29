@@ -9,7 +9,8 @@
 # Trim-built artifacts from bin/build_standalone.jl. The build is
 # reproducible (~30s) and binaries are large (~8MB) — don't track them.
 /bin/build/
-scripts/large_scale_test/data
-# but keep the per-package analysis (small, valuable, hand-curated)
-!scripts/large_scale_test/data/pkg_analysis
-!scripts/large_scale_test/data/pkg_analysis/**
+# Ignore everything under data/ EXCEPT the hand-curated pkg_analysis
+# directory. The bare `data` form was too strong — git won't recurse
+# into a fully-ignored directory to apply un-ignores.
+scripts/large_scale_test/data/*
+!scripts/large_scale_test/data/pkg_analysis/

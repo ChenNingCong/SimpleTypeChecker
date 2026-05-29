@@ -1,0 +1,49 @@
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/FastRationals/HnIRo/src/FastRationals.jl:41:37
+    |
+ 41 |     FastRational{promote_type(S,T)}(promote(num, den)...)
+    |                                     ^^^^^^^^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-ASSIGN]: Failed to destruct rhs to lhs : Failed to destruct rhs, not a pair or tuple. Got a Array{Any, 1}
+   --> /home/chenningcong/.julia/packages/FastRationals/HnIRo/src/generic.jl:125:5
+     |
+ 125 |     num1, ovf  = mul_with_overflow(x.num, y.den)
+     |     ^^^^^^^^^
+     |
+
+error[JTC-TYPE]: non-boolean type InterConditional used as condition
+   --> /home/chenningcong/.julia/packages/FastRationals/HnIRo/src/compactify.jl:120:5
+     |
+ 120 |     !iszero(lo) || throw(ArgumentError("lo == 0"))
+     |     ^^^^^^^^^^^
+     |
+
+error[JTC-ASSIGN]: Failed to destruct rhs to lhs : Failed to destruct rhs, not a pair or tuple. Got a Array{Any, 1}
+   --> /home/chenningcong/.julia/packages/FastRationals/HnIRo/src/generic.jl:154:5
+     |
+ 154 |     num, ovf  = mul_with_overflow(x.num, y.den)
+     |     ^^^^^^^^
+     |
+
+error[JTC-ASSIGN]: Failed to destruct rhs to lhs : Failed to destruct rhs, not a pair or tuple. Got a Array{Any, 1}
+   --> /home/chenningcong/.julia/packages/FastRationals/HnIRo/src/generic.jl:147:5
+     |
+ 147 |     num, ovf  = mul_with_overflow(x.num, y.num)
+     |     ^^^^^^^^
+     |
+
+
+[STATS]
+package: FastRationals
+version: 0.3.2
+test_outcome: ok
+mis_harvested: 63
+files_added: 6
+methods_checked: 35
+errors: 5
+elapsed_sec: 1.13
+class InferenceErrorFailedToDestruct: 3
+class InferenceErrorCondNotBool: 1
+class SyntaxError: 1

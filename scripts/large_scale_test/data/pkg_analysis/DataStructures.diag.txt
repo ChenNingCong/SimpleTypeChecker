@@ -1,0 +1,270 @@
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/deque.jl:141:45
+     |
+ 141 | function Base.iterate(di::DequeIterator{T}, (cb, i) = (di.d.head, di.d.head.front)) where T
+     |                                             ^^^^^^^
+     |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/deque.jl:156:55
+     |
+ 156 | function Base.iterate(di::Iterators.Reverse{<:Deque}, (cb, i) = (di.itr.rear, di.itr.rear.back))
+     |                                                       ^^^^^^^
+     |
+error[JTC-SYNTAX]: Not a valid function definition, function f end and anoymous function is not supported yet
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/robin_dict.jl:46:1
+    |
+ 46 | function RobinDict{K,V}(kv) where V where K
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+error[JTC-SYNTAX]: Not a valid function definition, function f end and anoymous function is not supported yet
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/robin_dict.jl:54:1
+    |
+ 54 | function RobinDict{K,V}(ps::Pair...) where V where K
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+error[JTC-SYNTAX]: Not a valid function definition, function f end and anoymous function is not supported yet
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/robin_dict.jl:354:1
+     |
+ 354 | function _get!(default::Callable, h::RobinDict{K,V}, key::K) where V where K
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/sorted_container_iteration.jl:587:31
+     |
+ 587 | exclusive(m::SortedContainer, (ii1, ii2)::Tuple{IntSemiToken, IntSemiToken}) =
+     |                               ^^^^^^^^^^
+     |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/sorted_container_iteration.jl:602:31
+     |
+ 602 | inclusive(m::SortedContainer, (ii1, ii2)::Tuple{IntSemiToken, IntSemiToken}) =
+     |                               ^^^^^^^^^^
+     |
+error[JTC-SYNTAX]: Not a valid function name, only support identifier (f) or qualified name (Base.f)
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/sorted_container_iteration.jl:653:1
+     |
+ 653 | Base.Iterators.reverse(ito::IterableObject{C, R, KV, T, ForwardIter}) where {C, R, KV, T} =
+     | ^^^^^^^^^^^^^^^^^^^^^^
+     |
+error[JTC-SYNTAX]: Not a valid function name, only support identifier (f) or qualified name (Base.f)
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/sorted_container_iteration.jl:656:1
+     |
+ 656 | Base.Iterators.reverse(ito::IterableObject{C, R, KV, T, ReverseIter}) where {C, R, KV, T} =
+     | ^^^^^^^^^^^^^^^^^^^^^^
+     |
+error[JTC-SYNTAX]: Not a valid function name, only support identifier (f) or qualified name (Base.f)
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/sorted_container_iteration.jl:659:1
+     |
+ 659 | Base.Iterators.reverse(m::SortedContainer) = Iterators.reverse(base_iterable_object(m))
+     | ^^^^^^^^^^^^^^^^^^^^^^
+     |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/trie.jl:110:41
+     |
+ 110 | function Base.iterate(it::TrieIterator, (t, i) = (it.t, 0))
+     |                                         ^^^^^^
+     |
+/home/chenningcong/.julia/packages/DataStructures/9m6yb/src/delegate.jl:4:5
+ Macro is not implemented. Inferred as a nothing
+    @assert e.head == :quote
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/int_set.jl:61:13
+    |
+ 61 |     pop!(s, last(s))
+    |             ^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+    |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-METHOD]: no matching method for &(::InterConditional, ::InterConditional)
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/int_set.jl:94:7
+    |
+ 94 |     if     !s1.inverse & !s2.inverse;  e = _matchlength!(s1.bits, l); map!(|, s1.bits, s1.bits, s2.bits); append!(s1.bits, e)
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-METHOD]: no matching method for &(::InterConditional, ::InterConditional)
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/int_set.jl:114:7
+     |
+ 114 |     if     !s1.inverse & !s2.inverse;  _resize0!(s1.bits, l);         map!(&, s1.bits, s1.bits, s2.bits)
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-METHOD]: no matching method for &(::InterConditional, ::InterConditional)
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/int_set.jl:126:7
+     |
+ 126 |     if     !s1.inverse & !s2.inverse;  e = _matchlength!(s1.bits, l); map!(>, s1.bits, s1.bits, s2.bits); append!(s1.bits, e)
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-FIELD]: assigning value of type InterConditional to IntSet 's field inverse, which has type Bool
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/int_set.jl:145:20
+     |
+ 145 |     s2.inverse && (s1.inverse = !s1.inverse)
+     |                    ^^^^^^^^^^
+     |
+
+error[JTC-UNDEFVAR]: In module DataStructures, variable findprevnot is not defined
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/int_set.jl:184:59
+     |
+ 184 |         idx = l < typemax(Int) ? typemax(Int) : something(findprevnot(s.bits, l), 0)
+     |                                                           ^^^^^^^^^^^
+     |
+
+error[JTC-FIELD]: assigning value of type InterConditional to IntSet 's field inverse, which has type Bool
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/int_set.jl:194:27
+     |
+ 194 | complement!(s::IntSet) = (s.inverse = !s.inverse; s)
+     |                           ^^^^^^^^^
+     |
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/int_set.jl:224:16
+     |
+ 224 |         return findprev(s1.bits, l1) == findprev(s2.bits, l2) &&
+     |                ^^^^^^^^^^^^^^^^^^^^^ this argument has type Union{Nothing, Int64}
+     |
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/int_set.jl:224:41
+     |
+ 224 |         return findprev(s1.bits, l1) == findprev(s2.bits, l2) &&
+     |                                         ^^^^^^^^^^^^^^^^^^^^^ this argument has type Union{Nothing, Int64}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/int_set.jl:240:43
+     |
+ 240 |     return hash(unsafe_getindex(s.bits, 1:l), h) ⊻ hash(s.inverse) ⊻ hashis_seed
+     |                                           ^ argument `l` has type Union{Nothing, Int64}
+     |
+note: `l` became Union{Nothing, Int64} here
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/int_set.jl:239:9
+     |
+ 239 |     l = findprev(s.bits, length(s.bits))
+     |         -------------------------------- return of call to `#findprev`
+     |
+help: guard with `l isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/multi_dict.jl:96:38
+    |
+ 96 | Base.length(e::EnumerateAll) = count(e.d)
+    |                                      ^^^ this argument has type MultiDict{K, V} where V where K, 
+fully applied type should be MultiDict{K, V}
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/multi_dict.jl:99:30
+    |
+ 99 |     V = eltype(eltype(values(e.d)))
+    |                              ^^^ this argument has type MultiDict{K, V} where V where K, 
+fully applied type should be MultiDict{K, V}
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/swiss_dict.jl:86:56
+    |
+ 86 | @inline _expand16(u::UInt8) = ntuple(i->VecElement(u), Val(16))
+    |                                                        ^^^^^^^ this argument has type Val{_A} where _A, 
+fully applied type should be Val{_A}
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+error[JTC-INTERNAL]: checker crashed on this method instance
+   exception: UndefRefError()
+   on: DataStructures._vcmp_eq(::NTuple{16, VecElement{UInt8}}, ::NTuple{16, VecElement{UInt8}})
+   trace (top frames from src/):
+     #inferReturnType#5 at CompilerAdaptor.jl:101
+     inferReturnType at CompilerAdaptor.jl:27
+     inferReturnType at CompilerAdaptor.jl:477
+     inferReturnType at CompilerAdaptor.jl:486
+     inferReturnType at CompilerOps.jl:152
+     cacheLookup at UtilityUnType.jl:21
+     getMethodMatches at UtilityUnType.jl:51
+     inferFunCall at Inference.jl:764
+
+error[JTC-INTERNAL]: checker crashed on this method instance
+   exception: UndefRefError()
+   on: DataStructures._vcmp_le(::NTuple{16, VecElement{UInt8}}, ::NTuple{16, VecElement{UInt8}})
+   trace (top frames from src/):
+     #inferReturnType#5 at CompilerAdaptor.jl:101
+     inferReturnType at CompilerAdaptor.jl:27
+     inferReturnType at CompilerAdaptor.jl:477
+     inferReturnType at CompilerAdaptor.jl:486
+     inferReturnType at CompilerOps.jl:152
+     cacheLookup at UtilityUnType.jl:21
+     getMethodMatches at UtilityUnType.jl:51
+     inferFunCall at Inference.jl:764
+
+
+/home/chenningcong/.julia/packages/DataStructures/9m6yb/src/swiss_dict.jl:126:5
+ Macro is not implemented. Inferred as a nothing
+
+GC.@preserve slots begin
+        return unsafe_load(convert(Ptr{UInt8}, pointer(slots)), i)
+    end
+error[JTC-RETURN]: return type is enlarged
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/swiss_dict.jl:124:74
+     |
+ 124 | Base.@propagate_inbounds function _slotget(slots::Vector{_u8x16}, i::Int)
+     |                                                                          ^
+     |
+Previous type is UInt8, /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/swiss_dict.jl:127:16
+Current type is Nothing, /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/swiss_dict.jl:124:74
+
+/home/chenningcong/.julia/packages/DataStructures/9m6yb/src/swiss_dict.jl:133:5
+ Macro is not implemented. Inferred as a nothing
+
+GC.@preserve slots begin
+        return unsafe_store!(convert(Ptr{UInt8}, pointer(slots)), v, i)
+    end
+error[JTC-RETURN]: return type is enlarged
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/swiss_dict.jl:131:86
+     |
+ 131 | Base.@propagate_inbounds function _slotset!(slots::Vector{_u8x16},  v::UInt8, i::Int)
+     |                                                                                      ^
+     |
+Previous type is Ptr{UInt8}, /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/swiss_dict.jl:134:16
+Current type is Nothing, /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/swiss_dict.jl:131:86
+
+error[JTC-TYPE]: fail to construct type SortedDict{Any, Any, Any}
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/sorted_dict.jl:51:5
+    |
+ 51 |     SortedDict{K,D,Ord}(o)
+    |     ^^^^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-TYPE]: fail to construct type SortedSet{Any, Any}
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/sorted_set.jl:43:5
+    |
+ 43 |     SortedSet{K,Ord}(o)
+    |     ^^^^^^^^^^^^^^^^
+    |
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/int_set.jl:162:53
+     |
+ 162 |         nextidx = i == typemax(Int) ? 0 : something(findnextnot(s.bits, i+1), 0)
+     |                                                     ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Union{Nothing, Int64}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+
+[STATS]
+package: DataStructures
+version: 0.19.4
+test_outcome: test_failed
+mis_harvested: 70
+files_added: 38
+methods_checked: 86
+errors: 19
+elapsed_sec: 2.33
+class InferenceErrorFunCallArgs: 6
+class InferenceErrorFunCall: 3
+class InferenceErrorApplyTypeFailure: 2
+class InferenceErrorReturnEnlargeType: 2
+class UndefRefError: 2
+class InferenceErrorSetFieldTypeIncompatible: 2
+class InferenceErrorUndefinedVar: 1
+class InferenceErrorTopLevelDispatch: 1

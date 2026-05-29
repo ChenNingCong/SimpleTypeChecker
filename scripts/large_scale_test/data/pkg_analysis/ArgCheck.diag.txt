@@ -1,0 +1,547 @@
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:103:37
+     |
+ 103 | function checkmacro(ex, checkflavor, options...)
+     |                                     ^^^^^^^^^^^
+     |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:268:43
+     |
+ 268 | function expr_error_block(info, condition, preamble...)
+     |                                           ^^^^^^^^^^^^
+     |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:279:38
+     |
+ 279 | @noinline function throw_check_error(info...)::Union{}
+     |                                      ^^^^^^^
+     |
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:197:24
+     |
+ 197 |     ana = analyze_call(c.code)
+     |                        ^^^^^^ this argument has type Any
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-FIELD]: calling getproperty on non-concrete type Any
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:222:13
+     |
+ 222 |     exprs = c.code.args[1:2:end]
+     |             ^^^^^^^^^^^
+     |
+
+error[JTC-FIELD]: calling getproperty on non-concrete type Any
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:253:16
+     |
+ 253 |     lhs, rhs = c.code.args
+     |                ^^^^^^^^^^^
+     |
+
+error[JTC-METHOD]: more than one matching method for string(::Any, ::String)
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:306:42
+     |
+ 306 | error_message(info::FallbackErrorInfo) = "$(info.code) must hold."
+     |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+
+/home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:152:5
+ Macro is not implemented. Inferred as a nothing
+    @assert Meta.isexpr(expr, :call)
+error[JTC-MISC]: Use `Any[]` instead of `[]` to construct Any array
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:153:12
+     |
+ 153 |     args = []
+     |            ^^
+     |
+
+/home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:152:5
+ Macro is not implemented. Inferred as a nothing
+    @assert Meta.isexpr(expr, :call)
+error[JTC-MISC]: Use `Any[]` instead of `[]` to construct Any array
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:153:12
+     |
+ 153 |     args = []
+     |            ^^
+     |
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:134:15
+     |
+ 134 |     if isexpr(expr, :kw)
+     |               ^^^^ argument `expr` has type Any
+     |
+note: `expr` became Any here
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:133:1
+     |
+ 133 | function analyze_call_arg(expr, isparameter)
+     | -------------------------------------------- function parameter `?`
+     |
+help: guard with `expr isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-FIELD]: type Symbol has no field args
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:135:25
+     |
+ 135 |         (kind=:kw, expr=expr.args[2], key=expr.args[1], symbol=gensym("kw"), isparameter=isparameter)
+     |                         ^^^^^^^^^
+     |
+
+error[JTC-FIELD]: type Int64 has no field args
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:135:25
+     |
+ 135 |         (kind=:kw, expr=expr.args[2], key=expr.args[1], symbol=gensym("kw"), isparameter=isparameter)
+     |                         ^^^^^^^^^
+     |
+
+error[JTC-ASSIGN]: reassigned type Any is incompatible
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:135:25
+     |
+ 135 |         (kind=:kw, expr=expr.args[2], key=expr.args[1], symbol=gensym("kw"), isparameter=isparameter)
+     |                         ^^^^^^^^^^^^
+     |
+Previous type is Expr, /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:133:1
+
+error[JTC-FIELD]: type QuoteNode has no field args
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:135:25
+     |
+ 135 |         (kind=:kw, expr=expr.args[2], key=expr.args[1], symbol=gensym("kw"), isparameter=isparameter)
+     |                         ^^^^^^^^^
+     |
+
+/home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:168:5
+ Macro is not implemented. Inferred as a nothing
+    @assert :args in propertynames(ana)
+/home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:169:5
+ Macro is not implemented. Inferred as a nothing
+    @assert :expr in propertynames(ana)
+error[JTC-MISC]: Use `Any[]` instead of `[]` to construct Any array
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:170:15
+     |
+ 170 |     arglist = []
+     |               ^^
+     |
+
+error[JTC-FIELD]: calling getproperty on non-concrete type Any
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:290:23
+     |
+ 290 |     build_error(info, info.checkflavor, info.options...)
+     |                       ^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:290:40
+     |
+ 290 |     build_error(info, info.checkflavor, info.options...)
+     |                                        ^^^^^^^^^^^^^^^^
+     |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:290:40
+     |
+ 290 |     build_error(info, info.checkflavor, info.options...)
+     |                                        ^^^^^^^^^^^^^^^^
+     |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:290:40
+     |
+ 290 |     build_error(info, info.checkflavor, info.options...)
+     |                                        ^^^^^^^^^^^^^^^^
+     |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:290:40
+     |
+ 290 |     build_error(info, info.checkflavor, info.options...)
+     |                                        ^^^^^^^^^^^^^^^^
+     |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-SYNTAX]: <: requires exactly two arguments
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
+     |
+ 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
+     |                              ^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: <: requires exactly two arguments
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
+     |
+ 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
+     |                              ^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: <: requires exactly two arguments
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
+     |
+ 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
+     |                              ^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: <: requires exactly two arguments
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
+     |
+ 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
+     |                              ^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: <: requires exactly two arguments
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
+     |
+ 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
+     |                              ^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: <: requires exactly two arguments
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
+     |
+ 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
+     |                              ^^^^^^^^^^^
+     |
+Type{ArgumentError}
+
+error[JTC-SYNTAX]: <: requires exactly two arguments
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
+     |
+ 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
+     |                              ^^^^^^^^^^^
+     |
+Type{DimensionMismatch}
+
+error[JTC-SYNTAX]: <: requires exactly two arguments
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
+     |
+ 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
+     |                              ^^^^^^^^^^^
+     |
+Type{ArgumentError}
+
+error[JTC-SYNTAX]: <: requires exactly two arguments
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
+     |
+ 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
+     |                              ^^^^^^^^^^^
+     |
+Type{ArgumentError}
+
+error[JTC-SYNTAX]: <: requires exactly two arguments
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
+     |
+ 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
+     |                              ^^^^^^^^^^^
+     |
+Type{DimensionMismatch}
+
+error[JTC-SYNTAX]: <: requires exactly two arguments
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
+     |
+ 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
+     |                              ^^^^^^^^^^^
+     |
+Type{DimensionMismatch}
+
+error[JTC-SYNTAX]: <: requires exactly two arguments
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
+     |
+ 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
+     |                              ^^^^^^^^^^^
+     |
+Type{Main.__S__.TestChecks.MyError}
+
+error[JTC-SYNTAX]: <: requires exactly two arguments
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
+     |
+ 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
+     |                              ^^^^^^^^^^^
+     |
+Type{ArgCheck.CheckError}
+
+error[JTC-SYNTAX]: <: requires exactly two arguments
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
+     |
+ 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
+     |                              ^^^^^^^^^^^
+     |
+Type{ArgumentError}
+
+error[JTC-SYNTAX]: <: requires exactly two arguments
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
+     |
+ 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
+     |                              ^^^^^^^^^^^
+     |
+Type{ArgCheck.CheckError}
+
+error[JTC-SYNTAX]: <: requires exactly two arguments
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
+     |
+ 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
+     |                              ^^^^^^^^^^^
+     |
+Type{DimensionMismatch}
+
+error[JTC-SYNTAX]: <: requires exactly two arguments
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
+     |
+ 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
+     |                              ^^^^^^^^^^^
+     |
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:123:27
+     |
+ 123 |                 QuoteNode(c.code),
+     |                           ^^^^^^ this argument has type Any
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:326:13
+     |
+ 326 |     foreach(exprs, values) do ex, val
+     |             ^^^^^ argument `exprs` has type Array{T, 1} where T, 
+fully applied type should be Array{T, 1}
+     |
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:326:20
+     |
+ 326 |     foreach(exprs, values) do ex, val
+     |                    ^^^^^^ argument `values` has type Array{T, 1} where T, 
+fully applied type should be Array{T, 1}
+     |
+note: `exprs` became Array{T, 1} where T, 
+fully applied type should be Array{T, 1} here
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:323:17
+     |
+ 323 |     exprs = info.argument_expressions
+     |                 --------------------- reads `.argument_expressions` of `info` — field `ComparisonErrorInfo.argument_expressions` declared `::Array{T, 1} where T`
+     |
+note: `values` became Array{T, 1} where T, 
+fully applied type should be Array{T, 1} here
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:324:18
+     |
+ 324 |     values = info.argument_values
+     |                  ---------------- reads `.argument_values` of `info` — field `ComparisonErrorInfo.argument_values` declared `::Array{T, 1} where T`
+     |
+help: guard with `exprs isa T` (or `if-elseif` on each variant) before the call
+help: or fix the struct: give the field a concrete type, or parametrize the struct via `{T}`
+help: guard with `values isa T` (or `if-elseif` on each variant) before the call
+help: or fix the struct: give the field a concrete type, or parametrize the struct via `{T}`
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:326:13
+     |
+ 326 |     foreach(exprs, values) do ex, val
+     |             ^^^^^ argument `exprs` has type Array{T, 1} where T, 
+fully applied type should be Array{T, 1}
+     |
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:326:20
+     |
+ 326 |     foreach(exprs, values) do ex, val
+     |                    ^^^^^^ argument `values` has type Array{T, 1} where T, 
+fully applied type should be Array{T, 1}
+     |
+note: `exprs` became Array{T, 1} where T, 
+fully applied type should be Array{T, 1} here
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:323:17
+     |
+ 323 |     exprs = info.argument_expressions
+     |                 --------------------- reads `.argument_expressions` of `info` — field `CallErrorInfo.argument_expressions` declared `::Array{T, 1} where T`
+     |
+note: `values` became Array{T, 1} where T, 
+fully applied type should be Array{T, 1} here
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:324:18
+     |
+ 324 |     values = info.argument_values
+     |                  ---------------- reads `.argument_values` of `info` — field `CallErrorInfo.argument_values` declared `::Array{T, 1} where T`
+     |
+help: guard with `exprs isa T` (or `if-elseif` on each variant) before the call
+help: or fix the struct: give the field a concrete type, or parametrize the struct via `{T}`
+help: guard with `values isa T` (or `if-elseif` on each variant) before the call
+help: or fix the struct: give the field a concrete type, or parametrize the struct via `{T}`
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:326:13
+     |
+ 326 |     foreach(exprs, values) do ex, val
+     |             ^^^^^ argument `exprs` has type Array{T, 1} where T, 
+fully applied type should be Array{T, 1}
+     |
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:326:20
+     |
+ 326 |     foreach(exprs, values) do ex, val
+     |                    ^^^^^^ argument `values` has type Array{T, 1} where T, 
+fully applied type should be Array{T, 1}
+     |
+note: `exprs` became Array{T, 1} where T, 
+fully applied type should be Array{T, 1} here
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:323:17
+     |
+ 323 |     exprs = info.argument_expressions
+     |                 --------------------- reads `.argument_expressions` of `info` — field `SubtypeErrorInfo.argument_expressions` declared `::Array{T, 1} where T`
+     |
+note: `values` became Array{T, 1} where T, 
+fully applied type should be Array{T, 1} here
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:324:18
+     |
+ 324 |     values = info.argument_values
+     |                  ---------------- reads `.argument_values` of `info` — field `SubtypeErrorInfo.argument_values` declared `::Array{T, 1} where T`
+     |
+help: guard with `exprs isa T` (or `if-elseif` on each variant) before the call
+help: or fix the struct: give the field a concrete type, or parametrize the struct via `{T}`
+help: guard with `values isa T` (or `if-elseif` on each variant) before the call
+help: or fix the struct: give the field a concrete type, or parametrize the struct via `{T}`
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:318:35
+     |
+ 318 | pretty_string(x::Number) = string(x)
+     |                                   ^ argument `x` has type Number
+     |
+note: `x` became Number here
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:318:1
+     |
+ 318 | pretty_string(x::Number) = string(x)
+     | ------------------------------------ function parameter `?`
+     |
+help: guard with `x isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:15
+     |
+ 314 |     show(ioc, data)
+     |               ^^^^ argument `data` has type Any
+     |
+note: `data` became Any here
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:311:1
+     |
+ 311 | function pretty_string(data)
+     | ---------------------------- function parameter `?`
+     |
+help: guard with `data isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:15
+     |
+ 314 |     show(ioc, data)
+     |               ^^^^ argument `data` has type Function
+     |
+note: `data` became Function here
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:311:1
+     |
+ 311 | function pretty_string(data)
+     | ---------------------------- function parameter `?`
+     |
+help: guard with `data isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-METHOD]: no matching method for show(::Array{Any, 1}, ::#falsy)
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:5
+     |
+ 314 |     show(ioc, data)
+     |     ^^^^^^^^^^^^^^^
+     |
+
+error[JTC-METHOD]: no matching method for show(::Array{Any, 1}, ::Array{Int64, 1})
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:5
+     |
+ 314 |     show(ioc, data)
+     |     ^^^^^^^^^^^^^^^
+     |
+
+error[JTC-METHOD]: no matching method for show(::Array{Any, 1}, ::String)
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:5
+     |
+ 314 |     show(ioc, data)
+     |     ^^^^^^^^^^^^^^^
+     |
+
+error[JTC-METHOD]: no matching method for show(::Array{Any, 1}, ::Array{Float64, 2})
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:5
+     |
+ 314 |     show(ioc, data)
+     |     ^^^^^^^^^^^^^^^
+     |
+
+error[JTC-METHOD]: no matching method for show(::Array{Any, 1}, ::Array{String, 1})
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:5
+     |
+ 314 |     show(ioc, data)
+     |     ^^^^^^^^^^^^^^^
+     |
+
+error[JTC-METHOD]: no matching method for show(::Array{Any, 1}, ::NamedTuple{(:atol, :rtol), Tuple{Float64, Float64}})
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:5
+     |
+ 314 |     show(ioc, data)
+     |     ^^^^^^^^^^^^^^^
+     |
+
+error[JTC-METHOD]: no matching method for show(::Array{Any, 1}, ::Tuple{Int64, Int64})
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:5
+     |
+ 314 |     show(ioc, data)
+     |     ^^^^^^^^^^^^^^^
+     |
+
+error[JTC-METHOD]: no matching method for show(::Array{Any, 1}, ::DataType)
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:5
+     |
+ 314 |     show(ioc, data)
+     |     ^^^^^^^^^^^^^^^
+     |
+
+error[JTC-METHOD]: no matching method for show(::Array{Any, 1}, ::Type{T} where T)
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:5
+     |
+ 314 |     show(ioc, data)
+     |     ^^^^^^^^^^^^^^^
+     |
+
+error[JTC-METHOD]: no matching method for show(::Array{Any, 1}, ::Symbol)
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:5
+     |
+ 314 |     show(ioc, data)
+     |     ^^^^^^^^^^^^^^^
+     |
+
+error[JTC-METHOD]: no matching method for show(::Array{Any, 1}, ::QuoteNode)
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:5
+     |
+ 314 |     show(ioc, data)
+     |     ^^^^^^^^^^^^^^^
+     |
+
+error[JTC-METHOD]: no matching method for show(::Array{Any, 1}, ::Array{Array{Int64, 1}, 1})
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:5
+     |
+ 314 |     show(ioc, data)
+     |     ^^^^^^^^^^^^^^^
+     |
+
+error[JTC-METHOD]: no matching method for show(::Array{Any, 1}, ::Dict{Symbol, Int64})
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:5
+     |
+ 314 |     show(ioc, data)
+     |     ^^^^^^^^^^^^^^^
+     |
+
+
+[STATS]
+package: ArgCheck
+version: 2.5.0
+test_outcome: ok
+mis_harvested: 163
+files_added: 2
+methods_checked: 68
+errors: 54
+elapsed_sec: 1.39
+class SyntaxError: 21
+class InferenceErrorFunCall: 13
+class InferenceErrorFunCallArgs: 9
+class InferenceErrorEmptyAnyArray: 3
+class InferenceErrorNoField: 3
+class InferenceErrorFieldType: 3
+class InferenceErrorAssignIncompatible: 1
+class InferenceErrorStringConstructor: 1

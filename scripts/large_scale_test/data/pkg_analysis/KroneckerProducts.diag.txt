@@ -1,0 +1,881 @@
+error[JTC-SYNTAX]: Function is empty
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:43:1
+    |
+ 43 | function kronecker end # smart constructor
+    | ^^^^^^^^^^^^^^^^^^^^^^
+    |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:46:11
+    |
+ 46 | kronecker(A::Union{Number, AbstractMatOrFac}...) = KroneckerProduct(A)
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+error[JTC-SYNTAX]: Invalid argument definition
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:87:10
+    |
+ 87 | samesize(A...) = samesize(A)
+    |          ^^^^
+    |
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:27:22
+    |
+ 27 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:39:22
+    |
+ 39 |     T = promote_type(eltype.(A)...)
+    |                      ^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:243:10
+     |
+ 243 |     size(K, 2) ≠ size(x, 1) && throw(DimensionMismatch("size(K, 2) = $(size(K, 2)) ≠ $(size(x, 1)) = size(x, 1)"))
+     |          ^ argument `K` has type KroneckerProduct{Float64, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}} where #s179, 
+fully applied type should be KroneckerProduct{Float64, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}}
+     |
+note: `K` became KroneckerProduct{Float64, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}} where #s179, 
+fully applied type should be KroneckerProduct{Float64, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}} here
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:242:1
+     |
+ 242 | function _mul_check_args(y::AbstractVecOrMat, K::KroneckerProduct, x::AbstractVecOrMat)
+     | --------------------------------------------------------------------------------------- function parameter `?`
+     |
+help: guard with `K isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:243:10
+     |
+ 243 |     size(K, 2) ≠ size(x, 1) && throw(DimensionMismatch("size(K, 2) = $(size(K, 2)) ≠ $(size(x, 1)) = size(x, 1)"))
+     |          ^ argument `K` has type KroneckerProduct{Float64, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}} where #s179, 
+fully applied type should be KroneckerProduct{Float64, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}}
+     |
+note: `K` became KroneckerProduct{Float64, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}} where #s179, 
+fully applied type should be KroneckerProduct{Float64, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}} here
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:242:1
+     |
+ 242 | function _mul_check_args(y::AbstractVecOrMat, K::KroneckerProduct, x::AbstractVecOrMat)
+     | --------------------------------------------------------------------------------------- function parameter `?`
+     |
+help: guard with `K isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:243:10
+     |
+ 243 |     size(K, 2) ≠ size(x, 1) && throw(DimensionMismatch("size(K, 2) = $(size(K, 2)) ≠ $(size(x, 1)) = size(x, 1)"))
+     |          ^ argument `K` has type KroneckerProduct{Float64, A, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T}}} where A, 
+fully applied type should be KroneckerProduct{Float64, A, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T}}}
+     |
+note: `K` became KroneckerProduct{Float64, A, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T}}} where A, 
+fully applied type should be KroneckerProduct{Float64, A, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T}}} here
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:242:1
+     |
+ 242 | function _mul_check_args(y::AbstractVecOrMat, K::KroneckerProduct, x::AbstractVecOrMat)
+     | --------------------------------------------------------------------------------------- function parameter `?`
+     |
+help: guard with `K isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:243:10
+     |
+ 243 |     size(K, 2) ≠ size(x, 1) && throw(DimensionMismatch("size(K, 2) = $(size(K, 2)) ≠ $(size(x, 1)) = size(x, 1)"))
+     |          ^ argument `K` has type KroneckerProduct{_A, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}} where #s179 where _A, 
+fully applied type should be KroneckerProduct{_A, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}}
+     |
+note: `K` became KroneckerProduct{_A, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}} where #s179 where _A, 
+fully applied type should be KroneckerProduct{_A, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}} here
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:242:1
+     |
+ 242 | function _mul_check_args(y::AbstractVecOrMat, K::KroneckerProduct, x::AbstractVecOrMat)
+     | --------------------------------------------------------------------------------------- function parameter `?`
+     |
+help: guard with `K isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:243:10
+     |
+ 243 |     size(K, 2) ≠ size(x, 1) && throw(DimensionMismatch("size(K, 2) = $(size(K, 2)) ≠ $(size(x, 1)) = size(x, 1)"))
+     |          ^ argument `K` has type KroneckerProduct{Float64, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}} where #s179, 
+fully applied type should be KroneckerProduct{Float64, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}}
+     |
+note: `K` became KroneckerProduct{Float64, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}} where #s179, 
+fully applied type should be KroneckerProduct{Float64, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}} here
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:242:1
+     |
+ 242 | function _mul_check_args(y::AbstractVecOrMat, K::KroneckerProduct, x::AbstractVecOrMat)
+     | --------------------------------------------------------------------------------------- function parameter `?`
+     |
+help: guard with `K isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:243:10
+     |
+ 243 |     size(K, 2) ≠ size(x, 1) && throw(DimensionMismatch("size(K, 2) = $(size(K, 2)) ≠ $(size(x, 1)) = size(x, 1)"))
+     |          ^ argument `K` has type KroneckerProduct{_A, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T}}} where #s179 where _A, 
+fully applied type should be KroneckerProduct{_A, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T}}}
+     |
+note: `K` became KroneckerProduct{_A, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T}}} where #s179 where _A, 
+fully applied type should be KroneckerProduct{_A, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T}}} here
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:242:1
+     |
+ 242 | function _mul_check_args(y::AbstractVecOrMat, K::KroneckerProduct, x::AbstractVecOrMat)
+     | --------------------------------------------------------------------------------------- function parameter `?`
+     |
+help: guard with `K isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:243:10
+     |
+ 243 |     size(K, 2) ≠ size(x, 1) && throw(DimensionMismatch("size(K, 2) = $(size(K, 2)) ≠ $(size(x, 1)) = size(x, 1)"))
+     |          ^ argument `K` has type KroneckerProduct{Float64, A, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T}}} where A, 
+fully applied type should be KroneckerProduct{Float64, A, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T}}}
+     |
+note: `K` became KroneckerProduct{Float64, A, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T}}} where A, 
+fully applied type should be KroneckerProduct{Float64, A, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T}}} here
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:242:1
+     |
+ 242 | function _mul_check_args(y::AbstractVecOrMat, K::KroneckerProduct, x::AbstractVecOrMat)
+     | --------------------------------------------------------------------------------------- function parameter `?`
+     |
+help: guard with `K isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:72:44
+    |
+ 72 |     order(K) == 1 ? f(K.factors[1]) : kron(f.(K.factors)...)
+    |                                            ^^^^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:72:44
+    |
+ 72 |     order(K) == 1 ? f(K.factors[1]) : kron(f.(K.factors)...)
+    |                                            ^^^^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:72:44
+    |
+ 72 |     order(K) == 1 ? f(K.factors[1]) : kron(f.(K.factors)...)
+    |                                            ^^^^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:72:44
+    |
+ 72 |     order(K) == 1 ? f(K.factors[1]) : kron(f.(K.factors)...)
+    |                                            ^^^^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:72:44
+    |
+ 72 |     order(K) == 1 ? f(K.factors[1]) : kron(f.(K.factors)...)
+    |                                            ^^^^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:72:44
+    |
+ 72 |     order(K) == 1 ? f(K.factors[1]) : kron(f.(K.factors)...)
+    |                                            ^^^^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:72:44
+    |
+ 72 |     order(K) == 1 ? f(K.factors[1]) : kron(f.(K.factors)...)
+    |                                            ^^^^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:72:44
+    |
+ 72 |     order(K) == 1 ? f(K.factors[1]) : kron(f.(K.factors)...)
+    |                                            ^^^^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:72:44
+    |
+ 72 |     order(K) == 1 ? f(K.factors[1]) : kron(f.(K.factors)...)
+    |                                            ^^^^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:72:23
+    |
+ 72 |     order(K) == 1 ? f(K.factors[1]) : kron(f.(K.factors)...)
+    |                       ^^^^^^^^^^^^ this argument has type Union{Inverse{Float64, Array{Float64, 2}}, PseudoInverse{Float64, Array{Float64, 2}}}
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:72:44
+    |
+ 72 |     order(K) == 1 ? f(K.factors[1]) : kron(f.(K.factors)...)
+    |                                            ^^^^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:72:44
+    |
+ 72 |     order(K) == 1 ? f(K.factors[1]) : kron(f.(K.factors)...)
+    |                                            ^^^^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:72:44
+    |
+ 72 |     order(K) == 1 ? f(K.factors[1]) : kron(f.(K.factors)...)
+    |                                            ^^^^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:72:23
+    |
+ 72 |     order(K) == 1 ? f(K.factors[1]) : kron(f.(K.factors)...)
+    |                       ^^^^^^^^^^^^ this argument has type Union{Inverse{Float64, Array{Float64, 2}}, PseudoInverse{Float64, Array{Float64, 2}}}
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:72:23
+    |
+ 72 |     order(K) == 1 ? f(K.factors[1]) : kron(f.(K.factors)...)
+    |                       ^^^^^^^^^^^^ this argument has type Union{Inverse{Float64, Array{Float64, 2}}, PseudoInverse{Float64, Array{Float64, 2}}}
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:72:44
+    |
+ 72 |     order(K) == 1 ? f(K.factors[1]) : kron(f.(K.factors)...)
+    |                                            ^^^^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:72:44
+    |
+ 72 |     order(K) == 1 ? f(K.factors[1]) : kron(f.(K.factors)...)
+    |                                            ^^^^^^^^^^^^^^^^
+    |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-FIELD]: calling getproperty on non-concrete type KroneckerProduct{Float64, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}} where #s179
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:271:28
+     |
+ 271 |     initialize_temporaries(K.factors, eltype(y), size(y, 2))
+     |                            ^^^^^^^^^
+     |
+
+error[JTC-FIELD]: calling getproperty on non-concrete type KroneckerProduct{Float64, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}} where #s179
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:271:28
+     |
+ 271 |     initialize_temporaries(K.factors, eltype(y), size(y, 2))
+     |                            ^^^^^^^^^
+     |
+
+error[JTC-FIELD]: calling getproperty on non-concrete type KroneckerProduct{Float64, A, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T}}} where A
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:271:28
+     |
+ 271 |     initialize_temporaries(K.factors, eltype(y), size(y, 2))
+     |                            ^^^^^^^^^
+     |
+
+error[JTC-FIELD]: calling getproperty on non-concrete type KroneckerProduct{_A, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}} where #s179 where _A
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:271:28
+     |
+ 271 |     initialize_temporaries(K.factors, eltype(y), size(y, 2))
+     |                            ^^^^^^^^^
+     |
+
+error[JTC-FIELD]: calling getproperty on non-concrete type KroneckerProduct{Float64, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T, Array{T, 1} where T}}} where #s179
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:271:28
+     |
+ 271 |     initialize_temporaries(K.factors, eltype(y), size(y, 2))
+     |                            ^^^^^^^^^
+     |
+
+error[JTC-FIELD]: calling getproperty on non-concrete type KroneckerProduct{_A, #s179, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T}}} where #s179 where _A
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:271:28
+     |
+ 271 |     initialize_temporaries(K.factors, eltype(y), size(y, 2))
+     |                            ^^^^^^^^^
+     |
+
+error[JTC-FIELD]: calling getproperty on non-concrete type KroneckerProduct{Float64, A, Union{Nothing, Tuple{Array{T, 1} where T, Array{T, 1} where T}}} where A
+   --> /home/chenningcong/.julia/packages/KroneckerProducts/HAZPg/src/KroneckerProducts.jl:271:28
+     |
+ 271 |     initialize_temporaries(K.factors, eltype(y), size(y, 2))
+     |                            ^^^^^^^^^
+     |
+
+
+[STATS]
+package: KroneckerProducts
+version: 1.1.1
+test_outcome: test_failed
+mis_harvested: 494
+files_added: 2
+methods_checked: 149
+errors: 100
+elapsed_sec: 1.36
+check_threw: ErrorException("Not a union for iterator")
+class SyntaxError: 83
+class InferenceErrorFunCallArgs: 10
+class InferenceErrorFieldType: 7

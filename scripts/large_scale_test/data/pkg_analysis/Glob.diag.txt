@@ -1,0 +1,157 @@
+error[JTC-ASSIGN]: Failed to destruct rhs to lhs : Failed to destruct rhs, not a pair or tuple. Got a Union{Nothing, Tuple{Char, Int64}}
+   --> /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:457:13
+     |
+ 457 |             c, j = next
+     |             ^^^^
+     |
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:797:40
+     |
+ 797 |         relpath = joinpath(matches[i], pat)
+     |                                        ^^^ argument `pat` has type AbstractString
+     |
+note: `pat` became AbstractString here
+   --> /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:793:1
+     |
+ 793 | function _glob!(prefix::AbstractString, matches, pat::AbstractString, sort::Bool)
+     | --------------------------------------------------------------------------------- function parameter `?`
+     |
+help: guard with `pat isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:815:29
+     |
+ 815 |                 if occursin(pat, d)
+     |                             ^^^ argument `pat` has type Any
+     |
+note: `pat` became Any here
+   --> /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:809:1
+     |
+ 809 | function _glob!(prefix::AbstractString, matches, pat, sort::Bool)
+     | ----------------------------------------------------------------- function parameter `?`
+     |
+help: guard with `pat isa T` (or `if-elseif` on each variant) before the call
+
+/home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:758:59
+ Macro is not implemented. Inferred as a nothing
+    @assert isempty(workqueue)
+error[JTC-UNSUPPORTED]: Unsupported AST type ...
+   --> /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:764:47
+     |
+ 764 |                 newrelpath = joinpath(relpath, components...)
+     |                                               ^^^^^^^^^^^^^^
+     |
+help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:348:20
+     |
+ 348 |     next = iterate(pat, i)
+     |                    ^^^ argument `pat` has type AbstractString
+     |
+   --> /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:348:25
+     |
+ 348 |     next = iterate(pat, i)
+     |                         ^ argument `i` has type Any
+     |
+note: `pat` became AbstractString here
+   --> /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:345:1
+     |
+ 345 | function _match(pat::AbstractString, i0, c::Char, caseless::Bool, extended::Bool) # returns (i, valid, match)
+     | ------------------------------------------------------------------------------------------------------------- function parameter `?`
+     |
+note: `i` became Any here
+   --> /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:345:1
+     |
+ 345 | function _match(pat::AbstractString, i0, c::Char, caseless::Bool, extended::Bool) # returns (i, valid, match)
+     | ------------------------------------------------------------------------------------------------------------- function parameter `?`
+     |
+help: guard with `pat isa T` (or `if-elseif` on each variant) before the call
+help: guard with `i isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-RETURN]: return type is enlarged
+   --> /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:326:16
+     |
+ 326 |         return (mc, k3, true, match)
+     |                ^^^^^^^^^^^^^^^^^^^^^
+     |
+Previous type is Tuple{Char, Int64, Bool, Bool}, /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:272:16
+Current type is Tuple{Char, Int64, Bool, Union{Bool, InterConditional}}, /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:326:16
+
+error[JTC-RETURN]: return type is enlarged
+   --> /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:326:16
+     |
+ 326 |         return (mc, k3, true, match)
+     |                ^^^^^^^^^^^^^^^^^^^^^
+     |
+Previous type is Tuple{Char, Int64, Bool, Bool}, /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:272:16
+Current type is Tuple{Char, Int64, Bool, Union{Bool, InterConditional}}, /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:326:16
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:270:20
+     |
+ 270 |     next = iterate(pat, i)
+     |                    ^^^ argument `pat` has type AbstractString
+     |
+   --> /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:270:25
+     |
+ 270 |     next = iterate(pat, i)
+     |                         ^ argument `i` has type Any
+     |
+note: `pat` became AbstractString here
+   --> /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:269:1
+     |
+ 269 | function _match_bracket(pat::AbstractString, mc::Char, i, c::Char, cu::Char, caseless::Bool) # returns (mc, i, valid, match)
+     | ---------------------------------------------------------------------------------------------------------------------------- function parameter `?`
+     |
+note: `i` became Any here
+   --> /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:269:1
+     |
+ 269 | function _match_bracket(pat::AbstractString, mc::Char, i, c::Char, cu::Char, caseless::Bool) # returns (mc, i, valid, match)
+     | ---------------------------------------------------------------------------------------------------------------------------- function parameter `?`
+     |
+help: guard with `pat isa T` (or `if-elseif` on each variant) before the call
+help: guard with `i isa T` (or `if-elseif` on each variant) before the call
+
+/home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:602:17
+ Macro is not implemented. Inferred as a nothing
+    @goto no_element
+error[JTC-UNDEFINED]: variable arr_ai is potentially unitialized here
+   --> /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:605:35
+     |
+ 605 |                     occursin(pat, arr_ai)
+     |                                   ^^^^^^
+     |
+
+error[JTC-RETURN]: return type is enlarged
+   --> /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:101:28
+     |
+ 101 |         c == '/' && return i
+     |                            ^
+     |
+Previous type is Nothing, /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:99:34
+Current type is Int64, /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:101:28
+
+error[JTC-ASSIGN]: Failed to destruct rhs to lhs : Failed to destruct rhs, not a pair or tuple. Got a Array{Any, 1}
+   --> /home/chenningcong/.julia/packages/Glob/L3ddS/src/Glob.jl:721:5
+     |
+ 721 |     drive, rest = splitdrive(s)
+     |     ^^^^^^^^^^^
+     |
+
+
+[STATS]
+package: Glob
+version: 1.5.0
+test_outcome: test_failed
+mis_harvested: 43
+files_added: 1
+methods_checked: 23
+errors: 11
+elapsed_sec: 1.31
+class InferenceErrorFunCallArgs: 4
+class InferenceErrorReturnEnlargeType: 3
+class InferenceErrorFailedToDestruct: 2
+class InferenceErrorUnitializedVar: 1
+class SyntaxError: 1

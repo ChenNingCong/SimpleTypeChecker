@@ -19,6 +19,8 @@ PSDMatrices, LowRankArithmetic, FastRationals, KroneckerProducts).
 | Scope analyzer recurses into macrocall args (was early-exit; `@inbounds for` crashed) | `7ddd319` |
 | JTC-INTERNAL renders stacktrace (filtered to checker frames) for debuggability | `7ddd319` |
 | `iterateCheck` soften bare `error()` → Any-typed fallback for non-standard iterators | `1ad67cc` |
+| Scope analyzer: minimal `:generator` support (recurse into args) | `b425a53` |
+| `isBool` accepts `Core.Compiler.InterConditional` (narrowing-aware Bool) | `1a87b84` |
 
 With the concrete-MI flow now in place, the original 211-fire breakdown
 no longer represents reality. See "post-fix re-run" further down.

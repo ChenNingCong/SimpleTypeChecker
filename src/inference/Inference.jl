@@ -2847,9 +2847,18 @@ function constructParam(ctx::GlobalContext, ast::JuAST)::Argument
     end
     if ast.head == :identifier
         return Argument(cast2Symbol(ast.val), typ, initializer)
-    else
-        reportASTError(ctx, ast, "Invalid argument definition")
     end
+    # Tuple-destructure args: `f((a, b)::Tuple{X, Y})` parses with
+    # `ast.head == :tuple`, the type annotation already handled above.
+    # `f((a, b) = default)` similarly. We don't track the
+    # individual bindings as separate locals — bind one synthetic name
+    # `_destructure` and let the body's `a`/`b` reads fall back to
+    # untracked (Any) lookups. The method registers; we lose precision
+    # on the components but don't reject the method.
+    if ast.head == :tuple
+        return Argument(Symbol("_destructure"), typ, initializer)
+    end
+    reportASTError(ctx, ast, "Invalid argument definition")
 end
 
 # We don't have an Engine this time, so we can only report error by using GlobalContext

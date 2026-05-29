@@ -1,27 +1,3 @@
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/deque.jl:141:45
-     |
- 141 | function Base.iterate(di::DequeIterator{T}, (cb, i) = (di.d.head, di.d.head.front)) where T
-     |                                             ^^^^^^^
-     |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/deque.jl:156:55
-     |
- 156 | function Base.iterate(di::Iterators.Reverse{<:Deque}, (cb, i) = (di.itr.rear, di.itr.rear.back))
-     |                                                       ^^^^^^^
-     |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/sorted_container_iteration.jl:587:31
-     |
- 587 | exclusive(m::SortedContainer, (ii1, ii2)::Tuple{IntSemiToken, IntSemiToken}) =
-     |                               ^^^^^^^^^^
-     |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/sorted_container_iteration.jl:602:31
-     |
- 602 | inclusive(m::SortedContainer, (ii1, ii2)::Tuple{IntSemiToken, IntSemiToken}) =
-     |                               ^^^^^^^^^^
-     |
 error[JTC-SYNTAX]: Not a valid function name, only support identifier (f) or qualified name (Base.f)
    --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/sorted_container_iteration.jl:653:1
      |
@@ -39,12 +15,6 @@ error[JTC-SYNTAX]: Not a valid function name, only support identifier (f) or qua
      |
  659 | Base.Iterators.reverse(m::SortedContainer) = Iterators.reverse(base_iterable_object(m))
      | ^^^^^^^^^^^^^^^^^^^^^^
-     |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/trie.jl:110:41
-     |
- 110 | function Base.iterate(it::TrieIterator, (t, i) = (it.t, 0))
-     |                                         ^^^^^^
      |
 /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/delegate.jl:4:5
  Macro is not implemented. Inferred as a nothing
@@ -227,11 +197,11 @@ mis_harvested: 23
 files_added: 38
 methods_checked: 80
 errors: 17
-elapsed_sec: 2.01
+elapsed_sec: 1.96
 class InferenceErrorFunCallArgs: 6
 class InferenceErrorFunCall: 3
 class InferenceErrorReturnEnlargeType: 2
-class UndefRefError: 2
 class InferenceErrorSetFieldTypeIncompatible: 2
+class UndefRefError: 2
 class InferenceErrorUndefinedVar: 1
 class InferenceErrorTopLevelDispatch: 1

@@ -719,7 +719,14 @@ end
 end
 
 @nocheck function isBool(h::OpaqueHandle{CompileTypeK})::Bool
-    return unwrap(h, CompileType).typ === Bool
+    t = unwrap(h, CompileType).typ
+    # `Bool` is the obvious case. `Core.Compiler.InterConditional` is the
+    # narrowing-aware boolean lattice element the upstream inferencer
+    # produces for `!x`, `x === y`, `x isa T` patterns — it's treated as
+    # Bool everywhere the compiler uses it as a condition. Accept it
+    # here so Glob's `if !isempty(relpath)` and similar don't fire
+    # `JTC-TYPE: non-boolean type InterConditional used as condition`.
+    return t === Bool || t === Core.Compiler.InterConditional
 end
 
 @nocheck function isTypeValue(h::OpaqueHandle{CompileTypeK})::Bool

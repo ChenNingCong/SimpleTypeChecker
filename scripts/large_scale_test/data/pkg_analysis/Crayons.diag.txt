@@ -194,19 +194,13 @@ error[JTC-ASSIGN]: reassigned type String is incompatible
     |
 Previous type is SubString{String}, /home/chenningcong/.julia/packages/Crayons/u3AH8/src/macro.jl:97:9
 
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/Crayons/u3AH8/src/macro.jl:101:49
+error[JTC-ASSIGN]: initializer's type Union{Nothing, SubString{String}} is incompatible with asserted type of Type{SubString{String}}
+   --> /home/chenningcong/.julia/packages/Crayons/u3AH8/src/macro.jl:109:13
      |
- 101 |         nhex !== nothing && return _parse_color(nhex)
-     |                                                 ^^^^ argument `nhex` has type Union{Nothing, UInt32}
+ 109 |         r = m.captures[1]::SubString{String}
+     |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
      |
-note: `nhex` became Union{Nothing, UInt32} here
-   --> /home/chenningcong/.julia/packages/Crayons/u3AH8/src/macro.jl:100:16
-     |
- 100 |         nhex = tryparse(UInt32, tok_hex)
-     |                ------------------------- return of call to `#tryparse`
-     |
-help: guard with `nhex isa T` (or `if-elseif` on each variant) before the call
+Note implicit conversion is disallowed for assignment.
 
 error[JTC-ASSIGN]: Failed to destruct rhs to lhs : Failed to destruct rhs, length mismatched
    --> /home/chenningcong/.julia/packages/Crayons/u3AH8/src/crayon.jl:214:9
@@ -310,12 +304,13 @@ mis_harvested: 41
 files_added: 10
 methods_checked: 61
 errors: 35
-elapsed_sec: 1.79
-class InferenceErrorFunCallArgs: 11
+elapsed_sec: 1.8
+class InferenceErrorFunCallArgs: 10
 class InferenceErrorAssignIncompatible: 6
 class InferenceErrorFunCall: 6
 class InferenceErrorMismatchedSplit: 4
 class InferenceErrorReturnEnlargeType: 3
 class InferenceErrorFailedToDestruct: 2
 class SyntaxError: 2
+class InferenceErrorAssignInitIncompatible: 1
 class InferenceErrorIsaLHSBadType: 1

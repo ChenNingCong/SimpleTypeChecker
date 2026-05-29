@@ -2102,6 +2102,23 @@ function tryNarrowType(eng::Engine, ctx::Context, ast::JuAST)::Pair{InferResult,
                     rel === nothing || return rel
                 end
             end
+            # `x !== nothing` is the inverted form. Same narrowing,
+            # branches swapped — true branch sees union minus Nothing,
+            # false branch sees Nothing. We reuse `_narrowEqNothing`
+            # and flip the returned Pair{true_branch, false_branch}.
+            if isa_.head == :identifier && cast2Symbol(isa_.val) === :(!==)
+                varAst = lhs.head == :identifier && _isLiteralNothing(rhs) ? lhs :
+                         rhs.head == :identifier && _isLiteralNothing(lhs) ? rhs : nothing
+                if varAst !== nothing
+                    rel = _narrowEqNothing(eng, ctx, ast, varAst)
+                    if rel !== nothing
+                        eqResult, eqElseCtx = rel
+                        # Swap: what was the `=== nothing` true ctx is now
+                        # the false ctx, and vice versa.
+                        return InferResult(eqElseCtx, eqResult.node) => eqResult.ctx
+                    end
+                end
+            end
             if isa_.head == :identifier && cast2Symbol(isa_.val) == :isa
                 # TODO : we need to add FlowNode to all the JuExpr here
                 isanode = makeGlobalVarFlowNode(isa_, lookupIsa(eng.globalCtx.rtctx))

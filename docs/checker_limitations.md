@@ -21,6 +21,14 @@ PSDMatrices, LowRankArithmetic, FastRationals, KroneckerProducts).
 | `iterateCheck` soften bare `error()` → Any-typed fallback for non-standard iterators | `1ad67cc` |
 | Scope analyzer: minimal `:generator` support (recurse into args) | `b425a53` |
 | `isBool` accepts `Core.Compiler.InterConditional` (narrowing-aware Bool) | `1a87b84` |
+| Parser: vararg `...` slurp in method arg position (e.g. `f(args::Pair...)`) | `c9749c5` |
+| `makeType` collapses `InterConditional`/`Conditional` → `Bool` (partial leak fix) | `<post-c9749c5>` |
+| Parser: `function f end` forward declarations + nested `where V where K` | `6fd400d` |
+| Parser: tuple-destructure args `(a, b)::Tuple{X, Y}` | `06ac12c` |
+| `x !== nothing` narrowing (mirror of `=== nothing`) | `6b2ff7b` |
+| `:juxtapose` AST: `2x` / `A'B` infer via `*(args...)` seam call | `d0f1729` |
+| `:...` splat at expression position: accept as Any (was `JTC-UNSUPPORTED`) | `2387820` |
+| `@generated` in expression position: model as `Bool` (for ternary idiom) | `36a1cb5` |
 
 With the concrete-MI flow now in place, the original 211-fire breakdown
 no longer represents reality. See "post-fix re-run" further down.

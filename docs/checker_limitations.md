@@ -4,6 +4,25 @@ Scope: 8 numerical packages from the parse_ok corpus
 (AffineMaps, PDMatsSingular, PenaltyFunctions, LinearMapsAA,
 PSDMatrices, LowRankArithmetic, FastRationals, KroneckerProducts).
 
+## Fixed (since this analysis was written)
+
+| Item | Commit |
+|---|---|
+| Parser N-dim concat (`ncat`/`typed_ncat`) flag bits | `0c02a1f` |
+| `permitRequiredKwargs` flag for required keyword args | `0c02a1f` |
+| Builtin string-macro result types (`@r_str`, `@artifact_str`, `@v_str`, `@b_str`, `@raw_str`, `@cmd`, `@big_str`, ...) | `0c02a1f` |
+| `=== nothing` type narrowing | `0c02a1f` |
+| `runCheck!` defensive per-MI exception handling (#4c) | `0c02a1f` |
+| `checkPackage` single-file-package path (#5) | `0c02a1f` |
+| `seedAllRegistered!` removed from `checkPackage` default — concrete MIs only | `0c02a1f` |
+| `permitCustomGetproperty` flag for virtual properties (PDMats's `PDiagMat.dim`) | `29ef426` |
+| Scope analyzer recurses into macrocall args (was early-exit; `@inbounds for` crashed) | `7ddd319` |
+| JTC-INTERNAL renders stacktrace (filtered to checker frames) for debuggability | `7ddd319` |
+| `iterateCheck` soften bare `error()` → Any-typed fallback for non-standard iterators | `1ad67cc` |
+
+With the concrete-MI flow now in place, the original 211-fire breakdown
+no longer represents reality. See "post-fix re-run" further down.
+
 > **Important caveat about this run.** The results below came from a
 > default `checkPackage(mod)` flow that internally seeded the work
 > queue via `seedAllRegistered!` — i.e. it queued every non-parametric
@@ -144,6 +163,38 @@ SCADPenalty(a::T = 3.7, γ::T = T(1)) where {T <: Number} = SCADPenalty{T}(a, γ
 
 **Fix**: small. Substitute `T` with its upper bound (`Number`) when
 analyzing default expressions inside the method head.
+
+### Unary `<:T` shorthand inside `Type{<:T}` (#3c) — NEW
+
+**Pattern**: `error[JTC-SYNTAX]: <: requires exactly two arguments` at
+`T::Type{<:Exception}` (ArgCheck — 17 sites) or `f(x::Vector{<:Real})`
+(typical numerical code).
+
+**Why**: Julia parses `<:Exception` standalone as `Expr(:<:, Exception)`
+with one child. Our `inferSubtypeOp` only handles the binary form (the
+boolean operator `T1 <: T2`).
+
+**What this actually is**: a bounded TypeVar shorthand. `Type{<:Exception}`
+is `Type{T} where T<:Exception` — a UnionAll over a bounded TypeVar. The
+unary `<:` doesn't have a standalone CompileType — its only meaningful
+context is inside a curly call or `where` clause, where the OUTER
+construct should lift the inner bound into a UnionAll.
+
+**Why a quick "collapse to Any" doesn't work**: `Type{T}` is the
+SINGLETON type of the value `T` (so `Type{ArgumentError}` has exactly
+one member: the value `ArgumentError`). `Type{Any}` therefore only
+accepts the value `Any` itself, not other concrete Exception types.
+The runtime check `ArgumentError isa Type{<:Exception}` works via
+UnionAll semantics, not via `Type{Any}` widening.
+
+**Fix path**: medium-to-large. Requires
+(1) extending `makeTypeVarOf` to accept lower/upper bounds (or new op
+    `makeBoundedTypeVarOf`),
+(2) in `inferCurlyCall`, when an arg's AST is unary `:<:`, build a
+    fresh bounded TypeVar and wrap the curly result in a UnionAll
+    over that TypeVar.
+
+For now: open — these fire as `JTC-SYNTAX` and stop the method check.
 
 ### #3b — Inferencer gap: parametric Union isa-narrowing (1 fire)
 

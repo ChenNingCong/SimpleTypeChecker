@@ -51,6 +51,17 @@
         return makeType(Docs.Text{String})
     elseif name == "@doc_str"
         return makeType(Base.Docs.DocStr)
+    elseif name == "@generated"
+        # `@generated` is a marker macro used in two contexts:
+        #   1. Function-definition site: `@generated function f(x) ... end`
+        #      — declares a generated function. Result: nothing (it
+        #         re-emits the def).
+        #   2. Expression position: `(@generated) ? gen_branch : runtime_branch`
+        #      — runtime predicate that distinguishes generated-context vs
+        #         runtime-context inside such a function. Type: Bool.
+        # We model it as Bool because the only use of the expression form
+        # is to drive a ternary, where Nothing fires JTC-TYPE.
+        return makeType(Bool)
     else
         # Sentinel: not a known builtin. Caller falls through.
         return makeBottomTypeOf()

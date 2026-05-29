@@ -72,7 +72,7 @@ function strictRuntimeContext(base::RuntimeContext = defaultRuntimeContext())::R
         base.makeAnyType, base.makeBoolType, base.makeNothingType,
         base.makeExprType, base.makeIntType, base.makeTypeType,
         base.makeFunctionType, base.makeBottomTypeOf,
-        base.builtinMacroResultType,
+        base.builtinMacroResultType, base.hasUserGetproperty,
         base.wrapLiteralBool, base.wrapLiteralInt,
         base.wrapLiteralFloat64, base.wrapLiteralString,
         base.wrapLiteralChar, base.wrapLiteralSymbolName,

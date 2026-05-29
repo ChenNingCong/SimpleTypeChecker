@@ -778,6 +778,32 @@ end
     return isdefined(mod, Symbol(p))
 end
 
+# Does the receiver type have a non-default `Base.getproperty(::T, ::Symbol)`
+# override? Used by the analyzer to decide whether `x.s` should accept
+# Any when `s` isn't a struct field.
+@nocheck function hasUserGetproperty(h::OpaqueHandle{CompileTypeK})::Bool
+    ct = unwrap(h, CompileType)
+    # Operate on a representative concrete instance type when ct is a const.
+    t = ct.typ
+    if t isa Type
+        sig = Tuple{typeof(Base.getproperty), t, Symbol}
+        ms = try
+            Base._methods_by_ftype(sig, -1, Base.get_world_counter())
+        catch
+            return false
+        end
+        ms isa Vector || return false
+        for m in ms
+            m isa Core.MethodMatch || continue
+            mod = m.method.module
+            if mod !== Base && mod !== Core
+                return true
+            end
+        end
+    end
+    return false
+end
+
 @nocheck function constModuleGetField(h::OpaqueHandle{CompileTypeK}, p::String)::CompileType
     mod = unwrap(h, CompileType).val::Module
     psym = Symbol(p)
@@ -1144,6 +1170,7 @@ function defaultRuntimeContext(;
     makeFunctionTypeFn::MakeFunctionTypeFn         = MakeFunctionTypeFn(makeFunctionType),
     makeBottomTypeOfFn::MakeBottomTypeOfFn         = MakeBottomTypeOfFn(makeBottomTypeOf),
     builtinMacroResultTypeFn::BuiltinMacroResultTypeFn = BuiltinMacroResultTypeFn(builtinMacroResultType),
+    hasUserGetpropertyFn::HasUserGetpropertyFn     = HasUserGetpropertyFn(hasUserGetproperty),
     # Literal-wrap cluster
     wrapLiteralBoolFn::WrapLiteralBoolFn           = WrapLiteralBoolFn(wrapLiteralBool),
     wrapLiteralIntFn::WrapLiteralIntFn             = WrapLiteralIntFn(wrapLiteralInt),
@@ -1189,7 +1216,7 @@ function defaultRuntimeContext(;
                           makeAnyTypeFn, makeBoolTypeFn, makeNothingTypeFn,
                           makeExprTypeFn, makeIntTypeFn, makeTypeTypeFn,
                           makeFunctionTypeFn, makeBottomTypeOfFn,
-                          builtinMacroResultTypeFn,
+                          builtinMacroResultTypeFn, hasUserGetpropertyFn,
                           wrapLiteralBoolFn, wrapLiteralIntFn,
                           wrapLiteralFloat64Fn, wrapLiteralStringFn,
                           wrapLiteralCharFn, wrapLiteralSymbolNameFn,

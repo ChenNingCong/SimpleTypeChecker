@@ -218,6 +218,13 @@ const MakeBottomTypeOfFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}}
 # Returns a wrapped CompileType. For unknown names, returns Bottom as
 # a sentinel — caller falls through to the unrecognized-macro warning.
 const BuiltinMacroResultTypeFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{String}}
+# Does the receiver type have a non-default `Base.getproperty(::T, ::Symbol)`
+# overload? Driver inspects the method table for `Base.getproperty(::T, ::Symbol)`
+# and answers true iff any matching method's defining module is outside
+# Base / Core. The analyzer uses this to decide whether `x.s` should fall
+# back to `Any` when the symbol isn't a struct field — packages like PDMats
+# expose virtual properties (`PDiagMat.dim → length(diag)`) this way.
+const HasUserGetpropertyFn = FunctionWrapper{Bool, Tuple{OpaqueHandle{CompileTypeK}}}
 
 # ─── Literal-wrap ops ───────────────────────────────────────────────────────
 #
@@ -321,6 +328,7 @@ struct RuntimeContext
     makeFunctionType::MakeFunctionTypeFn
     makeBottomTypeOf::MakeBottomTypeOfFn
     builtinMacroResultType::BuiltinMacroResultTypeFn
+    hasUserGetproperty::HasUserGetpropertyFn
     # Literal-wrap cluster
     wrapLiteralBool::WrapLiteralBoolFn
     wrapLiteralInt::WrapLiteralIntFn

@@ -614,6 +614,16 @@ mutable struct GlobalContext
     # synthesised value is the declared annotation type (or `Any` if no
     # `::T` was given).
     permitRequiredKwargs::Bool
+    # When true, `x.s` that doesn't resolve to a struct field falls back
+    # to Any rather than reporting `no field s` — but only when the
+    # receiver type has a non-default `Base.getproperty` overload. Trades
+    # the false-positive `no field` fire for "we know less about the
+    # return type but the access is valid". Off by default because it
+    # makes the static guarantee weaker: when on, we no longer assert
+    # the access points at a known struct member. Suitable for analyzing
+    # packages that lean on virtual properties (PDMats's
+    # `PDiagMat.dim → length(diag)`).
+    permitCustomGetproperty::Bool
     const expanders::Dict{CompileType, MacroExpander}
     # Runtime-isolation seam. See docs/isolation.md and
     # src/compiler/CompilerAdaptorTypes.jl. Default factory is
@@ -632,6 +642,7 @@ function GlobalContext(; rtctx::RuntimeContext = defaultRuntimeContext())
                   Dict{Any, Vector{CompileType}}(),
                   Dict{Any, Bool}(),
                   Dict{Any, Vector{String}}(),
+                  false,
                   false,
                   false,
                   false,

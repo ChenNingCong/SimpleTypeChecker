@@ -80,6 +80,13 @@ makeBottomTypeOf(rtctx::RuntimeContext)::CompileType = unwrap(rtctx.makeBottomTy
 builtinMacroResultType(rtctx::RuntimeContext, name::AbstractString)::CompileType =
     unwrap(rtctx.builtinMacroResultType(String(name)), CompileType)
 
+# True iff the receiver type has a non-default `Base.getproperty` override.
+# Used by `inferGetproperty` to suppress the "no field" fire when a package
+# exposes virtual properties via a `getproperty` overload (PDMats's
+# `PDiagMat.dim`, AccessibleStruct's lazy accessors, etc.).
+hasUserGetproperty(rtctx::RuntimeContext, t::CompileType)::Bool =
+    rtctx.hasUserGetproperty(t)
+
 # Built-in global lookups — no-arg, return CompileType wrapping a const.
 lookupBaseIdentity(rtctx::RuntimeContext)::CompileType = unwrap(rtctx.lookupBaseIdentity(), CompileType)
 lookupIsa(rtctx::RuntimeContext)::CompileType          = unwrap(rtctx.lookupIsa(), CompileType)

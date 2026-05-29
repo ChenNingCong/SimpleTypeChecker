@@ -1995,6 +1995,19 @@ function inferGetField(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         addFlowMapping!(eng, ast, newnode)
         return InferResult(ctx, newnode)
     else
+        # No struct field with this name. Some packages (PDMats's PDiagMat,
+        # AccessorsExtra's virtual accessors) provide virtual properties
+        # via a non-default `Base.getproperty(::T, ::Symbol)` overload. The
+        # `permitCustomGetproperty` flag opts into accepting those: we
+        # confirm there IS a user-defined `getproperty` for the type, then
+        # synthesize `Any` for the result. The trade-off is that we no
+        # longer know the result type — but the access is legitimate Julia.
+        if eng.globalCtx.permitCustomGetproperty &&
+                hasUserGetproperty(eng.globalCtx.rtctx, ft)
+            newnode = makeGetPropertyFlowNode(ast, node, makeAnyType(eng.globalCtx.rtctx))
+            addFlowMapping!(eng, ast, newnode)
+            return InferResult(ctx, newnode)
+        end
         reportErrorNoField(eng, ast, node, p)
     end
 end

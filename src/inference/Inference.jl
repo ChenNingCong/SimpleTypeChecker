@@ -313,6 +313,27 @@ end
 # whether constant propagation through subtyping is possible.
 function inferSubtypeOp(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     assertASTKind(ast, :(<:))
+    # Unary form `<:T` appears as the upper-bound shorthand inside type
+    # parameters (`Type{<:Exception}` ≡ `Type{T where T<:Exception}`). The
+    # standalone AST shape is `Expr(:<:, T)` with one child. We don't yet
+    # track bounded type vars in our CompileType model, so collapse the
+    # bound to Any — `Type{<:Exception}` then statically presents as
+    # `Type{Any}` which is too loose but at least lets the assignment
+    # `T::Type{<:Exception} = ArgumentError` compatibility check pass
+    # (`Type{ArgumentError} <: Type{Any}` is true). Refining this needs
+    # proper bounded-TypeVar plumbing through curly/where.
+    if length(ast.args) == 1
+        rtctx = eng.globalCtx.rtctx
+        rel = inferExpr(eng, ctx, ast.args[1])
+        ctx = rel.ctx
+        # Result is a `const Any` so curly-call usage (`Type{<:Exception}`)
+        # sees it as a constant Type parameter and successfully constructs
+        # `Type{Any}`. The downstream assignment-compat check then accepts
+        # `Type{ArgumentError} <: Type{Any}` (true).
+        node = makeCurlyCallFlowNode(ast, FlowNode[rel.node], makeConstVal(Any))
+        addFlowMapping!(eng, ast, node)
+        return InferResult(ctx, node)
+    end
     if length(ast.args) != 2
         reportASTError(eng, ast, "<: requires exactly two arguments")
     end

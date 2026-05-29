@@ -273,8 +273,20 @@ function analyzeScopeVariable(ctx::ScopeInfoContext, ast::JuAST)::ScopeInfoConte
         end
         return ctx
     elseif ast.head == :macrocall
-        # TODO : how we handle macro ???
-        # this is incorrect, we need to analyze macro
+        # Macro bodies often contain scoping constructs that the inference
+        # pass will eventually walk into — passthrough macros (`@inbounds`,
+        # `@views`, `@inline`, etc.) propagate their inner expression's
+        # type, and `inferExpr` recurses into that inner. If we early-exit
+        # here, any `:for` / `:let` / `:while` inside the macro never gets
+        # a ScopeInfo entry and `scopeInfos[ast]` crashes with a KeyError
+        # mid-inference (PenaltyFunctions `@inbounds for j in eachindex(∇,θ)`).
+        # Walk the macro's arguments so the scopes inside them are indexed.
+        # We don't model the macro expansion itself — assignments declared
+        # inside a non-passthrough macro body still aren't tracked — but
+        # the passthrough case dominates in real code.
+        for i in 2:length(ast.args)
+            analyzeScopeVariable(ctx, ast.args[i])
+        end
         return ctx
     elseif ast.head == :call
         for i in ast.args

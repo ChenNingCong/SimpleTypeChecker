@@ -3436,13 +3436,46 @@ end
                 # abort the whole queue — record it as a fail on this MI
                 # and continue with the next one. The checker promises a
                 # diagnostic per method, not an exception per package.
+                #
+                # Capture the backtrace HERE before any other code path
+                # clobbers it. Render a trimmed stack (top N frames in our
+                # own src/ — frames in stdlib / Pkg / Base are usually
+                # irrelevant for diagnosing checker bugs).
+                bt = catch_backtrace()
                 ctx.hasChecked[mi][end] = ctx.hasChecked[mi][end].first => e
                 if ctx.printCheckerFrames
                     miStr = _shortenMethodSig(string(mi))
                     println("in ", miStr, "   [checker-internal]")
                 end
                 println("error[JTC-INTERNAL]: checker crashed on this method instance")
-                println("   ", first(string(e), 400))
+                println("   exception: ", first(string(e), 600))
+                println("   on: ", _shortenMethodSig(string(mi)))
+                println("   trace (top frames from src/):")
+                stack = stacktrace(bt)
+                shown = 0
+                for fr in stack
+                    if fr.file !== nothing
+                        s = String(fr.file)
+                        # Skip Julia stdlib / dependency frames. Surface only
+                        # frames whose path includes our own src tree.
+                        if occursin("/SimpleTypeChecker/src/", s) ||
+                           occursin("SimpleTypeChecker/src/", s) ||
+                           occursin("Inference.jl", s) ||
+                           occursin("SyntaxAdaptor.jl", s) ||
+                           occursin("CompilerAdaptor.jl", s) ||
+                           occursin("CommonMacros.jl", s)
+                            println("     ", fr.func, " at ", basename(s), ":", fr.line)
+                            shown += 1
+                            shown >= 8 && break
+                        end
+                    end
+                end
+                if shown == 0
+                    # Fallback: show top-5 frames period if nothing matched.
+                    for fr in stack[1:min(5, length(stack))]
+                        println("     ", fr.func, " at ", fr.file, ":", fr.line)
+                    end
+                end
                 println()
             end
         finally

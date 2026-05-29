@@ -57,7 +57,7 @@ mis_harvested: 21
 files_added: 1
 methods_checked: 13
 errors: 7
-elapsed_sec: 0.43
+elapsed_sec: 0.65
 class InferenceErrorFunCall: 4
 class InferenceErrorTopLevelDispatch: 1
 class InferenceErrorMismatchedSplit: 1

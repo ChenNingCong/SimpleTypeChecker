@@ -1,21 +1,3 @@
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:103:37
-     |
- 103 | function checkmacro(ex, checkflavor, options...)
-     |                                     ^^^^^^^^^^^
-     |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:268:43
-     |
- 268 | function expr_error_block(info, condition, preamble...)
-     |                                           ^^^^^^^^^^^^
-     |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:279:38
-     |
- 279 | @noinline function throw_check_error(info...)::Union{}
-     |                                      ^^^^^^^
-     |
 error[JTC-DISPATCH]: call has an argument of abstract type
    --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:197:24
      |
@@ -54,30 +36,6 @@ error[JTC-MISC]: Use `Any[]` instead of `[]` to construct Any array
  153 |     args = []
      |            ^^
      |
-
-/home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:152:5
- Macro is not implemented. Inferred as a nothing
-    @assert Meta.isexpr(expr, :call)
-error[JTC-MISC]: Use `Any[]` instead of `[]` to construct Any array
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:153:12
-     |
- 153 |     args = []
-     |            ^^
-     |
-
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:134:15
-     |
- 134 |     if isexpr(expr, :kw)
-     |               ^^^^ argument `expr` has type Any
-     |
-note: `expr` became Any here
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:133:1
-     |
- 133 | function analyze_call_arg(expr, isparameter)
-     | -------------------------------------------- function parameter `?`
-     |
-help: guard with `expr isa T` (or `if-elseif` on each variant) before the call
 
 error[JTC-FIELD]: type Symbol has no field args
    --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:135:25
@@ -121,44 +79,61 @@ error[JTC-MISC]: Use `Any[]` instead of `[]` to construct Any array
      |               ^^
      |
 
-error[JTC-FIELD]: calling getproperty on non-concrete type Any
+error[JTC-DISPATCH]: call has an argument of abstract type
    --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:290:23
      |
  290 |     build_error(info, info.checkflavor, info.options...)
-     |                       ^^^^^^^^^^^^^^^^
+     |                       ^^^^^^^^^^^^^^^^ this argument has type AbstractCheckFlavor
      |
-
-error[JTC-UNSUPPORTED]: Unsupported AST type ...
    --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:290:40
      |
  290 |     build_error(info, info.checkflavor, info.options...)
-     |                                        ^^^^^^^^^^^^^^^^
+     |                                        ^^^^^^^^^^^^^^^^ this argument has type Any
      |
-help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+help: guard with `isa` (or `if-elseif` on each variant) before the call
 
-error[JTC-UNSUPPORTED]: Unsupported AST type ...
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:290:23
+     |
+ 290 |     build_error(info, info.checkflavor, info.options...)
+     |                       ^^^^^^^^^^^^^^^^ this argument has type AbstractCheckFlavor
+     |
    --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:290:40
      |
  290 |     build_error(info, info.checkflavor, info.options...)
-     |                                        ^^^^^^^^^^^^^^^^
+     |                                        ^^^^^^^^^^^^^^^^ this argument has type Any
      |
-help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+help: guard with `isa` (or `if-elseif` on each variant) before the call
 
-error[JTC-UNSUPPORTED]: Unsupported AST type ...
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:290:23
+     |
+ 290 |     build_error(info, info.checkflavor, info.options...)
+     |                       ^^^^^^^^^^^^^^^^ this argument has type AbstractCheckFlavor
+     |
    --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:290:40
      |
  290 |     build_error(info, info.checkflavor, info.options...)
-     |                                        ^^^^^^^^^^^^^^^^
+     |                                        ^^^^^^^^^^^^^^^^ this argument has type Any
      |
-help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+help: guard with `isa` (or `if-elseif` on each variant) before the call
 
-error[JTC-UNSUPPORTED]: Unsupported AST type ...
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:290:23
+     |
+ 290 |     build_error(info, info.checkflavor, info.options...)
+     |                       ^^^^^^^^^^^^^^^^ this argument has type AbstractCheckFlavor
+     |
    --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:290:40
      |
  290 |     build_error(info, info.checkflavor, info.options...)
-     |                                        ^^^^^^^^^^^^^^^^
+     |                                        ^^^^^^^^^^^^^^^^ this argument has type Any
      |
-help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+help: guard with `isa` (or `if-elseif` on each variant) before the call
 
 error[JTC-SYNTAX]: <: requires exactly two arguments
    --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
@@ -194,94 +169,6 @@ error[JTC-SYNTAX]: <: requires exactly two arguments
  298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
      |                              ^^^^^^^^^^^
      |
-
-error[JTC-SYNTAX]: <: requires exactly two arguments
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
-     |
- 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
-     |                              ^^^^^^^^^^^
-     |
-Type{ArgumentError}
-
-error[JTC-SYNTAX]: <: requires exactly two arguments
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
-     |
- 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
-     |                              ^^^^^^^^^^^
-     |
-Type{DimensionMismatch}
-
-error[JTC-SYNTAX]: <: requires exactly two arguments
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
-     |
- 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
-     |                              ^^^^^^^^^^^
-     |
-Type{ArgumentError}
-
-error[JTC-SYNTAX]: <: requires exactly two arguments
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
-     |
- 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
-     |                              ^^^^^^^^^^^
-     |
-Type{ArgumentError}
-
-error[JTC-SYNTAX]: <: requires exactly two arguments
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
-     |
- 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
-     |                              ^^^^^^^^^^^
-     |
-Type{DimensionMismatch}
-
-error[JTC-SYNTAX]: <: requires exactly two arguments
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
-     |
- 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
-     |                              ^^^^^^^^^^^
-     |
-Type{DimensionMismatch}
-
-error[JTC-SYNTAX]: <: requires exactly two arguments
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
-     |
- 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
-     |                              ^^^^^^^^^^^
-     |
-Type{Main.__S__.TestChecks.MyError}
-
-error[JTC-SYNTAX]: <: requires exactly two arguments
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
-     |
- 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
-     |                              ^^^^^^^^^^^
-     |
-Type{ArgCheck.CheckError}
-
-error[JTC-SYNTAX]: <: requires exactly two arguments
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
-     |
- 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
-     |                              ^^^^^^^^^^^
-     |
-Type{ArgumentError}
-
-error[JTC-SYNTAX]: <: requires exactly two arguments
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
-     |
- 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
-     |                              ^^^^^^^^^^^
-     |
-Type{ArgCheck.CheckError}
-
-error[JTC-SYNTAX]: <: requires exactly two arguments
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
-     |
- 298 |                      T::Type{<:Exception}=default_exception_type(checkflavor))
-     |                              ^^^^^^^^^^^
-     |
-Type{DimensionMismatch}
 
 error[JTC-SYNTAX]: <: requires exactly two arguments
    --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:298:30
@@ -297,6 +184,174 @@ error[JTC-DISPATCH]: call has an argument of abstract type
      |                           ^^^^^^ this argument has type Any
      |
 help: guard with `isa` (or `if-elseif` on each variant) before the call
+error[JTC-INTERNAL]: checker crashed on this method instance
+   exception: BoundsError(svec(typeof(ArgCheck.checkmacro), Expr, ArgCheck.ArgCheckFlavor), 4)
+   on: ArgCheck.checkmacro(::Expr, ::ArgCheck.ArgCheckFlavor)
+   trace (top frames from src/):
+     _specTypesParam at CompilerAdaptor.jl:548
+     methodHandleSpecTypesParam at CompilerAdaptor.jl:556
+     makeArgCompileType at CompilerAdaptor.jl:564
+     checkToplevelFunction at Inference.jl:3068
+     #runCheck!#12 at Inference.jl:3523
+     runCheck! at Inference.jl:3467
+
+
+error[JTC-METHOD]: no matching method for length(::Symbol)
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:104:8
+     |
+ 104 |     if length(options) > 1
+     |        ^^^^^^^^^^^^^^^
+     |
+error[JTC-INTERNAL]: checker crashed on this method instance
+   exception: BoundsError(svec(typeof(ArgCheck.checkmacro), Bool, ArgCheck.ArgCheckFlavor), 4)
+   on: ArgCheck.checkmacro(::Bool, ::ArgCheck.ArgCheckFlavor)
+   trace (top frames from src/):
+     _specTypesParam at CompilerAdaptor.jl:548
+     methodHandleSpecTypesParam at CompilerAdaptor.jl:556
+     makeArgCompileType at CompilerAdaptor.jl:564
+     checkToplevelFunction at Inference.jl:3068
+     #runCheck!#12 at Inference.jl:3523
+     runCheck! at Inference.jl:3467
+
+
+error[JTC-METHOD]: no matching method for length(::Expr)
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:104:8
+     |
+ 104 |     if length(options) > 1
+     |        ^^^^^^^^^^^^^^^
+     |
+
+error[JTC-METHOD]: no matching method for length(::Expr)
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:104:8
+     |
+ 104 |     if length(options) > 1
+     |        ^^^^^^^^^^^^^^^
+     |
+error[JTC-INTERNAL]: checker crashed on this method instance
+   exception: BoundsError(svec(typeof(ArgCheck.checkmacro), Expr, ArgCheck.CheckFlavor), 4)
+   on: ArgCheck.checkmacro(::Expr, ::ArgCheck.CheckFlavor)
+   trace (top frames from src/):
+     _specTypesParam at CompilerAdaptor.jl:548
+     methodHandleSpecTypesParam at CompilerAdaptor.jl:556
+     makeArgCompileType at CompilerAdaptor.jl:564
+     checkToplevelFunction at Inference.jl:3068
+     #runCheck!#12 at Inference.jl:3523
+     runCheck! at Inference.jl:3467
+
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:116:40
+     |
+ 116 |     checker = Checker(ex, checkflavor, codeflavor, options)
+     |                                        ^^^^^^^^^^ argument `codeflavor` has type Union{CallFlavor, ComparisonFlavor, FallbackFlavor, SubtypeFlavor}
+     |
+note: `codeflavor` became Union{CallFlavor, ComparisonFlavor, FallbackFlavor, SubtypeFlavor} here
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:107:18
+     |
+ 107 |     codeflavor = if isexpr(ex, :comparison)
+     |                  -------------------------- if-expression branches yield distinct types
+     |
+help: guard with `codeflavor isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:116:40
+     |
+ 116 |     checker = Checker(ex, checkflavor, codeflavor, options)
+     |                                        ^^^^^^^^^^ argument `codeflavor` has type Union{CallFlavor, ComparisonFlavor, FallbackFlavor, SubtypeFlavor}
+     |
+note: `codeflavor` became Union{CallFlavor, ComparisonFlavor, FallbackFlavor, SubtypeFlavor} here
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:107:18
+     |
+ 107 |     codeflavor = if isexpr(ex, :comparison)
+     |                  -------------------------- if-expression branches yield distinct types
+     |
+help: guard with `codeflavor isa T` (or `if-elseif` on each variant) before the call
+error[JTC-INTERNAL]: checker crashed on this method instance
+   exception: BoundsError(svec(typeof(ArgCheck.checkmacro), Bool, ArgCheck.CheckFlavor), 4)
+   on: ArgCheck.checkmacro(::Bool, ::ArgCheck.CheckFlavor)
+   trace (top frames from src/):
+     _specTypesParam at CompilerAdaptor.jl:548
+     methodHandleSpecTypesParam at CompilerAdaptor.jl:556
+     makeArgCompileType at CompilerAdaptor.jl:564
+     checkToplevelFunction at Inference.jl:3068
+     #runCheck!#12 at Inference.jl:3523
+     runCheck! at Inference.jl:3467
+
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:116:40
+     |
+ 116 |     checker = Checker(ex, checkflavor, codeflavor, options)
+     |                                        ^^^^^^^^^^ argument `codeflavor` has type Union{CallFlavor, ComparisonFlavor, FallbackFlavor, SubtypeFlavor}
+     |
+note: `codeflavor` became Union{CallFlavor, ComparisonFlavor, FallbackFlavor, SubtypeFlavor} here
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:107:18
+     |
+ 107 |     codeflavor = if isexpr(ex, :comparison)
+     |                  -------------------------- if-expression branches yield distinct types
+     |
+help: guard with `codeflavor isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-METHOD]: no matching method for length(::Symbol)
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:104:8
+     |
+ 104 |     if length(options) > 1
+     |        ^^^^^^^^^^^^^^^
+     |
+error[JTC-INTERNAL]: checker crashed on this method instance
+   exception: BoundsError(svec(typeof(ArgCheck.checkmacro), Symbol, ArgCheck.ArgCheckFlavor), 4)
+   on: ArgCheck.checkmacro(::Symbol, ::ArgCheck.ArgCheckFlavor)
+   trace (top frames from src/):
+     _specTypesParam at CompilerAdaptor.jl:548
+     methodHandleSpecTypesParam at CompilerAdaptor.jl:556
+     makeArgCompileType at CompilerAdaptor.jl:564
+     checkToplevelFunction at Inference.jl:3068
+     #runCheck!#12 at Inference.jl:3523
+     runCheck! at Inference.jl:3467
+
+error[JTC-INTERNAL]: checker crashed on this method instance
+   exception: BoundsError(svec(typeof(ArgCheck.checkmacro), Symbol, ArgCheck.CheckFlavor), 4)
+   on: ArgCheck.checkmacro(::Symbol, ::ArgCheck.CheckFlavor)
+   trace (top frames from src/):
+     _specTypesParam at CompilerAdaptor.jl:548
+     methodHandleSpecTypesParam at CompilerAdaptor.jl:556
+     makeArgCompileType at CompilerAdaptor.jl:564
+     checkToplevelFunction at Inference.jl:3068
+     #runCheck!#12 at Inference.jl:3523
+     runCheck! at Inference.jl:3467
+
+
+error[JTC-METHOD]: no matching method for length(::Symbol)
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:104:8
+     |
+ 104 |     if length(options) > 1
+     |        ^^^^^^^^^^^^^^^
+     |
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:116:40
+     |
+ 116 |     checker = Checker(ex, checkflavor, codeflavor, options)
+     |                                        ^^^^^^^^^^ argument `codeflavor` has type Union{CallFlavor, ComparisonFlavor, FallbackFlavor, SubtypeFlavor}
+     |
+note: `codeflavor` became Union{CallFlavor, ComparisonFlavor, FallbackFlavor, SubtypeFlavor} here
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:107:18
+     |
+ 107 |     codeflavor = if isexpr(ex, :comparison)
+     |                  -------------------------- if-expression branches yield distinct types
+     |
+help: guard with `codeflavor isa T` (or `if-elseif` on each variant) before the call
+error[JTC-INTERNAL]: checker crashed on this method instance
+   exception: BoundsError(svec(typeof(ArgCheck.expr_error_block), Expr, Expr), 4)
+   on: ArgCheck.expr_error_block(::Expr, ::Expr)
+   trace (top frames from src/):
+     _specTypesParam at CompilerAdaptor.jl:548
+     methodHandleSpecTypesParam at CompilerAdaptor.jl:556
+     makeArgCompileType at CompilerAdaptor.jl:564
+     checkToplevelFunction at Inference.jl:3068
+     #runCheck!#12 at Inference.jl:3523
+     runCheck! at Inference.jl:3467
+
 
 error[JTC-DISPATCH]: call has an argument of abstract type
    --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:326:13
@@ -394,48 +449,6 @@ help: or fix the struct: give the field a concrete type, or parametrize the stru
 help: guard with `values isa T` (or `if-elseif` on each variant) before the call
 help: or fix the struct: give the field a concrete type, or parametrize the struct via `{T}`
 
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:318:35
-     |
- 318 | pretty_string(x::Number) = string(x)
-     |                                   ^ argument `x` has type Number
-     |
-note: `x` became Number here
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:318:1
-     |
- 318 | pretty_string(x::Number) = string(x)
-     | ------------------------------------ function parameter `?`
-     |
-help: guard with `x isa T` (or `if-elseif` on each variant) before the call
-
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:15
-     |
- 314 |     show(ioc, data)
-     |               ^^^^ argument `data` has type Any
-     |
-note: `data` became Any here
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:311:1
-     |
- 311 | function pretty_string(data)
-     | ---------------------------- function parameter `?`
-     |
-help: guard with `data isa T` (or `if-elseif` on each variant) before the call
-
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:15
-     |
- 314 |     show(ioc, data)
-     |               ^^^^ argument `data` has type Function
-     |
-note: `data` became Function here
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:311:1
-     |
- 311 | function pretty_string(data)
-     | ---------------------------- function parameter `?`
-     |
-help: guard with `data isa T` (or `if-elseif` on each variant) before the call
-
 error[JTC-METHOD]: no matching method for show(::Array{Any, 1}, ::#falsy)
    --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:5
      |
@@ -492,13 +505,6 @@ error[JTC-METHOD]: no matching method for show(::Array{Any, 1}, ::DataType)
      |     ^^^^^^^^^^^^^^^
      |
 
-error[JTC-METHOD]: no matching method for show(::Array{Any, 1}, ::Type{T} where T)
-   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:5
-     |
- 314 |     show(ioc, data)
-     |     ^^^^^^^^^^^^^^^
-     |
-
 error[JTC-METHOD]: no matching method for show(::Array{Any, 1}, ::Symbol)
    --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:314:5
      |
@@ -527,21 +533,44 @@ error[JTC-METHOD]: no matching method for show(::Array{Any, 1}, ::Dict{Symbol, I
      |     ^^^^^^^^^^^^^^^
      |
 
+/home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:281:5
+ Macro is not implemented. Inferred as a nothing
+    @nospecialize
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:282:23
+     |
+ 282 |     err = build_error(info...)
+     |                       ^^^^^^^ this argument has type Any
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+/home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:281:5
+ Macro is not implemented. Inferred as a nothing
+    @nospecialize
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/ArgCheck/DaoPJ/src/checks.jl:282:23
+     |
+ 282 |     err = build_error(info...)
+     |                       ^^^^^^^ this argument has type Any
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
 
 [STATS]
 package: ArgCheck
 version: 2.5.0
 test_outcome: ok
-mis_harvested: 163
+mis_harvested: 72
 files_added: 2
-methods_checked: 68
+methods_checked: 72
 errors: 54
-elapsed_sec: 1.39
-class SyntaxError: 21
-class InferenceErrorFunCall: 13
-class InferenceErrorFunCallArgs: 9
-class InferenceErrorEmptyAnyArray: 3
+elapsed_sec: 1.26
+class InferenceErrorFunCall: 17
+class InferenceErrorFunCallArgs: 15
+class BoundsError: 7
+class SyntaxError: 6
 class InferenceErrorNoField: 3
-class InferenceErrorFieldType: 3
-class InferenceErrorAssignIncompatible: 1
+class InferenceErrorEmptyAnyArray: 2
+class InferenceErrorFieldType: 2
 class InferenceErrorStringConstructor: 1
+class InferenceErrorAssignIncompatible: 1

@@ -1,163 +1,67 @@
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/block_diag.jl:15:11
-    |
- 15 | same_idim(As::LinearMapAX...) = all(map(A -> A._idim == As[1]._idim, As))
-    |           ^^^^^^^^^^^^^^^^^^
-    |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/block_diag.jl:16:11
-    |
- 16 | same_odim(As::LinearMapAX...) = all(map(A -> A._odim == As[1]._odim, As))
-    |           ^^^^^^^^^^^^^^^^^^
-    |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/block_diag.jl:28:12
-    |
- 28 | block_diag(As::LinearMapAX... ; tryop::Bool = false) = block_diag(tryop, As...)
-    |            ^^^^^^^^^^^^^^^^^^
-    |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/block_diag.jl:30:33
-    |
- 30 | function block_diag(tryop::Bool, As::LinearMapAX...)
-    |                                 ^^^^^^^^^^^^^^^^^^^
-    |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:62:27
-    |
- 62 | Base.hcat(A1::LinearMapAX, As::LMcat...) =
-    |                           ^^^^^^^^^^^^^
-    |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:64:27
-    |
- 64 | Base.vcat(A1::LinearMapAX, As::LMcat...) =
-    |                           ^^^^^^^^^^^^^
-    |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:66:61
-    |
- 66 | Base.hvcat(rows::NTuple{nr,Int} where {nr}, A1::LinearMapAX, As::LMcat...) =
-    |                                                             ^^^^^^^^^^^^^
-    |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:70:47
-    |
- 70 | Base.hcat(A1::UniformScaling, A2::LinearMapAX, As::LMcat...) =
-    |                                               ^^^^^^^^^^^^^
-    |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:72:47
-    |
- 72 | Base.vcat(A1::UniformScaling, A2::LinearMapAX, As::LMcat...) =
-    |                                               ^^^^^^^^^^^^^
-    |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:75:45
-    |
- 75 |         A1::UniformScaling, A2::LinearMapAX, As::LMcat...) =
-    |                                             ^^^^^^^^^^^^^
-    |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:81:28
-    |
- 81 | function _hcat(tryop::Bool, As::LinearMapAO...)
-    |                            ^^^^^^^^^^^^^^^^^^^
-    |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:94:28
-    |
- 94 | function _vcat(tryop::Bool, As::LinearMapAO...)
-    |                            ^^^^^^^^^^^^^^^^^^^
-    |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/getindex.jl:8:30
-   |
- 8 | Base.getindex(A::LinearMapAX, args...) = Base.getindex(A._lmap, args...)
-   |                              ^^^^^^^^
-   |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:105:35
-     |
- 105 | LinearMapAA(L, prop::NamedTuple ; kwargs...) =
-     |                                   ^^^^^^^^^
-     |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:150:71
-     |
- 150 | LinearMapAA(f::Function, fc::Function, D::Dims{2}, prop::NamedTuple ; kwargs...) =
-     |                                                                       ^^^^^^^^^
-     |
-error[JTC-SYNTAX]: Invalid argument definition
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:176:57
-     |
- 176 | LinearMapAA(f::Function, D::Dims{2}, prop::NamedTuple ; kwargs...) =
-     |                                                         ^^^^^^^^^
-     |
 error[JTC-INTERNAL]: checker crashed on this method instance
    exception: ErrorException("No method instance for keyword call")
    on: LinearMapsAA.AM_M(::LinearMapsAA.LinearMapAM{Float64, 1, 1, LinearMaps.WrappedMap{Float64, Matrix{Float64}}, @NamedTuple{}}, ::LinearAlgebra.Diagonal{Int64, UnitRange{Int64}})
    trace (top frames from src/):
      getMethodMatches at UtilityUnType.jl:37
-     inferFunCall at Inference.jl:764
-     inferExpr at Inference.jl:854
-     inferBlock at Inference.jl:1538
-     inferExpr at Inference.jl:842
-     checkToplevelFunction at Inference.jl:3070
-     #runCheck!#12 at Inference.jl:3409
-     runCheck! at Inference.jl:3353
+     inferFunCall at Inference.jl:802
+     inferExpr at Inference.jl:892
+     inferBlock at Inference.jl:1602
+     inferExpr at Inference.jl:880
+     checkToplevelFunction at Inference.jl:3176
+     #runCheck!#12 at Inference.jl:3523
+     runCheck! at Inference.jl:3467
 
 error[JTC-INTERNAL]: checker crashed on this method instance
    exception: ErrorException("No method instance for keyword call")
    on: LinearMapsAA.AM_M(::LinearMapsAA.LinearMapAM{Float64, 1, 1, LinearMaps.WrappedMap{Float64, Matrix{Float64}}, @NamedTuple{}}, ::LinearAlgebra.UpperTriangular{Float64, Matrix{Float64}})
    trace (top frames from src/):
      getMethodMatches at UtilityUnType.jl:37
-     inferFunCall at Inference.jl:764
-     inferExpr at Inference.jl:854
-     inferBlock at Inference.jl:1538
-     inferExpr at Inference.jl:842
-     checkToplevelFunction at Inference.jl:3070
-     #runCheck!#12 at Inference.jl:3409
-     runCheck! at Inference.jl:3353
+     inferFunCall at Inference.jl:802
+     inferExpr at Inference.jl:892
+     inferBlock at Inference.jl:1602
+     inferExpr at Inference.jl:880
+     checkToplevelFunction at Inference.jl:3176
+     #runCheck!#12 at Inference.jl:3523
+     runCheck! at Inference.jl:3467
 
 error[JTC-INTERNAL]: checker crashed on this method instance
    exception: ErrorException("No method instance for keyword call")
    on: LinearMapsAA.AM_M(::LinearMapsAA.LinearMapAM{Float64, 1, 1, LinearMaps.WrappedMap{Float64, Matrix{Float64}}, @NamedTuple{}}, ::LinearAlgebra.Transpose{Float64, LinearAlgebra.Symmetric{Float64, Matrix{Float64}}})
    trace (top frames from src/):
      getMethodMatches at UtilityUnType.jl:37
-     inferFunCall at Inference.jl:764
-     inferExpr at Inference.jl:854
-     inferBlock at Inference.jl:1538
-     inferExpr at Inference.jl:842
-     checkToplevelFunction at Inference.jl:3070
-     #runCheck!#12 at Inference.jl:3409
-     runCheck! at Inference.jl:3353
+     inferFunCall at Inference.jl:802
+     inferExpr at Inference.jl:892
+     inferBlock at Inference.jl:1602
+     inferExpr at Inference.jl:880
+     checkToplevelFunction at Inference.jl:3176
+     #runCheck!#12 at Inference.jl:3523
+     runCheck! at Inference.jl:3467
 
 error[JTC-INTERNAL]: checker crashed on this method instance
    exception: ErrorException("No method instance for keyword call")
    on: LinearMapsAA.AM_M(::LinearMapsAA.LinearMapAM{Float64, 1, 1, LinearMaps.WrappedMap{Float64, Matrix{Float64}}, @NamedTuple{}}, ::LinearAlgebra.Adjoint{ComplexF32, LinearAlgebra.Hermitian{ComplexF32, Matrix{ComplexF32}}})
    trace (top frames from src/):
      getMethodMatches at UtilityUnType.jl:37
-     inferFunCall at Inference.jl:764
-     inferExpr at Inference.jl:854
-     inferBlock at Inference.jl:1538
-     inferExpr at Inference.jl:842
-     checkToplevelFunction at Inference.jl:3070
-     #runCheck!#12 at Inference.jl:3409
-     runCheck! at Inference.jl:3353
+     inferFunCall at Inference.jl:802
+     inferExpr at Inference.jl:892
+     inferBlock at Inference.jl:1602
+     inferExpr at Inference.jl:880
+     checkToplevelFunction at Inference.jl:3176
+     #runCheck!#12 at Inference.jl:3523
+     runCheck! at Inference.jl:3467
 
 error[JTC-INTERNAL]: checker crashed on this method instance
    exception: ErrorException("No method instance for keyword call")
    on: LinearMapsAA.AM_M(::LinearMapsAA.LinearMapAM{Float32, 1, 1, LinearMaps.FunctionMap{Float32, Main.__S__.var"#34#35", Main.__S__.var"#37#38", false}, @NamedTuple{name::String, extra::Int64}}, ::Matrix{Float64})
    trace (top frames from src/):
      getMethodMatches at UtilityUnType.jl:37
-     inferFunCall at Inference.jl:764
-     inferExpr at Inference.jl:854
-     inferBlock at Inference.jl:1538
-     inferExpr at Inference.jl:842
-     checkToplevelFunction at Inference.jl:3070
-     #runCheck!#12 at Inference.jl:3409
-     runCheck! at Inference.jl:3353
+     inferFunCall at Inference.jl:802
+     inferExpr at Inference.jl:892
+     inferBlock at Inference.jl:1602
+     inferExpr at Inference.jl:880
+     checkToplevelFunction at Inference.jl:3176
+     #runCheck!#12 at Inference.jl:3523
+     runCheck! at Inference.jl:3467
 
 error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
    --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:55:17
@@ -179,14 +83,490 @@ error[JTC-INTERNAL]: checker crashed on this method instance
    on: LinearMapsAA.AM_M(::LinearMapsAA.LinearMapAM{Float32, 1, 1, LinearMaps.FunctionMap{Float32, Main.__S__.var"#34#35", Main.__S__.var"#37#38", false}, @NamedTuple{name::String, extra::Int64}}, ::LinearAlgebra.Adjoint{Float32, Matrix{Float32}})
    trace (top frames from src/):
      getMethodMatches at UtilityUnType.jl:37
-     inferFunCall at Inference.jl:764
-     inferExpr at Inference.jl:854
-     inferBlock at Inference.jl:1538
-     inferExpr at Inference.jl:842
-     checkToplevelFunction at Inference.jl:3070
-     #runCheck!#12 at Inference.jl:3409
-     runCheck! at Inference.jl:3353
+     inferFunCall at Inference.jl:802
+     inferExpr at Inference.jl:892
+     inferBlock at Inference.jl:1602
+     inferExpr at Inference.jl:880
+     checkToplevelFunction at Inference.jl:3176
+     #runCheck!#12 at Inference.jl:3523
+     runCheck! at Inference.jl:3467
 
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
+
+error[JTC-SYNTAX]: Invalid keywords assignment
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/types.jl:106:29
+     |
+ 106 |     LinearMapAA(L::LinearMap ; prop, kwargs...)
+     |                             ^^^^^^^^^^^^^^^^^^
+     |
 
 error[JTC-METHOD]: no matching method for *(::Array{Any, 1}, ::WrappedMap{Float64, Array{Float64, 2}})
    --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:59:17
@@ -238,82 +618,196 @@ error[JTC-METHOD]: no matching method for *(::Array{Any, 1}, ::FunctionMap{Float
     |
 
 error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:83:21
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:82:25
     |
- 83 |     LinearMaps.mul!(y, Lm, x, α, β) # todo: composite buffer
-    |                     ^ argument `y` has type AbstractArray{#s8, 1} where #s8, 
-fully applied type should be AbstractArray{#s8, 1}
+ 82 |     B = LinearMaps.hcat(map(A -> A._lmap, As)...)
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
     |
-note: `y` became AbstractArray{#s8, 1} where #s8, 
-fully applied type should be AbstractArray{#s8, 1} here
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:81:1
-    |
- 81 | function lm_mul!(y::AbstractVector{<:Number}, Lm::LinearMaps.CompositeMap,
-    | -------------------------------------------------------------------------- function parameter `?`
-    |
-help: guard with `y isa T` (or `if-elseif` on each variant) before the call
+help: guard with `isa` (or `if-elseif` on each variant) before the call
 
 error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:83:21
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:82:25
     |
- 83 |     LinearMaps.mul!(y, Lm, x, α, β) # todo: composite buffer
-    |                     ^ argument `y` has type AbstractArray{#s8, 1} where #s8, 
-fully applied type should be AbstractArray{#s8, 1}
+ 82 |     B = LinearMaps.hcat(map(A -> A._lmap, As)...)
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
     |
-note: `y` became AbstractArray{#s8, 1} where #s8, 
-fully applied type should be AbstractArray{#s8, 1} here
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:81:1
-    |
- 81 | function lm_mul!(y::AbstractVector{<:Number}, Lm::LinearMaps.CompositeMap,
-    | -------------------------------------------------------------------------- function parameter `?`
-    |
-help: guard with `y isa T` (or `if-elseif` on each variant) before the call
+help: guard with `isa` (or `if-elseif` on each variant) before the call
 
 error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:89:21
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:82:25
     |
- 89 |     LinearMaps.mul!(y, Lm, x, α, β)
-    |                     ^ argument `y` has type AbstractArray{#s8, 1} where #s8, 
-fully applied type should be AbstractArray{#s8, 1}
+ 82 |     B = LinearMaps.hcat(map(A -> A._lmap, As)...)
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
     |
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:89:28
-    |
- 89 |     LinearMaps.mul!(y, Lm, x, α, β)
-    |                            ^ argument `x` has type AbstractArray{#s7, 1} where #s7, 
-fully applied type should be AbstractArray{#s7, 1}
-    |
-note: `y` became AbstractArray{#s8, 1} where #s8, 
-fully applied type should be AbstractArray{#s8, 1} here
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:87:1
-    |
- 87 | lm_mul!(y::AbstractVector{<:Number}, Lm::LinearMap,
-    | --------------------------------------------------- function parameter `?`
-    |
-note: `x` became AbstractArray{#s7, 1} where #s7, 
-fully applied type should be AbstractArray{#s7, 1} here
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:87:1
-    |
- 87 | lm_mul!(y::AbstractVector{<:Number}, Lm::LinearMap,
-    | --------------------------------------------------- function parameter `?`
-    |
-help: guard with `y isa T` (or `if-elseif` on each variant) before the call
-help: guard with `x isa T` (or `if-elseif` on each variant) before the call
+help: guard with `isa` (or `if-elseif` on each variant) before the call
 
 error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:89:21
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:82:25
     |
- 89 |     LinearMaps.mul!(y, Lm, x, α, β)
-    |                     ^ argument `y` has type AbstractArray{#s8, 1} where #s8, 
-fully applied type should be AbstractArray{#s8, 1}
+ 82 |     B = LinearMaps.hcat(map(A -> A._lmap, As)...)
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
     |
-note: `y` became AbstractArray{#s8, 1} where #s8, 
-fully applied type should be AbstractArray{#s8, 1} here
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:87:1
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:82:25
     |
- 87 | lm_mul!(y::AbstractVector{<:Number}, Lm::LinearMap,
-    | --------------------------------------------------- function parameter `?`
+ 82 |     B = LinearMaps.hcat(map(A -> A._lmap, As)...)
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
     |
-help: guard with `y isa T` (or `if-elseif` on each variant) before the call
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:82:25
+    |
+ 82 |     B = LinearMaps.hcat(map(A -> A._lmap, As)...)
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:82:25
+    |
+ 82 |     B = LinearMaps.hcat(map(A -> A._lmap, As)...)
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:95:25
+    |
+ 95 |     B = LinearMaps.vcat(map(A -> A._lmap, As)...)
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:95:25
+    |
+ 95 |     B = LinearMaps.vcat(map(A -> A._lmap, As)...)
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:95:25
+    |
+ 95 |     B = LinearMaps.vcat(map(A -> A._lmap, As)...)
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:95:25
+    |
+ 95 |     B = LinearMaps.vcat(map(A -> A._lmap, As)...)
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:95:25
+    |
+ 95 |     B = LinearMaps.vcat(map(A -> A._lmap, As)...)
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:95:25
+    |
+ 95 |     B = LinearMaps.vcat(map(A -> A._lmap, As)...)
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/cat.jl:95:25
+    |
+ 95 |     B = LinearMaps.vcat(map(A -> A._lmap, As)...)
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/block_diag.jl:28:73
+    |
+ 28 | block_diag(As::LinearMapAX... ; tryop::Bool = false) = block_diag(tryop, As...)
+    |                                                                         ^^^^^^ this argument has type Any
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/block_diag.jl:28:73
+    |
+ 28 | block_diag(As::LinearMapAX... ; tryop::Bool = false) = block_diag(tryop, As...)
+    |                                                                         ^^^^^^ this argument has type Any
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/block_diag.jl:28:73
+    |
+ 28 | block_diag(As::LinearMapAX... ; tryop::Bool = false) = block_diag(tryop, As...)
+    |                                                                         ^^^^^^ this argument has type Any
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/block_diag.jl:31:37
+    |
+ 31 |     B = LinearMaps.BlockDiagonalMap(map(A -> A._lmap, As)...)
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/block_diag.jl:31:37
+    |
+ 31 |     B = LinearMaps.BlockDiagonalMap(map(A -> A._lmap, As)...)
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/block_diag.jl:31:37
+    |
+ 31 |     B = LinearMaps.BlockDiagonalMap(map(A -> A._lmap, As)...)
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/block_diag.jl:31:37
+    |
+ 31 |     B = LinearMaps.BlockDiagonalMap(map(A -> A._lmap, As)...)
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/block_diag.jl:31:37
+    |
+ 31 |     B = LinearMaps.BlockDiagonalMap(map(A -> A._lmap, As)...)
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/block_diag.jl:31:37
+    |
+ 31 |     B = LinearMaps.BlockDiagonalMap(map(A -> A._lmap, As)...)
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/block_diag.jl:31:37
+    |
+ 31 |     B = LinearMaps.BlockDiagonalMap(map(A -> A._lmap, As)...)
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^ this argument has type Any
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
 
 error[JTC-FIELD]: calling getproperty on non-concrete type LinearMapAM{#s6, 2, 1, WrappedMap{Float64, Array{Float64, 2}}, NamedTuple{(), Tuple}} where #s6
    --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:41:6
@@ -647,70 +1141,6 @@ error[JTC-DISPATCH]: call has an argument of abstract type
 help: guard with `isa` (or `if-elseif` on each variant) before the call
 
 error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
-     |
- 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
-     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
-     |
-help: guard with `isa` (or `if-elseif` on each variant) before the call
-
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
-     |
- 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
-     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
-     |
-help: guard with `isa` (or `if-elseif` on each variant) before the call
-
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
-     |
- 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
-     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
-     |
-help: guard with `isa` (or `if-elseif` on each variant) before the call
-
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:207:35
-     |
- 207 |     (Di > ndims(X) || (A._idim != size(X)[1:Di])) &&
-     |                                   ^^^^^^^^^^^^^ this argument has type Tuple{Vararg{Int64}}
-     |
-help: guard with `isa` (or `if-elseif` on each variant) before the call
-
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:107:10
-     |
- 107 |     mul!(Y, A, X, 1, 0)
-     |          ^ argument `Y` has type AbstractArray{T, N} where N where T, 
-fully applied type should be AbstractArray{T, N}
-     |
-note: `Y` became AbstractArray{T, N} where N where T, 
-fully applied type should be AbstractArray{T, N} here
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:106:1
-     |
- 106 | mul!(Y::AbstractArray, A::LinearMapAO, X::AbstractArray) =
-     | ---------------------------------------------------------- function parameter `?`
-     |
-help: guard with `Y isa T` (or `if-elseif` on each variant) before the call
-
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:107:10
-     |
- 107 |     mul!(Y, A, X, 1, 0)
-     |          ^ argument `Y` has type AbstractArray{T, N} where N where T, 
-fully applied type should be AbstractArray{T, N}
-     |
-note: `Y` became AbstractArray{T, N} where N where T, 
-fully applied type should be AbstractArray{T, N} here
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:106:1
-     |
- 106 | mul!(Y::AbstractArray, A::LinearMapAO, X::AbstractArray) =
-     | ---------------------------------------------------------- function parameter `?`
-     |
-help: guard with `Y isa T` (or `if-elseif` on each variant) before the call
-
-error[JTC-DISPATCH]: call has an argument of abstract type
    --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:115:15
      |
  115 |     lmao_mul!(Y, A._lmap, X, α, β ; idim=A._idim, odim=A._odim)
@@ -740,65 +1170,18 @@ fully applied type should be Array{Float64, N} here
 help: guard with `Y isa T` (or `if-elseif` on each variant) before the call
 help: guard with `X isa T` (or `if-elseif` on each variant) before the call
 
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:73:13
-    |
- 73 |     lm_mul!(y, A._lmap, x, 1, 0)
-    |             ^ argument `y` has type AbstractArray{T, 1} where T, 
-fully applied type should be AbstractArray{T, 1}
-    |
-note: `y` became AbstractArray{T, 1} where T, 
-fully applied type should be AbstractArray{T, 1} here
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:72:1
-    |
- 72 | mul!(y::AbstractVector, A::LinearMapAM, x::AbstractVector) =
-    | ------------------------------------------------------------ function parameter `?`
-    |
-help: guard with `y isa T` (or `if-elseif` on each variant) before the call
-
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:73:13
-    |
- 73 |     lm_mul!(y, A._lmap, x, 1, 0)
-    |             ^ argument `y` has type AbstractArray{T, 1} where T, 
-fully applied type should be AbstractArray{T, 1}
-    |
-note: `y` became AbstractArray{T, 1} where T, 
-fully applied type should be AbstractArray{T, 1} here
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:72:1
-    |
- 72 | mul!(y::AbstractVector, A::LinearMapAM, x::AbstractVector) =
-    | ------------------------------------------------------------ function parameter `?`
-    |
-help: guard with `y isa T` (or `if-elseif` on each variant) before the call
-
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:73:13
-    |
- 73 |     lm_mul!(y, A._lmap, x, 1, 0)
-    |             ^ argument `y` has type AbstractArray{T, 1} where T, 
-fully applied type should be AbstractArray{T, 1}
-    |
-note: `y` became AbstractArray{T, 1} where T, 
-fully applied type should be AbstractArray{T, 1} here
-   --> /home/chenningcong/.julia/packages/LinearMapsAA/P0GrF/src/multiply.jl:72:1
-    |
- 72 | mul!(y::AbstractVector, A::LinearMapAM, x::AbstractVector) =
-    | ------------------------------------------------------------ function parameter `?`
-    |
-help: guard with `y isa T` (or `if-elseif` on each variant) before the call
-
 
 [STATS]
 package: LinearMapsAA
 version: 0.12.0
-test_outcome: ok
-mis_harvested: 815
+test_outcome: test_timeout
+mis_harvested: 481
 files_added: 11
-methods_checked: 167
-errors: 73
-elapsed_sec: 8.35
-class InferenceErrorFunCallArgs: 29
+methods_checked: 266
+errors: 152
+elapsed_sec: 7.91
+class SyntaxError: 68
+class InferenceErrorFunCallArgs: 40
 class InferenceErrorMismatchedSplit: 19
 class InferenceErrorFieldType: 10
 class InferenceErrorFunCall: 7

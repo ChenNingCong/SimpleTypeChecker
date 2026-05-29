@@ -564,6 +564,44 @@ function _isBuiltinCallee(rtctx::RuntimeContext, fargs::Vector{FlowNode})::Bool
     return rtctx.constIsBuiltinOrIntrin(f.typ)
 end
 
+# `2x` / `A'B` / `3im` — juxtapose multiplication. The AST node has the
+# operands as direct children (no callee). Semantically equivalent to
+# `*(args...)`. We infer each operand normally, then ask the seam for
+# the return type of `Base.* ` with the inferred arg types. If any
+# operand's type isn't concrete we fall back to Any (the call would be
+# abstract anyway). Keeps the AST-walk going on numerical packages
+# that lean on this idiom.
+@nocheck function inferJuxtapose(eng::Engine, ctx::Context, ast::JuAST)::InferResult
+    assertASTKind(ast, :juxtapose)
+    rtctx = eng.globalCtx.rtctx
+    nodes = FlowNode[]
+    for child in ast.args
+        rel = inferExpr(eng, ctx, child)
+        ctx = rel.ctx
+        push!(nodes, rel.node)
+    end
+    # Build the sig Tuple{typeof(*), T1, T2, ...} for inferReturnType.
+    # Each operand contributes its inferred CompileType.
+    arg_types = Any[typeof(*)]
+    all_concrete = true
+    for n in nodes
+        t = lift(rtctx, n.typ)
+        push!(arg_types, t.typ)
+        Base.isconcretetype(t.typ) || (all_concrete = false)
+    end
+    result_typ = if all_concrete
+        sig = Tuple{arg_types...}
+        rts = inferReturnType(eng.globalCtx, sig)
+        isempty(rts) ? makeAnyType(rtctx) : rts[1]
+    else
+        makeAnyType(rtctx)
+    end
+    ms = MethodCallStruct(nodes)
+    node = makeFunCallFlowNode(ast, ms, result_typ)
+    addFlowMapping!(eng, ast, node)
+    return InferResult(ctx, node)
+end
+
 function inferFunCall(eng::Engine, ctx::Context, ast::JuAST, isDotcall::Bool)::InferResult
     # Special-case ccall — it's a Julia builtin/intrinsic, not a normal
     # function, so it isn't visible as a variable in any module. The shape is
@@ -854,6 +892,15 @@ function inferExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         return inferFunCall(eng, ctx, ast, false)
     elseif ast.head == :dotcall
         return inferFunCall(eng, ctx, ast, true)
+    elseif ast.head == :juxtapose
+        # `2x`, `A'B`, `3im` — adjacent-token multiplication. The AST has
+        # the operands as children; semantically it's `*(args...)`. We
+        # rewrite to a call inference via inferJuxtapose, which infers
+        # each arg then queries the seam for the return type of `*` over
+        # the resulting concrete arg types. Common in numerical code —
+        # ColorTypes/FixedPointNumbers/CompositionsBase contribute ~380
+        # fires across the corpus when juxtapose isn't modeled.
+        return inferJuxtapose(eng, ctx, ast)
     elseif ast.head == :return
         return inferReturn(eng, ctx, ast)
     elseif ast.head == :break

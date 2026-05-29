@@ -258,20 +258,6 @@ note: `io` became Any here
    |
 help: guard with `io isa T` (or `if-elseif` on each variant) before the call
 
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/Crayons/u3AH8/src/logo.jl:20:11
-    |
- 20 |     print(io, "\n\n", str, "\n")
-    |           ^^ argument `io` has type IO
-    |
-note: `io` became IO here
-   --> /home/chenningcong/.julia/packages/Crayons/u3AH8/src/logo.jl:1:1
-   |
- 1 | function print_logo(io = stdout)
-   | -------------------------------- function parameter `?`
-   |
-help: guard with `io isa T` (or `if-elseif` on each variant) before the call
-
 error[JTC-METHOD]: no matching method for Crayons.ANSIStyle(::Nothing)
    --> /home/chenningcong/.julia/packages/Crayons/u3AH8/src/crayon.jl:183:52
      |
@@ -320,12 +306,12 @@ error[JTC-METHOD]: no matching method for Crayons.ANSIStyle(::Nothing)
 package: Crayons
 version: 4.1.1
 test_outcome: ok
-mis_harvested: 99
+mis_harvested: 41
 files_added: 10
-methods_checked: 69
-errors: 36
-elapsed_sec: 2.02
-class InferenceErrorFunCallArgs: 12
+methods_checked: 61
+errors: 35
+elapsed_sec: 1.79
+class InferenceErrorFunCallArgs: 11
 class InferenceErrorAssignIncompatible: 6
 class InferenceErrorFunCall: 6
 class InferenceErrorMismatchedSplit: 4

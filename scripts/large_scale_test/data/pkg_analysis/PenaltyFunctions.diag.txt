@@ -1,50 +1,3 @@
-error[JTC-UNSUPPORTED]: Unsupported AST type juxtapose
-   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/penalties/arraywise.jl:38:26
-    |
- 38 |     MahalanobisPenalty(C, C'C, lu(C'C + I), λ)
-    |                          ^^^^
-    |
-help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
-
-error[JTC-UNSUPPORTED]: Unsupported AST type juxtapose
-   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/penalties/arraywise.jl:38:26
-    |
- 38 |     MahalanobisPenalty(C, C'C, lu(C'C + I), λ)
-    |                          ^^^^
-    |
-help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
-
-error[JTC-METHOD]: no matching method for Any(::Int64)
-   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/penalties/elementwise.jl:87:33
-    |
- 87 | SCADPenalty(a::T = 3.7, γ::T = T(1)) where {T <: Number} = SCADPenalty{T}(a, γ)
-    |                                 ^^^^
-    |
-
-error[JTC-UNSUPPORTED]: Unsupported AST type ...
-   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/penalties/elementwise.jl:88:50
-    |
- 88 | SCADPenalty(a::Number, γ::Number) = SCADPenalty(promote(a, γ)...)
-    |                                                  ^^^^^^^^^^^^^^^^^
-    |
-help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
-
-error[JTC-UNSUPPORTED]: Unsupported AST type ...
-   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/penalties/elementwise.jl:88:50
-    |
- 88 | SCADPenalty(a::Number, γ::Number) = SCADPenalty(promote(a, γ)...)
-    |                                                  ^^^^^^^^^^^^^^^^^
-    |
-help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
-
-error[JTC-UNSUPPORTED]: Unsupported AST type ...
-   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/penalties/elementwise.jl:88:50
-    |
- 88 | SCADPenalty(a::Number, γ::Number) = SCADPenalty(promote(a, γ)...)
-    |                                                  ^^^^^^^^^^^^^^^^^
-    |
-help: this is a checker limitation — the AST shape is valid Julia but the checker has not implemented it yet. Rewrite using a supported form (e.g. typed-comprehension `T[expr for x in xs]` → explicit `map`-with-typed-collect), or add `@nocheck` to opt the enclosing method out.
-
 error[JTC-ISA]: can't split type Float64 to Type{Number}
    --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/penalties/elementwise.jl:146:5
      |
@@ -52,37 +5,472 @@ error[JTC-ISA]: can't split type Float64 to Type{Number}
      |     ^^^^^^^^^^^^^^^
      |
 
+/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:49:5
+ Macro is not implemented. Inferred as a nothing
+    @assert size(∇) == size(θ)
+/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:49:5
+ Macro is not implemented. Inferred as a nothing
+    @assert size(∇) == size(θ)
+/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:56:5
+ Macro is not implemented. Inferred as a nothing
+    @assert size(∇) == size(θ)
+/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:56:5
+ Macro is not implemented. Inferred as a nothing
+    @assert size(∇) == size(θ)
+/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:56:5
+ Macro is not implemented. Inferred as a nothing
+    @assert size(∇) == size(θ)
+/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:56:5
+ Macro is not implemented. Inferred as a nothing
+    @assert size(∇) == size(θ)
+/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:63:5
+ Macro is not implemented. Inferred as a nothing
+    @assert size(∇) == size(θ) == size(s)
+/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:63:5
+ Macro is not implemented. Inferred as a nothing
+    @assert size(∇) == size(θ) == size(s)
+/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:63:5
+ Macro is not implemented. Inferred as a nothing
+    @assert size(∇) == size(θ) == size(s)
+/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:63:5
+ Macro is not implemented. Inferred as a nothing
+    @assert size(∇) == size(θ) == size(s)
+/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:39:5
+ Macro is not implemented. Inferred as a nothing
+    @assert size(storage) == size(θ) == size(s)
+/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:39:5
+ Macro is not implemented. Inferred as a nothing
+    @assert size(storage) == size(θ) == size(s)
+/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:39:5
+ Macro is not implemented. Inferred as a nothing
+    @assert size(storage) == size(θ) == size(s)
+/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:39:5
+ Macro is not implemented. Inferred as a nothing
+    @assert size(storage) == size(θ) == size(s)
+/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:39:5
+ Macro is not implemented. Inferred as a nothing
+    @assert size(storage) == size(θ) == size(s)
+error[JTC-ASSIGN]: Failed to destruct rhs to lhs : Failed to destruct rhs, length mismatched
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/printing.jl:8:13
+   |
+ 8 |         for (i, field) in enumerate(f)
+   |             ^^^^^^^^^^
+   |
+
+error[JTC-ASSIGN]: Failed to destruct rhs to lhs : Failed to destruct rhs, length mismatched
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/printing.jl:8:13
+   |
+ 8 |         for (i, field) in enumerate(f)
+   |             ^^^^^^^^^^
+   |
+
+error[JTC-ASSIGN]: Failed to destruct rhs to lhs : Failed to destruct rhs, length mismatched
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/printing.jl:8:13
+   |
+ 8 |         for (i, field) in enumerate(f)
+   |             ^^^^^^^^^^
+   |
+
+error[JTC-ASSIGN]: Failed to destruct rhs to lhs : Failed to destruct rhs, length mismatched
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/printing.jl:8:13
+   |
+ 8 |         for (i, field) in enumerate(f)
+   |             ^^^^^^^^^^
+   |
+
+error[JTC-ASSIGN]: Failed to destruct rhs to lhs : Failed to destruct rhs, length mismatched
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/printing.jl:8:13
+   |
+ 8 |         for (i, field) in enumerate(f)
+   |             ^^^^^^^^^^
+   |
+
+error[JTC-ASSIGN]: Failed to destruct rhs to lhs : Failed to destruct rhs, length mismatched
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/printing.jl:8:13
+   |
+ 8 |         for (i, field) in enumerate(f)
+   |             ^^^^^^^^^^
+   |
+
+error[JTC-ASSIGN]: Failed to destruct rhs to lhs : Failed to destruct rhs, length mismatched
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/printing.jl:8:13
+   |
+ 8 |         for (i, field) in enumerate(f)
+   |             ^^^^^^^^^^
+   |
+
+error[JTC-ASSIGN]: Failed to destruct rhs to lhs : Failed to destruct rhs, length mismatched
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/printing.jl:8:13
+   |
+ 8 |         for (i, field) in enumerate(f)
+   |             ^^^^^^^^^^
+   |
+
+error[JTC-ASSIGN]: Failed to destruct rhs to lhs : Failed to destruct rhs, length mismatched
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/printing.jl:8:13
+   |
+ 8 |         for (i, field) in enumerate(f)
+   |             ^^^^^^^^^^
+   |
+
+error[JTC-ASSIGN]: Failed to destruct rhs to lhs : Failed to destruct rhs, length mismatched
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/printing.jl:8:13
+   |
+ 8 |         for (i, field) in enumerate(f)
+   |             ^^^^^^^^^^
+   |
+
+error[JTC-ASSIGN]: Failed to destruct rhs to lhs : Failed to destruct rhs, length mismatched
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/printing.jl:8:13
+   |
+ 8 |         for (i, field) in enumerate(f)
+   |             ^^^^^^^^^^
+   |
+
+/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:15:5
+ Macro is not implemented. Inferred as a nothing
+    @assert size(θ) == size(s)
+/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:15:5
+ Macro is not implemented. Inferred as a nothing
+    @assert size(θ) == size(s)
+/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:15:5
+ Macro is not implemented. Inferred as a nothing
+    @assert size(θ) == size(s)
+/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:15:5
+ Macro is not implemented. Inferred as a nothing
+    @assert size(θ) == size(s)
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/penalties/arraywise.jl:49:11
+    |
+ 49 |     ldiv!(p.CtC_Iλ, A) # overwrites result in A
+    |           ^^^^^^^^^ this argument has type LU{Float64, Array{Float64, 2}, P} where P, 
+fully applied type should be LU{Float64, Array{Float64, 2}, P}
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/penalties/arraywise.jl:3:7
+   |
+ 3 |     >(size(A)...) ? tr(sqrt(A'A)) : tr(sqrt(A * A'))
+   |       ^^^^^^^^^^ this argument has type Any
+   |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:70:71
+    |
+ 70 | value(p::ArrayPenalty, A::AbstractArray{<:Number}, λ::Number) = λ * value(p, A)
+    |                                                                       ^^^^^^^^^^^ this argument has type Union{Complex{Float64}, Float64}
+    |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:3:68
+   |
+ 3 | value(p::ElementPenalty, θ::AbstractArray{<:Number}, s::Number) = sum(x -> value(p, x, s), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:3:68
+   |
+ 3 | value(p::ElementPenalty, θ::AbstractArray{<:Number}, s::Number) = sum(x -> value(p, x, s), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:3:68
+   |
+ 3 | value(p::ElementPenalty, θ::AbstractArray{<:Number}, s::Number) = sum(x -> value(p, x, s), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:3:68
+   |
+ 3 | value(p::ElementPenalty, θ::AbstractArray{<:Number}, s::Number) = sum(x -> value(p, x, s), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:3:68
+   |
+ 3 | value(p::ElementPenalty, θ::AbstractArray{<:Number}, s::Number) = sum(x -> value(p, x, s), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:3:68
+   |
+ 3 | value(p::ElementPenalty, θ::AbstractArray{<:Number}, s::Number) = sum(x -> value(p, x, s), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:3:68
+   |
+ 3 | value(p::ElementPenalty, θ::AbstractArray{<:Number}, s::Number) = sum(x -> value(p, x, s), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:3:68
+   |
+ 3 | value(p::ElementPenalty, θ::AbstractArray{<:Number}, s::Number) = sum(x -> value(p, x, s), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:3:68
+   |
+ 3 | value(p::ElementPenalty, θ::AbstractArray{<:Number}, s::Number) = sum(x -> value(p, x, s), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:3:68
+   |
+ 3 | value(p::ElementPenalty, θ::AbstractArray{<:Number}, s::Number) = sum(x -> value(p, x, s), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:3:68
+   |
+ 3 | value(p::ElementPenalty, θ::AbstractArray{<:Number}, s::Number) = sum(x -> value(p, x, s), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:3:68
+   |
+ 3 | value(p::ElementPenalty, θ::AbstractArray{<:Number}, s::Number) = sum(x -> value(p, x, s), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:3:68
+   |
+ 3 | value(p::ElementPenalty, θ::AbstractArray{<:Number}, s::Number) = sum(x -> value(p, x, s), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:3:68
+   |
+ 3 | value(p::ElementPenalty, θ::AbstractArray{<:Number}, s::Number) = sum(x -> value(p, x, s), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:2:68
+   |
+ 2 | value(p::ElementPenalty, θ::AbstractArray{<:Number})            = sum(x -> value(p, x), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:2:68
+   |
+ 2 | value(p::ElementPenalty, θ::AbstractArray{<:Number})            = sum(x -> value(p, x), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:2:68
+   |
+ 2 | value(p::ElementPenalty, θ::AbstractArray{<:Number})            = sum(x -> value(p, x), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:2:68
+   |
+ 2 | value(p::ElementPenalty, θ::AbstractArray{<:Number})            = sum(x -> value(p, x), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:2:68
+   |
+ 2 | value(p::ElementPenalty, θ::AbstractArray{<:Number})            = sum(x -> value(p, x), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:2:68
+   |
+ 2 | value(p::ElementPenalty, θ::AbstractArray{<:Number})            = sum(x -> value(p, x), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:2:68
+   |
+ 2 | value(p::ElementPenalty, θ::AbstractArray{<:Number})            = sum(x -> value(p, x), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:2:68
+   |
+ 2 | value(p::ElementPenalty, θ::AbstractArray{<:Number})            = sum(x -> value(p, x), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:2:68
+   |
+ 2 | value(p::ElementPenalty, θ::AbstractArray{<:Number})            = sum(x -> value(p, x), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:2:68
+   |
+ 2 | value(p::ElementPenalty, θ::AbstractArray{<:Number})            = sum(x -> value(p, x), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:2:68
+   |
+ 2 | value(p::ElementPenalty, θ::AbstractArray{<:Number})            = sum(x -> value(p, x), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:2:68
+   |
+ 2 | value(p::ElementPenalty, θ::AbstractArray{<:Number})            = sum(x -> value(p, x), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:2:68
+   |
+ 2 | value(p::ElementPenalty, θ::AbstractArray{<:Number})            = sum(x -> value(p, x), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:2:68
+   |
+ 2 | value(p::ElementPenalty, θ::AbstractArray{<:Number})            = sum(x -> value(p, x), θ)
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
+   |
+help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:1:61
+   |
+ 1 | value(p::ElementPenalty, θ::Number, s::Number)       = s * value(p, θ)
+   |                                                             ^^^^^^^^^^^^ this argument has type Union{Float32, Float64}
+   |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/penalties/elementwise.jl:159:63
+     |
+ 159 | value(p::ScaledElementPenalty{<:Number}, θ::Number) = p.λ * value(p.penalty, θ)
+     |                                                               ^^^^^^^^^^^^^^^^^^^^ this argument has type Union{Float32, Float64}
+     |
+help: guard with `isa` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:24:61
+    |
+ 24 | deriv(p::ElementPenalty, θ::Number, s::Number) = s * deriv(p, θ)
+    |                                                             ^ argument `p` has type ElementPenalty
+    |
+note: `p` became ElementPenalty here
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:24:1
+    |
+ 24 | deriv(p::ElementPenalty, θ::Number, s::Number) = s * deriv(p, θ)
+    | ------------------------------------------------------------------ function parameter `?`
+    |
+help: guard with `p isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:24:61
+    |
+ 24 | deriv(p::ElementPenalty, θ::Number, s::Number) = s * deriv(p, θ)
+    |                                                             ^ argument `p` has type ElementPenalty
+    |
+note: `p` became ElementPenalty here
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:24:1
+    |
+ 24 | deriv(p::ElementPenalty, θ::Number, s::Number) = s * deriv(p, θ)
+    | ------------------------------------------------------------------ function parameter `?`
+    |
+help: guard with `p isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:1:67
+   |
+ 1 | value(p::ElementPenalty, θ::Number, s::Number)       = s * value(p, θ)
+   |                                                                   ^ argument `p` has type ElementPenalty
+   |
+note: `p` became ElementPenalty here
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:1:1
+   |
+ 1 | value(p::ElementPenalty, θ::Number, s::Number)       = s * value(p, θ)
+   | ------------------------------------------------------------------------ function parameter `?`
+   |
+help: guard with `p isa T` (or `if-elseif` on each variant) before the call
+
+error[JTC-DISPATCH]: call has an argument of abstract type
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:1:67
+   |
+ 1 | value(p::ElementPenalty, θ::Number, s::Number)       = s * value(p, θ)
+   |                                                                   ^ argument `p` has type ElementPenalty
+   |
+note: `p` became ElementPenalty here
+   --> /home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:1:1
+   |
+ 1 | value(p::ElementPenalty, θ::Number, s::Number)       = s * value(p, θ)
+   | ------------------------------------------------------------------------ function parameter `?`
+   |
+help: guard with `p isa T` (or `if-elseif` on each variant) before the call
+
 
 [STATS]
 package: PenaltyFunctions
 version: 0.3.0
 test_outcome: ok
-mis_harvested: 349
+mis_harvested: 307
 files_added: 7
-methods_checked: 21
-errors: 7
-elapsed_sec: 0.52
-check_threw: KeyError(/home/chenningcong/.julia/packages/PenaltyFunctions/CxL2m/src/common.jl:50:15
-for 2521:2598
- iteration 2524:2547
-  in 2524:2547
-   identifier 2525:2525
-   call 2530:2547
-    identifier 2530:2538
-    identifier 2540:2542
-    identifier 2545:2546
- block 2548:2595
-  = 2557:2590
-   ref 2557:2562
-    identifier 2557:2559
-    identifier 2561:2561
-   call 2566:2590
-    identifier 2566:2572
-    ref 2574:2579
-     identifier 2574:2576
-     identifier 2578:2578
-    identifier 2582:2582
-    ref 25
-class SyntaxError: 5
+methods_checked: 301
+errors: 49
+elapsed_sec: 4.5
+class InferenceErrorTopLevelDispatch: 28
+class InferenceErrorFailedToDestruct: 11
+class InferenceErrorFunCallArgs: 9
 class InferenceErrorMismatchedSplit: 1
-class InferenceErrorFunCall: 1

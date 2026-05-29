@@ -951,6 +951,23 @@ function inferExpr(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         if ast.head == :typed_comprehension
             return inferTypedComprehension(eng, ctx, ast)
         end
+        # Splat `...` at call sites — `f(args...)` parses :call with a
+        # `:...` child for the splatted arg. We don't model the arity
+        # expansion, but recurse into the inner expression for side
+        # effects (sub-call discovery) and return the splat as
+        # untyped — the resulting `f(...)` call will see Any-typed
+        # args downstream, which becomes a JTC-DISPATCH if relevant
+        # rather than killing the method check outright.
+        if ast.head == :(...)
+            rtctx = eng.globalCtx.rtctx
+            if length(ast.args) >= 1
+                rel = inferExpr(eng, ctx, ast.args[1])
+                ctx = rel.ctx
+            end
+            node = FlowNode(ast, FlowNode[], makeAnyType(rtctx), MacroCallFlowNode())
+            addFlowMapping!(eng, ast, node)
+            return InferResult(ctx, node)
+        end
         reportUnimplementedASTError(eng, ast, "Unsupported AST type $(ast.head)")
     end
 end

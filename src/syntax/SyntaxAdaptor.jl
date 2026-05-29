@@ -103,12 +103,17 @@ function convert2JuAST!(tree::JuliaSyntax.TreeNode{JuliaSyntax.SyntaxData},
     head = data.raw.head
     kind = Int64(reinterpret(Int16, head.kind))
     flag = head.flags
-    # TODO : we need to check the meaning of these flags here
-    # Currently it works pretty fine for simple cases
-    if (flag & ~JuliaSyntax.EMPTY_FLAGS &
-               ~JuliaSyntax.INFIX_FLAG  &
-               ~(1<<5) & # MUTABLE_FLAG
-               ~(1<<7) & # assignment
+    # JuliaSyntax stores a numeric value (e.g. the concatenation dimension
+    # for `ncat` / `typed_ncat` — `[A;;B]` packs dim=2 as flag 512,
+    # `[A;;;B]` packs dim=3 as flag 768) in the upper byte of `flag`.
+    # That's not a boolean flag bit that we need to whitelist, so strip
+    # bits 8-15 before validating. The full `flag` is still handed to
+    # JuAST below so downstream consumers can read the dim.
+    flag_bool = flag & 0x00FF
+    if (flag_bool & ~JuliaSyntax.EMPTY_FLAGS &
+                    ~JuliaSyntax.INFIX_FLAG  &
+                    ~(1<<5) & # MUTABLE_FLAG
+                    ~(1<<7) & # assignment
         ~(1<<6) & # string unescaped (unimportant for type inference)
         ~(1<<4) &
         # string macro

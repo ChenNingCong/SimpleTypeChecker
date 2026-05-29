@@ -4,6 +4,7 @@ import ..SimpleTypeChecker.Inference.GlobalContext
 import ..SimpleTypeChecker.Inference.addFile!
 import ..SimpleTypeChecker.Inference.runCheck!
 import ..SimpleTypeChecker.Inference.KwFunCall
+import ..SimpleTypeChecker.Inference.seedAllRegistered!
 
 function check(ctx::SimpleTypeChecker.Inference.GlobalContext, f, tt)
     ci = Base.code_typed(f,tt)[1].first
@@ -79,12 +80,26 @@ end
     pkgdir = dirname(abspath(p))
     entry_basename = string(nameof(mod), ".jl")
     ctx = GlobalContext()
+    n_included = 0
     for (root, _dirs, files) in walkdir(pkgdir)
         for f in files
             endswith(f, ".jl") || continue
             f == entry_basename && continue
             addFile!(ctx, mod, joinpath(root, f))
+            n_included += 1
         end
+    end
+    # Single-file package path: if nothing got added, the package's entire
+    # implementation lives in the entry file. The skip on `entry_basename`
+    # avoids a wrapper-name collision (the file declares `module Foo ... end`
+    # and evalMods would chase `mod.Foo`, which is mod itself looped). Fix
+    # by feeding the entry file under a synthetic wrapper module that holds
+    # `mod` as a `const Foo = mod` binding. evalMods's `mod.Foo` resolves
+    # back to the actual loaded module.
+    if n_included == 0
+        wrapper = Module(:__SingleFileEntryWrapper__)
+        Core.eval(wrapper, Expr(:const, Expr(:(=), nameof(mod), mod)))
+        addFile!(ctx, wrapper, joinpath(pkgdir, entry_basename))
     end
     runCheck!(ctx)
     return ctx

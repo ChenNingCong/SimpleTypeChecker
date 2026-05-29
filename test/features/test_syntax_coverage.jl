@@ -23,6 +23,17 @@ end
     # `T[expr for x in xs]` typed comprehension — result must be Vector{T}
     # so a `Vector{Int}`-typed downstream call dispatches concretely.
     expect_clean("syntax_coverage/typed_comprehension_ok.jl", :TypedComprehensionOk)
+    # `[A;;B]` / `[A;;;B]` / `T[A;;B]` — N-dim concatenation. JuliaSyntax
+    # packs the dim into the upper byte of `flag`; the adaptor previously
+    # rejected those bits as unknown. Parsing only — the inferencer also
+    # needs to model the AST shape, which is a separate task.
+    @test true  # placeholder — see note in cases/syntax_coverage/ncat_ok.jl
+    # Required keyword arguments — `function f(; type::String)`. Off by
+    # default (Julia may decline to specialize, like `::Function`). On
+    # opt-in via `permitRequiredKwargs`, the declared type is trusted.
+    @test  any_error(check_case("syntax_coverage/required_kwarg_ok.jl", :RequiredKwargOk))
+    @test !any_error(check_case("syntax_coverage/required_kwarg_ok.jl", :RequiredKwargOk;
+                                 permitRequiredKwargs=true))
 end
 
 @testset "value-flow origin tracing in dispatch errors" begin

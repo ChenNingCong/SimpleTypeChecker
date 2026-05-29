@@ -19,7 +19,8 @@ const FEATURES_DIR = @__DIR__
 # name. If they match, `evalMods(inner, [inner_name])` in runCheck! tries to
 # dereference `inner.inner_name`, which doesn't exist, and the checker
 # silently skips the method as a CompilerError.
-function check_case(rel::String, module_name::Symbol; deep::Bool=false)
+function check_case(rel::String, module_name::Symbol;
+                    deep::Bool=false, permitRequiredKwargs::Bool=false)
     path = joinpath(FEATURES_DIR, "cases", rel)
     wrapper = Module(:FeatureTestWrapper)
     # Julia 1.12 enforces strict world-age semantics for new bindings inside
@@ -35,6 +36,7 @@ function check_case(rel::String, module_name::Symbol; deep::Bool=false)
     # `deep=true` opts into the recursive dyn-dispatch detection. Tests
     # for that detection set it; everything else uses the shallow default.
     ctx.deepDispatchCheck = deep
+    ctx.permitRequiredKwargs = permitRequiredKwargs
     Base.invokelatest(SimpleTypeChecker.API.addFile!, ctx, target_mod, path)
     open("/dev/null", "w") do devnull
         redirect_stdout(devnull) do

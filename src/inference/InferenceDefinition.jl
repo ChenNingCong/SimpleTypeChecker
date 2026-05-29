@@ -603,6 +603,17 @@ mutable struct GlobalContext
     # (numerical code, IDE rechecks) where every microsecond of per-call
     # overhead matters.
     concreteShortCircuit::Bool
+    # When true, methods declaring a required keyword argument (one without
+    # a default initializer) are NOT flagged as `keywordNotDefined`. Off by
+    # default because required kwargs can defeat Julia's specialization in
+    # the same way that `::Function`-typed positionals do — the runtime is
+    # entitled to treat the kwarg's type as abstract, and we want to warn
+    # about that. Flip on for downstream packages where the idiom is in
+    # use and the API contract is enforced by Julia at the call site
+    # (`UndefKeywordError` at runtime if missing). When permitted, the
+    # synthesised value is the declared annotation type (or `Any` if no
+    # `::T` was given).
+    permitRequiredKwargs::Bool
     const expanders::Dict{CompileType, MacroExpander}
     # Runtime-isolation seam. See docs/isolation.md and
     # src/compiler/CompilerAdaptorTypes.jl. Default factory is
@@ -621,6 +632,7 @@ function GlobalContext(; rtctx::RuntimeContext = defaultRuntimeContext())
                   Dict{Any, Vector{CompileType}}(),
                   Dict{Any, Bool}(),
                   Dict{Any, Vector{String}}(),
+                  false,
                   false,
                   false,
                   false,

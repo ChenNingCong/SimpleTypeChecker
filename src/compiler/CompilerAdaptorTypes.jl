@@ -209,6 +209,15 @@ const MakeIntTypeFn      = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}}
 const MakeTypeTypeFn     = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}}
 const MakeFunctionTypeFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}}
 const MakeBottomTypeOfFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{}}
+# Driver-side lookup of "what does this builtin string macro return?".
+# Hardcoded table in CommonMacros.jl maps macro names (e.g. `@r_str`,
+# `@artifact_str`, `@v_str`) to the type of the value they produce. The
+# analyzer never touches Julia's macro-expansion machinery — that path
+# loses span info and trips on the AST tree shape.
+#
+# Returns a wrapped CompileType. For unknown names, returns Bottom as
+# a sentinel — caller falls through to the unrecognized-macro warning.
+const BuiltinMacroResultTypeFn = FunctionWrapper{OpaqueHandle{CompileTypeK}, Tuple{String}}
 
 # ─── Literal-wrap ops ───────────────────────────────────────────────────────
 #
@@ -311,6 +320,7 @@ struct RuntimeContext
     makeTypeType::MakeTypeTypeFn
     makeFunctionType::MakeFunctionTypeFn
     makeBottomTypeOf::MakeBottomTypeOfFn
+    builtinMacroResultType::BuiltinMacroResultTypeFn
     # Literal-wrap cluster
     wrapLiteralBool::WrapLiteralBoolFn
     wrapLiteralInt::WrapLiteralIntFn

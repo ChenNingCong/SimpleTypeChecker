@@ -184,6 +184,38 @@ end
 # (e.g. when the caller passes `nothing` as the placeholder for a callable
 # struct whose type isn't a singleton — covered by the 2-arg `inferReturnType`
 # dispatcher's third branch).
+# Escape hatch only — NOT the recommended entry point.
+#
+# Pushes every registered method-def onto the work queue as its OWN
+# specialization, using the method's declared signature. For real
+# package analysis, prefer harvesting concrete MethodInstances from a
+# test run (`Base.specializations(method)` after `Pkg.test(pkg)`) and
+# feeding those via `check(ctx, f, tt)` — the resulting concrete sigs
+# (e.g. `Foo{Matrix{Float64}}`) actually resolve field types and
+# dispatch targets.
+#
+# This helper seeds the bare declared sig, which for `function f(x::Foo)`
+# where `Foo{M}` is parametric becomes `Foo{M} where M`. The inferencer
+# then can't resolve `x.field` because `M` is unbound, producing
+# `getproperty on non-concrete type Foo{M} where M` warnings that aren't
+# real bugs — just noise from shape-only seeding. Use only when test runs
+# aren't available and you accept that noise.
+@nocheck function seedAllRegistered!(ctx::GlobalContext)::Nothing
+    for meth in keys(ctx.methodDefs)
+        sig = meth.sig
+        # Skip parametric — no concrete sparams available without a call site.
+        sig isa UnionAll && continue
+        mi = try
+            Core.Compiler.specialize_method(meth, sig, Core.svec())
+        catch
+            continue
+        end
+        mi isa MethodHandle || continue
+        push!(ctx.queue, KwFunCall(mi))
+    end
+    return nothing
+end
+
 @nocheck function _is_concrete_call_sig(@nospecialize(sig))::Bool
     sig isa DataType || return false
     sig <: Tuple || return false
@@ -1111,6 +1143,7 @@ function defaultRuntimeContext(;
     makeTypeTypeFn::MakeTypeTypeFn                 = MakeTypeTypeFn(makeTypeType),
     makeFunctionTypeFn::MakeFunctionTypeFn         = MakeFunctionTypeFn(makeFunctionType),
     makeBottomTypeOfFn::MakeBottomTypeOfFn         = MakeBottomTypeOfFn(makeBottomTypeOf),
+    builtinMacroResultTypeFn::BuiltinMacroResultTypeFn = BuiltinMacroResultTypeFn(builtinMacroResultType),
     # Literal-wrap cluster
     wrapLiteralBoolFn::WrapLiteralBoolFn           = WrapLiteralBoolFn(wrapLiteralBool),
     wrapLiteralIntFn::WrapLiteralIntFn             = WrapLiteralIntFn(wrapLiteralInt),
@@ -1156,6 +1189,7 @@ function defaultRuntimeContext(;
                           makeAnyTypeFn, makeBoolTypeFn, makeNothingTypeFn,
                           makeExprTypeFn, makeIntTypeFn, makeTypeTypeFn,
                           makeFunctionTypeFn, makeBottomTypeOfFn,
+                          builtinMacroResultTypeFn,
                           wrapLiteralBoolFn, wrapLiteralIntFn,
                           wrapLiteralFloat64Fn, wrapLiteralStringFn,
                           wrapLiteralCharFn, wrapLiteralSymbolNameFn,

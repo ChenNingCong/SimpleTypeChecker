@@ -73,6 +73,13 @@ makeTypeType(rtctx::RuntimeContext)::CompileType     = unwrap(rtctx.makeTypeType
 makeFunctionType(rtctx::RuntimeContext)::CompileType = unwrap(rtctx.makeFunctionType(), CompileType)
 makeBottomTypeOf(rtctx::RuntimeContext)::CompileType = unwrap(rtctx.makeBottomTypeOf(), CompileType)
 
+# Look up the result type of a well-known builtin macro (`@r_str`,
+# `@artifact_str`, ...). Returns `Bottom` if the name isn't in the
+# hardcoded table — caller treats that as "fall through to the generic
+# unrecognized-macro warning path".
+builtinMacroResultType(rtctx::RuntimeContext, name::AbstractString)::CompileType =
+    unwrap(rtctx.builtinMacroResultType(String(name)), CompileType)
+
 # Built-in global lookups — no-arg, return CompileType wrapping a const.
 lookupBaseIdentity(rtctx::RuntimeContext)::CompileType = unwrap(rtctx.lookupBaseIdentity(), CompileType)
 lookupIsa(rtctx::RuntimeContext)::CompileType          = unwrap(rtctx.lookupIsa(), CompileType)

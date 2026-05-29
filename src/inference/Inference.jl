@@ -220,11 +220,22 @@ function inferMacroCall(eng::Engine, ctx::Context, ast::JuAST)::InferResult
         end
     end
     if isConstVal(typ)
-        if haskey(eng.globalCtx.expanders, typ)
+        macroName = macroIdentifierName(ast)
+        builtinResultType = builtinMacroResultType(eng.globalCtx.rtctx, String(macroName))
+        if !isBottomType(eng.globalCtx.rtctx, builtinResultType)
+            # Hardcoded builtin macro (e.g. `r"..."`, `artifact"..."`, `v"..."`).
+            # We bypass the macro-expansion machinery — it loses span info when
+            # walking through the expanded form — and stamp the well-known
+            # result type directly. Arguments are still walked for side effects
+            # so embedded calls get queued.
+            ctx = inferMacroArgsForSideEffects!(eng, ctx, ast)
+            node = FlowNode(ast, FlowNode[], builtinResultType, MacroCallFlowNode())
+            addFlowMapping!(eng, ast, node)
+        elseif haskey(eng.globalCtx.expanders, typ)
             rel = inferExpand(eng, ctx, eng.globalCtx.expanders[typ], ast.args[2])
             ctx = rel.ctx
             node = rel.node
-        elseif isPassthroughMacroName(macroIdentifierName(ast)) && length(ast.args) >= 2
+        elseif isPassthroughMacroName(macroName) && length(ast.args) >= 2
             # `@m expr` — treat as if it were `expr`. Common single-arg
             # passthrough macros (@inbounds, @views, @inline, ...) emit
             # expressions whose runtime type matches the inner expression.
@@ -2007,6 +2018,57 @@ function inferComparison(eng::Engine, ctx::Context, ast::JuAST)::InferResult
     return InferResult(ctx, makeFunCallFlowNode(ast, ms, makeBoolType(eng.globalCtx.rtctx)))
 end
 
+# Recognise the literal `nothing`. JuliaSyntax surfaces it as a
+# `:literal` node whose val is the Nothing singleton (or, when written
+# bare in code, as `:identifier` with val `Symbol("nothing")` resolving
+# to the Core const). Match both shapes; the second is the common case.
+function _isLiteralNothing(ast::JuAST)::Bool
+    if ast.head == :literal
+        val = ast.val.val
+        return val === nothing
+    elseif ast.head == :identifier
+        return cast2Symbol(ast.val) === :nothing
+    end
+    return false
+end
+
+# Helper for `tryNarrowType`'s `x === nothing` branch. Produces a
+# pi-narrowing pair: TRUE branch narrows the variable to `Nothing`,
+# FALSE branch removes `Nothing` from the union. Returns `nothing` if
+# the variable isn't currently a union containing Nothing — in that
+# case the caller falls through to the normal infer path (the comparison
+# is still type-checked, just without narrowing).
+function _narrowEqNothing(eng::Engine, ctx::Context, ast::JuAST, varAst::JuAST)::Union{Pair{InferResult, Context}, Nothing}
+    rtctx = eng.globalCtx.rtctx
+    nothingTt = makeNothingType(rtctx)
+    # Build the comparison node so the call still type-checks downstream.
+    eqnode = makeGlobalVarFlowNode(ast.args[1], lookupBaseIdentity(rtctx))
+    rel = inferVar(eng, ctx, varAst)
+    ctx = rel.ctx
+    varNode = rel.node
+    curtt = varNode.typ
+    # We only narrow when the variable's static type actually includes
+    # `Nothing`. Pure `Nothing` types or non-union types are left alone:
+    # the `=== nothing` check is then either trivially true or trivially
+    # false and isn't useful for narrowing.
+    if !isaUnion(rtctx, curtt)
+        return nothing
+    end
+    ms = MethodCallStruct(FlowNode[eqnode, varNode, makeMacroCallFlowNode(rtctx, ast)])
+    condnode = makeFunCallFlowNode(ast, ms, makeBoolType(rtctx))
+    addFlowMapping!(eng, ast, condnode)
+    ctxval = lookup(ctx, cast2Symbol(varAst.val))
+    storetypenode = ctxval.typ
+    # TRUE branch: variable is exactly Nothing.
+    truePiNode = makePiFlowNode(ast, condnode, nothingTt)
+    trueCtx = update(ctx, cast2Symbol(varAst.val), ContextValue(storetypenode, truePiNode))
+    # FALSE branch: variable is the union with Nothing removed.
+    elseTt = splitUnion(rtctx, curtt, nothingTt)
+    falsePiNode = makeNegPiFlowNode(ast, condnode, elseTt)
+    falseCtx = update(ctx, cast2Symbol(varAst.val), ContextValue(storetypenode, falsePiNode))
+    return InferResult(trueCtx, condnode) => falseCtx
+end
+
 function tryNarrowType(eng::Engine, ctx::Context, ast::JuAST)::Pair{InferResult, Context}
     if ast.head == :call
         args = ast.args
@@ -2014,6 +2076,19 @@ function tryNarrowType(eng::Engine, ctx::Context, ast::JuAST)::Pair{InferResult,
             isa_ = ast.args[1]
             lhs = ast.args[2]
             rhs = ast.args[3]
+            # Special case: `x === nothing` and `nothing === x`. Lets the
+            # else branch use `x.fieldname` safely when `x::Union{T, Nothing}`.
+            # We don't model `===` against arbitrary constants — only the
+            # `Nothing`-singleton pattern, which is the common idiom in
+            # base / package code (`m = match(...); m === nothing && return`).
+            if isa_.head == :identifier && cast2Symbol(isa_.val) === :(===)
+                varAst = lhs.head == :identifier && _isLiteralNothing(rhs) ? lhs :
+                         rhs.head == :identifier && _isLiteralNothing(lhs) ? rhs : nothing
+                if varAst !== nothing
+                    rel = _narrowEqNothing(eng, ctx, ast, varAst)
+                    rel === nothing || return rel
+                end
+            end
             if isa_.head == :identifier && cast2Symbol(isa_.val) == :isa
                 # TODO : we need to add FlowNode to all the JuExpr here
                 isanode = makeGlobalVarFlowNode(isa_, lookupIsa(eng.globalCtx.rtctx))
@@ -2925,7 +3000,24 @@ function checkToplevelFunction(eng::Engine,
             node = makeParamFlowNode(ast, inputtyp)
         else
             if isNone(minitnode)
-                reportErrorkeywordNotDefined(eng, ast, arg.name)
+                # Required keyword (no default). By default this is an
+                # error: Julia can decline to specialize on the kwarg's
+                # type (same way `::Function` positionals get widened),
+                # which silently degrades dispatch. `permitRequiredKwargs`
+                # opts into trusting the callers — the runtime still
+                # enforces presence via `UndefKeywordError`, and we
+                # synthesize the declared annotation (`::T`) or `Any`.
+                if eng.globalCtx.permitRequiredKwargs
+                    if !isNone(mtypnode)
+                        typnode = castJust(mtypnode)
+                        ttt = lift(eng.globalCtx.rtctx, typnode.typ)
+                        node = makeParamFlowNode(ast, ttt)
+                    else
+                        node = makeParamFlowNode(ast, makeAnyType(eng.globalCtx.rtctx))
+                    end
+                else
+                    reportErrorkeywordNotDefined(eng, ast, arg.name)
+                end
             else
                 initnode = castJust(minitnode)
                 if !isNone(mtypnode)
@@ -3324,7 +3416,21 @@ end
                     end
                 end
             else
-                rethrow(e)
+                # An exception we didn't model (e.g. an `ErrorException`
+                # bubbling up from a sub-call that hit an inference dead
+                # end, a KeyError from a span-mapping miss, a TypeError on
+                # a typeassert in the inferencer pipeline). Don't let it
+                # abort the whole queue — record it as a fail on this MI
+                # and continue with the next one. The checker promises a
+                # diagnostic per method, not an exception per package.
+                ctx.hasChecked[mi][end] = ctx.hasChecked[mi][end].first => e
+                if ctx.printCheckerFrames
+                    miStr = _shortenMethodSig(string(mi))
+                    println("in ", miStr, "   [checker-internal]")
+                end
+                println("error[JTC-INTERNAL]: checker crashed on this method instance")
+                println("   ", first(string(e), 400))
+                println()
             end
         finally
         end

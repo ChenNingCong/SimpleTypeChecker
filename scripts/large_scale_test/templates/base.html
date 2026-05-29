@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}Large-Scale Testing{% endblock %}</title>
+  <style>
+    :root {
+      --bg: #fafaf7;
+      --fg: #1a1a1a;
+      --muted: #666;
+      --accent: #2a4d7a;
+      --border: #ddd;
+      --ok: #2d6a4f;
+      --warn: #b45309;
+      --bad: #9b1c1c;
+      --code-bg: #f0eee6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 24px;
+      color: var(--fg);
+      background: var(--bg);
+      line-height: 1.5;
+    }
+    header { border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 24px; }
+    header h1 { margin: 0 0 4px 0; font-size: 22px; }
+    header .subtitle { color: var(--muted); font-size: 13px; }
+    nav { margin-top: 8px; font-size: 13px; }
+    nav a { color: var(--accent); text-decoration: none; margin-right: 16px; }
+    nav a:hover { text-decoration: underline; }
+    h2 { font-size: 18px; margin-top: 32px; }
+    h3 { font-size: 15px; margin-top: 24px; }
+    .stage {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 16px;
+      margin-bottom: 16px;
+      background: white;
+    }
+    .stage-title { display: flex; justify-content: space-between; align-items: baseline; }
+    .stage-title h3 { margin: 0; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge-ok   { background: #d4edda; color: var(--ok); }
+    .badge-miss { background: #fef3c7; color: var(--warn); }
+    .blurb { color: var(--muted); font-size: 13px; margin: 8px 0; }
+    .meta { font-size: 12px; color: var(--muted); }
+    .meta code { background: var(--code-bg); padding: 1px 4px; border-radius: 2px; }
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 3px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    button:hover { opacity: 0.9; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+    th { background: var(--code-bg); font-weight: 600; }
+    code, pre { font-family: "SF Mono", "Menlo", "Consolas", monospace; }
+    pre {
+      background: var(--code-bg);
+      padding: 12px;
+      border-radius: 3px;
+      font-size: 12px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .pill { display: inline-block; padding: 2px 6px; border-radius: 10px; font-size: 11px; background: var(--code-bg); margin-right: 4px; }
+    .runlog { display: none; margin-top: 12px; }
+    .runlog.show { display: block; }
+    .runlog .ok { color: var(--ok); }
+    .runlog .bad { color: var(--bad); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SimpleTypeChecker — Large-Scale Testing</h1>
+    <div class="subtitle">Pipeline for running the checker over the Julia General registry.</div>
+    <nav>
+      <a href="{{ url_for('index') }}">Overview</a>
+      <a href="{{ url_for('stage0') }}">Stage 0 — Snapshot</a>
+      <a href="{{ url_for('stage1') }}">Stage 1 — Categorize</a>
+      <a href="{{ url_for('stage2') }}">Stage 2 — Parser pass</a>
+    </nav>
+  </header>
+  {% block content %}{% endblock %}
+</body>
+</html>

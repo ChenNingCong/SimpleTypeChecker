@@ -9,3 +9,4 @@
 # Trim-built artifacts from bin/build_standalone.jl. The build is
 # reproducible (~30s) and binaries are large (~8MB) — don't track them.
 /bin/build/
+scripts/large_scale_test/data

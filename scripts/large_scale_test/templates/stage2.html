@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Stage 2 — Parser pass</h2>
+
+{% if missing_prereq %}
+  <div class="stage">
+    <p>Stage 1 (categorize) hasn't run yet.
+       <a href="{{ url_for('stage1') }}">Run it first</a>.</p>
+  </div>
+{% elif not pool %}
+  <div class="stage">
+    <p>No active pool. Go to <a href="{{ url_for('stage1') }}">Stage 1</a>,
+       set the filter you want, click <strong>Save pool for stage 2</strong>.</p>
+  </div>
+{% else %}
+
+<p style="color: var(--muted); font-size: 13px;">
+  Stage 2 is split into two phases. <strong>Fetch</strong> downloads
+  <code>.tar.gz</code> blobs to <code>data/tarballs/</code> on disk and
+  never decompresses them. <strong>Parse</strong> reads cached tarballs,
+  decompresses in RAM, walks the tar in-memory, runs our parser, and
+  writes one result file per package to <code>data/results/</code>.
+  Both phases are idempotent — re-runs only do work for packages
+  that aren't already cached / processed.
+</p>
+
+<div class="stage">
+  <div class="stage-title">
+    <h3>Active pool</h3>
+    <span class="badge badge-ok">{{ pool.package_count }} packages</span>
+  </div>
+  <div class="meta" style="margin-top: 8px;">snapshot <code>{{ pool.snapshot_revision }}</code></div>
+</div>
+
+<div class="stage">
+  <h3>Phase 1 — Fetch tarballs</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; align-items: end;">
+    <label style="font-size: 13px;">
+      Max tarball size (MB)
+      <input type="number" id="max-tar-mb" value="1" min="1" max="100" style="width: 80px; margin-left: 8px;">
+      <span class="meta">1 MB &times; 1000 pkgs &asymp; 1 GB on disk.</span>
+    </label>
+    <button id="fetch-btn" onclick="startFetch()">Run / resume fetch</button>
+  </div>
+  <div id="fetch-status" class="meta" style="margin-top: 12px;"></div>
+</div>
+
+<div class="stage">
+  <h3>Phase 2 — Parse cached tarballs</h3>
+  <p class="meta">Decompresses each cached tarball in RAM, extracts <code>*/src/**/*.jl</code>,
+    runs our parser, computes structural + code fingerprint, writes one JSON per package.</p>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; align-items: end;">
+    <label style="font-size: 13px;">
+      <input type="checkbox" id="force-reprocess">
+      Force re-process (ignore cached results)
+    </label>
+    <button id="parse-btn" onclick="startParse()">Run / resume parse</button>
+  </div>
+  <div id="parse-status" class="meta" style="margin-top: 12px;"></div>
+</div>
+
+<p style="margin-top: 16px;">
+  Live aggregate view: <a href="{{ url_for('dashboard') }}">Dashboard &rarr;</a>
+</p>
+
+<script>
+async function startFetch() {
+  const btn = document.getElementById("fetch-btn");
+  const maxTar = parseInt(document.getElementById("max-tar-mb").value || "1", 10);
+  btn.disabled = true; btn.textContent = "Starting...";
+  const resp = await fetch("/stage2/fetch_run", {
+    method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({max_tar_mb: maxTar}),
+  });
+  const data = await resp.json();
+  if (!data.ok) {
+    document.getElementById("fetch-status").textContent = "Error: " + data.error;
+    btn.disabled = false; btn.textContent = "Run / resume fetch";
+    return;
+  }
+  btn.textContent = "Running (pid " + data.pid + ")...";
+  startPoll();
+}
+async function startParse() {
+  const btn = document.getElementById("parse-btn");
+  const force = document.getElementById("force-reprocess").checked;
+  btn.disabled = true; btn.textContent = "Starting...";
+  const resp = await fetch("/stage2/parse_run", {
+    method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({force}),
+  });
+  const data = await resp.json();
+  if (!data.ok) {
+    document.getElementById("parse-status").textContent = "Error: " + data.error;
+    btn.disabled = false; btn.textContent = "Run / resume parse";
+    return;
+  }
+  btn.textContent = "Running (pid " + data.pid + ")...";
+  startPoll();
+}
+let pollHandle = null;
+function startPoll() {
+  if (pollHandle) clearInterval(pollHandle);
+  pollHandle = setInterval(pollProgress, 2000);
+  pollProgress();
+}
+async function pollProgress() {
+  const resp = await fetch("/stage2/progress");
+  const d = await resp.json();
+  const fs = document.getElementById("fetch-status");
+  const ps = document.getElementById("parse-status");
+  fs.innerHTML = `<strong>${d.tar_count}</strong> tarballs cached`;
+  if (d.fetch) {
+    const f = d.fetch;
+    const pct = f.total ? (100*f.processed/f.total).toFixed(1) : 0;
+    fs.innerHTML += ` &middot; progress: ${f.processed}/${f.total} (${pct}%)`
+                  + ` &middot; downloaded: ${f.downloaded}, cached: ${f.skipped}, errors: ${f.errors}`
+                  + ` &middot; current: <code>${f.current}</code>`;
+  }
+  ps.innerHTML = `<strong>${d.result_count}</strong> per-package results saved`;
+  if (d.parse) {
+    const p = d.parse;
+    const pct = p.total ? (100*p.processed/p.total).toFixed(1) : 0;
+    ps.innerHTML += ` &middot; progress: ${p.processed}/${p.total} (${pct}%)`
+                  + ` &middot; processed this run: ${p.processed_this_run}, skipped (cached): ${p.skipped_cached}`
+                  + ` &middot; current: <code>${p.current}</code>`;
+  }
+}
+// First poll on load so the status panes are populated for resumed/finished runs.
+pollProgress();
+</script>
+
+{% endif %}
+{% endblock %}

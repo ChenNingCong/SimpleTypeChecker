@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Pipeline overview</h2>
+<p style="color: var(--muted); font-size: 13px;">
+  Each stage drops or labels packages at progressively higher cost. Click a stage to see its artifact and re-run it.
+</p>
+
+{% for s in pipeline %}
+<div class="stage">
+  <div class="stage-title">
+    <h3><a href="{{ url_for(s.route) }}" style="text-decoration: none; color: inherit;">{{ s.title }}</a></h3>
+    {% if s.status.exists %}
+      <span class="badge badge-ok">ready</span>
+    {% else %}
+      <span class="badge badge-miss">missing</span>
+    {% endif %}
+  </div>
+  <div class="blurb">{{ s.blurb }}</div>
+  <div class="meta">
+    artifact: <code>{{ s.artifact }}</code>
+    {% if s.status.exists %}
+      &middot; {{ (s.status.size_bytes / 1024) | round(1) }} KB
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

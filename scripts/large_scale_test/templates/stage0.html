@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Stage 0 — Registry snapshot</h2>
+<p style="color: var(--muted); font-size: 13px;">
+  Reads the user's installed General registry and emits per-package metadata
+  (name, uuid, latest_version, repo, deps). Idempotent — skips if the snapshot
+  already matches the registry's tree hash.
+</p>
+
+<div class="stage">
+  <div class="stage-title">
+    <h3>Snapshot status</h3>
+    {% if status.exists %}
+      <span class="badge badge-ok">ready</span>
+    {% else %}
+      <span class="badge badge-miss">missing</span>
+    {% endif %}
+  </div>
+
+  {% if snapshot %}
+  <table style="margin-top: 12px;">
+    <tr><td>Registry revision</td><td><code>{{ snapshot.registry_revision }}</code></td></tr>
+    <tr><td>Registry path</td><td><code>{{ snapshot.registry_path }}</code></td></tr>
+    <tr><td>Package count</td><td><strong>{{ snapshot.package_count }}</strong></td></tr>
+    <tr><td>Artifact size</td><td>{{ (status.size_bytes / 1024) | round(1) }} KB</td></tr>
+  </table>
+  {% else %}
+    <p class="meta">No snapshot yet. Run it to generate <code>data/registry_snapshot.json</code>.</p>
+  {% endif %}
+
+  <div style="margin-top: 16px;">
+    <button id="run-btn" onclick="runStage()">Run / refresh snapshot</button>
+  </div>
+  <div id="runlog" class="runlog"><pre id="runlog-pre"></pre></div>
+</div>
+
+{% if sample %}
+<h3>First 20 packages (alphabetical)</h3>
+<table>
+  <thead>
+    <tr><th>Name</th><th>Latest</th><th>Deps</th><th>Repo</th></tr>
+  </thead>
+  <tbody>
+    {% for p in sample %}
+    <tr>
+      <td><code>{{ p.name }}</code></td>
+      <td>{{ p.latest_version }}</td>
+      <td>{{ p.deps_uuids | length }}</td>
+      <td style="font-size: 11px; color: var(--muted);">{{ p.repo }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<script>
+async function runStage() {
+  const btn = document.getElementById("run-btn");
+  const log = document.getElementById("runlog");
+  const pre = document.getElementById("runlog-pre");
+  btn.disabled = true;
+  btn.textContent = "Running...";
+  log.classList.add("show");
+  pre.textContent = "Invoking julia/snapshot_registry.jl ...";
+  try {
+    const resp = await fetch("/stage0/run", { method: "POST" });
+    const data = await resp.json();
+    const tag = data.ok ? '<span class="ok">[ok]</span>' : '<span class="bad">[failed]</span>';
+    pre.innerHTML = `${tag} ${data.cmd}\n\n--- stdout ---\n${data.stdout}\n--- stderr ---\n${data.stderr}`;
+    if (data.ok) setTimeout(() => location.reload(), 600);
+  } catch (e) {
+    pre.textContent = "Error: " + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Run / refresh snapshot";
+  }
+}
+</script>
+{% endblock %}

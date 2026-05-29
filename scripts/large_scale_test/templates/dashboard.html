@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Dashboard</h2>
+
+<p style="color: var(--muted); font-size: 13px;">
+  Cross-stage view of the pipeline. The funnel shows how each stage
+  narrows the pool; the lower sections drill into parse-pass results.
+</p>
+
+{% if running %}
+<div class="stage" style="border-left: 4px solid var(--warn);">
+  <strong>Stage 2 is running.</strong>
+  {% if progress %}
+  Progress: <strong>{{ progress.processed }} / {{ progress.total }}</strong>
+  ({{ "%.1f"|format(100 * progress.processed / progress.total) }} %)
+  &middot; current: <code>{{ progress.current }}</code>
+  &middot; elapsed: {{ "%.0f"|format(progress.elapsed_sec) }}s
+  {% endif %}
+  <div class="meta" style="margin-top: 4px;">Auto-refreshing every 5 s.</div>
+</div>
+<script>setTimeout(() => location.reload(), 5000);</script>
+{% endif %}
+
+<h3>Pipeline funnel</h3>
+<div class="stage">
+  {% if funnel %}
+  <table>
+    <thead><tr><th>Stage</th><th style="text-align:right;">Count</th><th style="text-align:right;">% of registry</th></tr></thead>
+    <tbody>
+      {% for row in funnel %}
+      <tr>
+        <td>{{ row.label }}</td>
+        <td style="text-align:right;"><strong>{{ "{:,}".format(row.count) }}</strong></td>
+        <td style="text-align:right;">{% if row.pct is not none %}{{ "%.1f"|format(row.pct) }} %{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="meta">No stages have run yet.
+    <a href="{{ url_for('stage0') }}">Start at stage 0</a>.</p>
+  {% endif %}
+</div>
+
+{% if parse %}
+<h3>Stage 2 — Parse pass results</h3>
+
+<div class="stage">
+  <div class="meta">
+    Finished: <strong>{{ parse.finished }}</strong> &middot;
+    Elapsed: {{ "%.1f"|format(parse.elapsed_sec) }}s &middot;
+    Max tar: {{ parse.max_tar_mb }} MB &middot;
+    Records: {{ parse.results|length }} / {{ parse.pool_size }}
+  </div>
+
+  <h4 style="margin-top: 16px;">Status breakdown</h4>
+  <table>
+    <thead><tr><th>Status</th><th style="text-align:right;">Count</th><th style="text-align:right;">% of recorded</th></tr></thead>
+    <tbody>
+      {% set total = parse.results|length %}
+      {% for st, n in status_breakdown.items()|sort(attribute='1', reverse=true) %}
+      <tr>
+        <td><code>{{ st }}</code></td>
+        <td style="text-align:right;">{{ "{:,}".format(n) }}</td>
+        <td style="text-align:right;">{{ "%.1f"|format(100*n/total) }} %</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h4 style="margin-top: 16px;">Quality metrics</h4>
+  <table>
+    <tr><td>Total Julia source extracted</td><td style="text-align:right;"><strong>{{ "{:,}".format((jl_bytes_total or 0) // 1024) }} KB</strong></td></tr>
+    <tr><td>Total tarball bytes downloaded</td><td style="text-align:right;">{{ "{:,}".format((tar_bytes_total or 0) // 1024) }} KB</td></tr>
+    <tr><td>Junk ratio (tar / jl)</td><td style="text-align:right;">{% if junk_ratio %}{{ "%.2f"|format(junk_ratio) }} ×{% else %}—{% endif %}</td></tr>
+    <tr><td>Median .jl per package</td><td style="text-align:right;">{{ "%.1f"|format(median_jl_kb) }} KB</td></tr>
+  </table>
+</div>
+
+{% if err_clusters %}
+<div class="stage">
+  <h4>Top parser-error clusters</h4>
+  <p class="meta">First error message per package, bucketed by prefix.</p>
+  <table>
+    <thead><tr><th>Cluster key</th><th style="text-align:right;">Count</th></tr></thead>
+    <tbody>
+      {% for k, n in err_clusters.items() %}
+      <tr>
+        <td><code style="font-size: 11px;">{{ k }}</code></td>
+        <td style="text-align:right;">{{ n }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if top_clean %}
+<div class="stage">
+  <h4>Top 30 parse-clean packages by .jl size</h4>
+  <p class="meta">These are the meatiest candidates for stage 3+ (load smoke / full runCheck).</p>
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Version</th><th style="text-align:right;">n_files</th><th style="text-align:right;">jl (KB)</th><th style="text-align:right;">tar (KB)</th><th style="text-align:right;">junk ×</th></tr>
+    </thead>
+    <tbody>
+      {% for r in top_clean %}
+      <tr>
+        <td><code>{{ r.name }}</code></td>
+        <td>{{ r.version }}</td>
+        <td style="text-align:right;">{{ r.n_files }}</td>
+        <td style="text-align:right;">{{ "%.1f"|format(r.jl_total_bytes / 1024) }}</td>
+        <td style="text-align:right;">{{ "%.1f"|format(r.tar_bytes / 1024) }}</td>
+        <td style="text-align:right;">{% if r.jl_total_bytes %}{{ "%.1f"|format(r.tar_bytes / r.jl_total_bytes) }}{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% else %}
+<div class="stage">
+  <p>Stage 2 hasn't produced results yet. <a href="{{ url_for('stage2') }}">Go to stage 2</a> to start the parser pass.</p>
+</div>
+{% endif %}
+
+{% endblock %}

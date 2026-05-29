@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Stage 1 — Categorize packages by deps</h2>
+
+{% if missing_prereq %}
+  <div class="stage">
+    <p>Stage 0 (registry snapshot) hasn't run yet.
+       <a href="{{ url_for('stage0') }}">Run it first</a>.</p>
+  </div>
+{% else %}
+
+<p style="color: var(--muted); font-size: 13px;">
+  Each package is tagged with one or more buckets, computed from name +
+  dep graph. Buckets are multi-label. Filtering happens here in the UI —
+  toggle predicates to narrow the pool.
+</p>
+
+<div class="stage">
+  <div class="stage-title">
+    <h3>Categorized artifact</h3>
+    {% if status.exists %}
+      <span class="badge badge-ok">ready</span>
+    {% else %}
+      <span class="badge badge-miss">missing</span>
+    {% endif %}
+  </div>
+
+  {% if summary %}
+  <table style="margin-top: 12px;">
+    <tr><td>From snapshot revision</td><td><code>{{ summary.snapshot_revision }}</code></td></tr>
+    <tr><td>Packages categorized</td><td><strong>{{ summary.package_count }}</strong></td></tr>
+  </table>
+  {% endif %}
+
+  <div style="margin-top: 16px;">
+    <button id="run-btn" onclick="runStage()">Run / re-categorize</button>
+  </div>
+  <div id="runlog" class="runlog"><pre id="runlog-pre"></pre></div>
+</div>
+
+{% if status.exists %}
+<div class="stage">
+  <h3>Filter predicates</h3>
+  <p class="meta">
+    <strong>Require</strong> = package must have <em>all</em> these tags.
+    <strong>Exclude</strong> = package must have <em>none</em> of these tags.
+    Defaults reflect the "strict mode" pool (excluded buckets are checked).
+  </p>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 12px;">
+    <div>
+      <h4 style="margin: 0 0 8px 0;">Require</h4>
+      {% for b in bucket_order %}
+      <label style="display: block; margin: 4px 0; font-family: monospace; font-size: 13px;">
+        <input type="checkbox" class="req-cb" value="{{ b }}"
+               {% if b in default_require %}checked{% endif %}>
+        {{ b }}
+        <span class="pill" style="margin-left: 4px;">{{ bucket_counts.get(b, 0) }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <div>
+      <h4 style="margin: 0 0 8px 0;">Exclude</h4>
+      {% for b in bucket_order %}
+      <label style="display: block; margin: 4px 0; font-family: monospace; font-size: 13px;">
+        <input type="checkbox" class="excl-cb" value="{{ b }}"
+               {% if b in default_exclude %}checked{% endif %}>
+        {{ b }}
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <h4 style="margin-top: 24px;">Julia compatibility</h4>
+  <p class="meta" style="margin-top: 4px;">
+    We follow each package's declared Julia compat (its Compat.toml). No
+    guessing whether older-declared packages would secretly work on 1.12.<br>
+    <strong>Lower-bound range</strong> = the lowest Julia version the package
+    declares support for. e.g. <code>1.9</code> means "developed against
+    Julia ≥ 1.9." Higher = more recent code, but may use newer Julia
+    features. Format: <code>major.minor</code>, e.g. <code>1.10</code>.
+  </p>
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px;">
+    <label style="font-size: 13px;">
+      <input type="checkbox" id="julia-supports-target" checked>
+      supports target Julia (1.12)
+    </label>
+    <label style="font-size: 13px;">julia_lower min (e.g. 1.9) <input type="text" id="julia-lower-min" placeholder="(none)" value="1.6" style="width: 80px;"></label>
+    <label style="font-size: 13px;">julia_lower max <input type="text" id="julia-lower-max" placeholder="(none)" value="1.10" style="width: 80px;"></label>
+  </div>
+
+  <h4 style="margin-top: 24px;">Numeric thresholds</h4>
+  <p class="meta" style="margin-top: 4px;">
+    <strong>rdeps</strong> = packages that depend on this one. <em>Counterintuitive:</em>
+    low rdeps (newbie / experimental code) tends to use simpler Julia and may
+    be the <em>easier</em> set for a static checker. High rdeps (StaticArrays
+    etc.) often means heavy metaprogramming and type piracy. Defaults leave
+    rdeps unfiltered.<br>
+    <strong>n_deps</strong> = direct dep count. Low = simple leaf utility.
+  </p>
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px;">
+    <label style="font-size: 13px;">rdeps min <input type="number" id="rdeps-min" min="0" value="1" placeholder="(none)" style="width: 80px;"></label>
+    <label style="font-size: 13px;">rdeps max <input type="number" id="rdeps-max" min="0" value="20" placeholder="(none)" style="width: 80px;"></label>
+    <label style="font-size: 13px;">n_deps min <input type="number" id="ndeps-min" min="0" placeholder="(none)" style="width: 80px;"></label>
+    <label style="font-size: 13px;">n_deps max <input type="number" id="ndeps-max" min="0" value="10" placeholder="(none)" style="width: 80px;"></label>
+    <label style="font-size: 13px;">
+      Sort by:
+      <select id="sort-by">
+        <option value="name">name</option>
+        <option value="rdeps_desc">rdeps (high→low)</option>
+        <option value="ndeps_asc">n_deps (low→high)</option>
+        <option value="ndeps_desc">n_deps (high→low)</option>
+      </select>
+    </label>
+  </div>
+
+  <div style="margin-top: 20px; padding: 12px; background: var(--code-bg); border-radius: 4px; display: flex; align-items: center; justify-content: space-between;">
+    <div>
+      <strong id="match-count">…</strong>
+      <span style="color: var(--muted);">packages match (out of <span id="total-count">…</span>)</span>
+    </div>
+    <button id="save-pool-btn" onclick="savePool()">Save pool for stage 2 &raquo;</button>
+  </div>
+  <div id="save-pool-status" class="meta" style="margin-top: 4px;"></div>
+
+  <h4 style="margin-top: 20px;">Sample (first 50 of matches)</h4>
+  <table>
+    <thead><tr><th>Name</th><th>Latest</th><th>rdeps</th><th>n_deps</th><th>julia_compat</th><th>Buckets</th></tr></thead>
+    <tbody id="sample-tbody"><tr><td colspan="6" style="color: var(--muted);">loading…</td></tr></tbody>
+  </table>
+</div>
+
+<script>
+const reqCheckboxes  = Array.from(document.querySelectorAll(".req-cb"));
+const exclCheckboxes = Array.from(document.querySelectorAll(".excl-cb"));
+const sortBy = document.getElementById("sort-by");
+
+function intOrNull(id) {
+  const v = document.getElementById(id).value;
+  return v === "" ? null : parseInt(v, 10);
+}
+function strOrNull(id) {
+  const v = document.getElementById(id).value.trim();
+  return v === "" ? null : v;
+}
+
+async function refreshFilter() {
+  const require = reqCheckboxes.filter(cb => cb.checked).map(cb => cb.value);
+  const exclude = exclCheckboxes.filter(cb => cb.checked).map(cb => cb.value);
+  const sort_by = sortBy.value;
+  const payload = {
+    require, exclude, sort_by,
+    rdeps_min: intOrNull("rdeps-min"),
+    rdeps_max: intOrNull("rdeps-max"),
+    ndeps_min: intOrNull("ndeps-min"),
+    ndeps_max: intOrNull("ndeps-max"),
+    julia_supports_target: document.getElementById("julia-supports-target").checked,
+    julia_lower_min: strOrNull("julia-lower-min"),
+    julia_lower_max: strOrNull("julia-lower-max"),
+  };
+  const resp = await fetch("/stage1/filter", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload),
+  });
+  const data = await resp.json();
+  document.getElementById("match-count").textContent = data.count.toLocaleString();
+  document.getElementById("total-count").textContent = data.total.toLocaleString();
+  const tbody = document.getElementById("sample-tbody");
+  if (data.sample.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="color: var(--muted);">no matches</td></tr>';
+  } else {
+    tbody.innerHTML = data.sample.map(p => `
+      <tr>
+        <td><code>${p.name}</code></td>
+        <td>${p.latest_version}</td>
+        <td style="text-align: right;">${p.rdeps ?? 0}</td>
+        <td style="text-align: right;">${p.n_deps}</td>
+        <td style="font-size: 11px; color: var(--muted);">${p.julia_compat || "—"}</td>
+        <td>${p.buckets.map(b => `<span class="pill">${b}</span>`).join("")}</td>
+      </tr>`).join("");
+  }
+}
+
+async function savePool() {
+  const btn = document.getElementById("save-pool-btn");
+  const status = document.getElementById("save-pool-status");
+  const require = reqCheckboxes.filter(cb => cb.checked).map(cb => cb.value);
+  const exclude = exclCheckboxes.filter(cb => cb.checked).map(cb => cb.value);
+  const payload = {
+    require, exclude,
+    rdeps_min: intOrNull("rdeps-min"),
+    rdeps_max: intOrNull("rdeps-max"),
+    ndeps_min: intOrNull("ndeps-min"),
+    ndeps_max: intOrNull("ndeps-max"),
+    julia_supports_target: document.getElementById("julia-supports-target").checked,
+    julia_lower_min: strOrNull("julia-lower-min"),
+    julia_lower_max: strOrNull("julia-lower-max"),
+  };
+  btn.disabled = true; btn.textContent = "Saving...";
+  const resp = await fetch("/stage1/save_pool", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload),
+  });
+  const data = await resp.json();
+  btn.disabled = false; btn.textContent = "Save pool for stage 2 »";
+  if (data.ok) {
+    status.innerHTML = `Saved <strong>${data.count.toLocaleString()}</strong> packages. <a href="/stage2">Continue to Stage 2 &rarr;</a>`;
+  } else {
+    status.textContent = "Error: " + (data.error || "unknown");
+  }
+}
+
+reqCheckboxes.forEach(cb => cb.addEventListener("change", refreshFilter));
+exclCheckboxes.forEach(cb => cb.addEventListener("change", refreshFilter));
+sortBy.addEventListener("change", refreshFilter);
+["rdeps-min","rdeps-max","ndeps-min","ndeps-max","julia-lower-min","julia-lower-max"].forEach(id =>
+  document.getElementById(id).addEventListener("change", refreshFilter));
+document.getElementById("julia-supports-target").addEventListener("change", refreshFilter);
+refreshFilter();
+</script>
+{% endif %}
+
+<script>
+async function runStage() {
+  const btn = document.getElementById("run-btn");
+  const log = document.getElementById("runlog");
+  const pre = document.getElementById("runlog-pre");
+  btn.disabled = true;
+  btn.textContent = "Running...";
+  log.classList.add("show");
+  pre.textContent = "Invoking julia/categorize.jl ...";
+  try {
+    const resp = await fetch("/stage1/run", { method: "POST" });
+    const data = await resp.json();
+    const tag = data.ok ? '<span class="ok">[ok]</span>' : '<span class="bad">[failed]</span>';
+    pre.innerHTML = `${tag} ${data.cmd}\n\n--- stdout ---\n${data.stdout}\n--- stderr ---\n${data.stderr}`;
+    if (data.ok) setTimeout(() => location.reload(), 600);
+  } catch (e) {
+    pre.textContent = "Error: " + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Run / re-categorize";
+  }
+}
+</script>
+{% endif %}
+{% endblock %}

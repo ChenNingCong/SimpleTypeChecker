@@ -77,7 +77,70 @@ submission to LowRankArithmetic.
 
 ---
 
-## Crayons v4.x — `_torgb` body type doesn't match declared return
+## ArgCheck v2.x — `analyze_call_arg` returns four different NamedTuple shapes (UNVERIFIED)
+
+**File**: `src/checks.jl:133-150` (`analyze_call_arg`)
+
+```julia
+function analyze_call_arg(expr, isparameter)
+    if isexpr(expr, :kw)
+        (kind=:kw, expr=expr.args[2], key=expr.args[1], symbol=…, isparameter=…)   # 5 fields
+    elseif isexpr(expr, SPLAT)
+        (kind=:splat, expr=expr.args[1], symbol=…, isparameter=…)                  # 4 fields
+    elseif isparameter
+        if expr isa Symbol
+            (kind=:kw, expr=expr, key=expr, symbol=…, isparameter=…)                # 5 fields (same shape as branch 1)
+        else
+            (kind=:ghost, expr=expr, isparameter=…)                                 # 3 fields
+        end
+    ...
+```
+
+**Diagnostic** the checker produced:
+```
+error[JTC-ASSIGN]: reassigned type Any is incompatible
+   --> .../ArgCheck/.../src/checks.jl:135:25
+```
+
+**Why this MIGHT be a real bug**:
+
+The function returns NamedTuples with three distinct *shapes*:
+- `(kind, expr, key, symbol, isparameter)` (5 fields, two branches)
+- `(kind, expr, symbol, isparameter)` (4 fields)
+- `(kind, expr, isparameter)` (3 fields)
+
+Downstream callers must dispatch on `result.kind` to know which fields
+exist. Accessing `result.key` when `kind === :splat` or `:ghost` would
+throw at runtime. The function's static return type is the Union of
+all four NamedTuple types — every caller dispatches dynamically.
+
+**Why I'm marking this UNVERIFIED**:
+
+The diagnostic's "reassigned type Any is incompatible" wording and its
+anchor at `expr.args[2]` (not the function head or return) don't match
+the multi-shape-return narrative. The checker may be firing on something
+else at that line — abstract `.args[2]` access, an overload-resolution
+miss, or a real reassignment of `expr` I didn't spot. Needs a closer
+read against the checker source before I claim it.
+
+**If it IS the multi-shape-return bug, suggested fix**:
+
+Settle on one NamedTuple shape with optional fields nulled out, or
+return separate concrete struct types per kind. Examples:
+
+```julia
+struct CallArg
+    kind::Symbol
+    expr::Any
+    key::Union{Any, Nothing}     # nothing for :splat, :ghost
+    symbol::Union{Symbol, Nothing}
+    isparameter::Bool
+end
+```
+
+---
+
+## Crayons v4.x — `_torgb` declared `::NTuple{3, UInt8}` body produces `Tuple{UInt32, UInt32, UInt32}` (weaker)
 
 **File**: `src/crayon.jl:135`
 

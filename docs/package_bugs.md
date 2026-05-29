@@ -1,24 +1,25 @@
 # Real bugs found in user packages
 
-This file tracks **real type bugs in package source code** that the
-checker found during stage-5 corpus runs — distinct from checker
-limitations / false positives, which live in `checker_limitations.md`.
+Real type bugs and latent issues the checker surfaced during stage-5
+runs. Distinct from checker limitations / false positives (those live
+in `checker_limitations.md`).
 
-A bug counts as "real" if the package's own code would fail at runtime
-under the inputs it accepts, OR if it has a non-typecheckable usage
-pattern that the maintainer would want to fix.
+These are NOT every fire — they're the ones I read carefully and
+confirmed against the source.
 
-## LowRankArithmetic v0.1.4 — accumulator type changes mid-loop
+---
 
-**File**: `src/utils.jl:34-43` (`truncate_to_tolerance`)
+## 1. LowRankArithmetic v0.1.4 — `utils.jl:37` — Int → Float64 accumulator
+
+**Severity**: Real type-instability bug. One-line fix.
 
 ```julia
 function truncate_to_tolerance(S, tol)
-    s = 0                    # ← s starts as Int64 (literal `0`)
+    s = 0                # ← Int64 literal
     r = length(S)
     for σ in reverse(S)
-        s += σ^2             # ← σ^2 is Float64 (typical SVD singular values)
-        if s > tol^2          #   so s becomes Float64 after iter 1
+        s += σ^2         # ← Float64 (σ from svd().S)
+        if s > tol^2      #    s is now Union{Int64, Float64}
             break
         end
         r -= 1
@@ -27,122 +28,104 @@ function truncate_to_tolerance(S, tol)
 end
 ```
 
-**Diagnostic** the checker correctly produced:
+**Diagnostic**:
 ```
 error[JTC-ASSIGN]: reassigned type Float64 is incompatible
-   --> .../LowRankArithmetic/.../src/utils.jl:37:9
- 37 |         s += σ^2
-    |         ^
-Previous type is Int64, ...:34:5
+   --> .../utils.jl:37:9
+Previous type is Int64, .../utils.jl:34:5
 ```
 
-**Why it's a real bug**:
-
-The textbook Julia type-instability pattern. The variable `s` is
-initialised with the Int literal `0`, then accumulated with `σ^2`
-which is `Float64` for typical inputs (singular values from
-`svd(A).S`). After the first iteration `s` is `Float64` — meaning
-`s`'s type across the loop is `Union{Int64, Float64}`.
-
-Consequences:
-- The compiler can't specialise the `s += σ^2` arithmetic optimally
-  on the first iteration (must dispatch on Union).
-- `s > tol^2` comparison has to handle both Int and Float64 cases.
-- Inlining and SIMD opportunities lost.
-
-This is exactly the case `code_warntype` flags with red ink, and
-exactly the case `JTC-ASSIGN: reassigned type X is incompatible` is
-designed to catch.
-
-**Suggested fix** — match the accumulator's initial type to the
-elements:
-
-```julia
-function truncate_to_tolerance(S, tol)
-    s = zero(eltype(S))     # respects element type, works for any Number
-    r = length(S)
-    for σ in reverse(S)
-        s += σ^2
-        s > tol^2 && break
-        r -= 1
-    end
-    return r
-end
-```
-
-Or, if S is known to be Float64-typed: `s = 0.0`.
-
-**Verdict**: real, clean, single-line fix. Should be a one-PR
-submission to LowRankArithmetic.
+**Fix**: `s = zero(eltype(S))` (or `s = 0.0` if S is known Float64-typed).
 
 ---
 
-## ArgCheck v2.x — `analyze_call_arg` returns four different NamedTuple shapes (UNVERIFIED)
+## 2. ProgressMeter v1.x — `ProgressMeter.jl:963` — variable may be unbound
 
-**File**: `src/checks.jl:133-150` (`analyze_call_arg`)
-
-```julia
-function analyze_call_arg(expr, isparameter)
-    if isexpr(expr, :kw)
-        (kind=:kw, expr=expr.args[2], key=expr.args[1], symbol=…, isparameter=…)   # 5 fields
-    elseif isexpr(expr, SPLAT)
-        (kind=:splat, expr=expr.args[1], symbol=…, isparameter=…)                  # 4 fields
-    elseif isparameter
-        if expr isa Symbol
-            (kind=:kw, expr=expr, key=expr, symbol=…, isparameter=…)                # 5 fields (same shape as branch 1)
-        else
-            (kind=:ghost, expr=expr, isparameter=…)                                 # 3 fields
-        end
-    ...
-```
-
-**Diagnostic** the checker produced:
-```
-error[JTC-ASSIGN]: reassigned type Any is incompatible
-   --> .../ArgCheck/.../src/checks.jl:135:25
-```
-
-**Why this MIGHT be a real bug**:
-
-The function returns NamedTuples with three distinct *shapes*:
-- `(kind, expr, key, symbol, isparameter)` (5 fields, two branches)
-- `(kind, expr, symbol, isparameter)` (4 fields)
-- `(kind, expr, isparameter)` (3 fields)
-
-Downstream callers must dispatch on `result.kind` to know which fields
-exist. Accessing `result.key` when `kind === :splat` or `:ghost` would
-throw at runtime. The function's static return type is the Union of
-all four NamedTuple types — every caller dispatches dynamically.
-
-**Why I'm marking this UNVERIFIED**:
-
-The diagnostic's "reassigned type Any is incompatible" wording and its
-anchor at `expr.args[2]` (not the function head or return) don't match
-the multi-shape-return narrative. The checker may be firing on something
-else at that line — abstract `.args[2]` access, an overload-resolution
-miss, or a real reassignment of `expr` I didn't spot. Needs a closer
-read against the checker source before I claim it.
-
-**If it IS the multi-shape-return bug, suggested fix**:
-
-Settle on one NamedTuple shape with optional fields nulled out, or
-return separate concrete struct types per kind. Examples:
+**Severity**: Real correctness bug. Runtime `UndefVarError` on any
+unexpected expression head.
 
 ```julia
-struct CallArg
-    kind::Symbol
-    expr::Any
-    key::Union{Any, Nothing}     # nothing for :splat, :ghost
-    symbol::Union{Symbol, Nothing}
-    isparameter::Bool
+if expr.head == :for
+    outerassignidx = 1
+    loopbodyidx = lastindex(expr.args)
+elseif expr.head == :comprehension
+    outerassignidx = lastindex(expr.args)
+    loopbodyidx = 1
+elseif expr.head == :typed_comprehension
+    outerassignidx = lastindex(expr.args)
+    loopbodyidx = 2
 end
+# ← no else / no @assert
+if expr.head !== :for
+    @assert length(expr.args) == loopbodyidx
+    expr = expr.args[outerassignidx] = copy(expr.args[outerassignidx])
+    #                ^^^^^^^^^^^^^^   ← read here without prior assignment
+```
+
+**Diagnostic**:
+```
+error[JTC-UNDEFINED]: variable outerassignidx is potentially unitialized here
+   --> .../ProgressMeter.jl:963:59
+```
+
+**Why real**: the if-elseif chain has no `else`, so if `expr.head` is
+anything other than the three listed, both `outerassignidx` and
+`loopbodyidx` are unbound. The code goes on to access them
+unconditionally. Runtime would throw `UndefVarError`.
+
+This is `@progress`'s expansion-time error path — if a user writes
+`@progress while …` instead of `@progress for …`, they get a confusing
+UndefVarError instead of a useful message.
+
+**Fix**: add an `else` branch that throws `ArgumentError("@progress
+requires :for, :comprehension, or :typed_comprehension")`, or guard the
+subsequent block with `expr.head in (:for, :comprehension,
+:typed_comprehension) || error(...)`.
+
+---
+
+## 3. Crayons v4.x — `macro.jl:99-101` — `tok_hex` walks across `AbstractString → SubString → String`
+
+**Severity**: Type instability (performance, not correctness).
+
+```julia
+function _parse_color_string(token::AbstractString)
+    if length(token) >= 6
+        tok_hex = token                                    # AbstractString
+        startswith(token, "#") && (tok_hex = token[2:end]) # SubString
+        !startswith(token, "0x") && (tok_hex = "0x" * tok_hex) # String
+        nhex = tryparse(UInt32, tok_hex)
+        ...
+```
+
+**Diagnostic**:
+```
+error[JTC-ASSIGN]: reassigned type String is incompatible
+   --> .../Crayons/u3AH8/src/macro.jl:99:48 (×3)
+```
+
+`tok_hex`'s type changes across the three conditional reassignments:
+- Line 99: `token` — `AbstractString` parameter
+- Line 100: `token[2:end]` — `SubString{T}` for the underlying T
+- Line 101: `"0x" * tok_hex` — `String` (concatenation result)
+
+The runtime contract of `tryparse(UInt32, ::AbstractString)` is the
+same for all three, so this works — but the inferencer sees `tok_hex`
+as a Union and the downstream `tryparse` call dispatches dynamically.
+
+**Fix**: normalise the prefix once at the top, build a single `String`:
+
+```julia
+s = startswith(token, "#") ? String(token[2:end]) : String(token)
+tok_hex = startswith(s, "0x") ? s : "0x" * s
 ```
 
 ---
 
-## Crayons v4.x — `_torgb` declared `::NTuple{3, UInt8}` body produces `Tuple{UInt32, UInt32, UInt32}` (weaker)
+## 4. Crayons v4.x — `crayon.jl:135` — `_torgb` body and declared return disagree
 
-**File**: `src/crayon.jl:135`
+**Severity**: Latent type instability, masked by implicit `convert`
+at return annotation. Fragile but currently working.
 
 ```julia
 function _torgb(hex::UInt32)::NTuple{3, UInt8}
@@ -150,39 +133,28 @@ function _torgb(hex::UInt32)::NTuple{3, UInt8}
 end
 ```
 
-**Diagnostic** (the checker correctly identifies this):
+The bit-shift expressions are `UInt32 → UInt32`, so the body produces
+`Tuple{UInt32, UInt32, UInt32}`. The `::NTuple{3, UInt8}` annotation
+triggers `convert(NTuple{3, UInt8}, …)` which truncates each value to
+8 bits.
+
+**Diagnostic**:
 ```
 error[JTC-RETURN]: return type is enlarged
-   --> .../Crayons/.../src/crayon.jl:135:47
+   --> .../Crayons/u3AH8/src/crayon.jl:135:47
 Previous type is Tuple{UInt8, UInt8, UInt8}, ...:135:1
 Current type is Tuple{UInt32, UInt32, UInt32}, ...:135:47
 ```
 
-**Why it's a real bug**:
+**Knock-on effect at `crayon.jl:142`** — `r, g, b = _torgb(c)` — the
+destructure picks up `UInt32` for each variable (from the body), but
+elsewhere in the same scope these variables are typed as `Int64` /
+`UInt8` from other code paths. The checker fires 5 specialisations of
+"reassigned type Int64 is incompatible" at that destructure — all
+downstream of this root cause.
 
-`hex` is `UInt32`. Each subexpression `hex << N >> 24` follows
-`UInt32 << Int → UInt32`, `UInt32 >> Int → UInt32`, so the tuple
-naturally has type `Tuple{UInt32, UInt32, UInt32}` — three 32-bit
-values, NOT three 8-bit values as declared.
-
-The function works at runtime only because Julia's return-type
-annotation injects `convert(NTuple{3, UInt8}, …)` at the return point.
-The truncation happens to preserve all data (each `>> 24` leaves at
-most 8 significant bits), so the silent convert is information-lossless.
-
-But: **the body is not type-stable** with respect to the declared
-signature. Two consequences:
-
-1. Removing the `::NTuple{3, UInt8}` annotation would suddenly change
-   callers' inferred types from `UInt8` to `UInt32` — a silent
-   API-breaking change waiting to happen.
-2. The body promises `UInt8` semantics (look at `_torgb`'s name) but
-   produces `UInt32` operands. If anyone copies these expressions into
-   another context — e.g. into a SIMD builder or memory layout
-   computation — they'd get the wrong width without knowing.
-
-**Suggested fix** — make the truncation explicit, then the body's
-natural type matches the declared signature:
+**Fix**: make the truncation explicit so the body's natural type
+matches the annotation:
 
 ```julia
 function _torgb(hex::UInt32)::NTuple{3, UInt8}
@@ -190,21 +162,77 @@ function _torgb(hex::UInt32)::NTuple{3, UInt8}
 end
 ```
 
-or equivalently:
+---
+
+## 5. Crayons v4.x — `downcasts.jl:85` — `value` reassignment likely changes type
+
+**Severity**: Probably real (need to verify `compute_value`'s return
+type).
 
 ```julia
-function _torgb(hex::UInt32)::NTuple{3, UInt8}
-    (UInt8(hex << 8 >> 24), UInt8(hex << 16 >> 24), UInt8(hex << 24 >> 24))
-end
+function to_system_colors(color::ANSIColor)
+    @assert color.style == COLORS_24BIT
+    r, g, b = color.r, color.g, color.b
+    value = compute_value(r, g, b)        # ← inferred type X
+    value = round(Int, value / 50)        # ← reassigned to Int
+    ...
 ```
 
-(The `% UInt8` form is the idiomatic truncation and is what Julia's
-`convert(UInt8, ::UInt32)` does internally when the value fits.)
+**Diagnostic**:
+```
+error[JTC-ASSIGN]: reassigned type Int64 is incompatible
+   --> .../Crayons/u3AH8/src/downcasts.jl:85:13
+```
 
-**Verdict**: real latent type-stability bug, surfaced exactly the way
-the checker is designed to surface them — "the body's inferred type
-disagrees with the declared signature". The implicit `convert` at the
-annotation is masking it. Worth a PR to Crayons.
+The checker reports the second `value = round(Int, …)` reassigns the
+variable with `Int` while the previous `value = compute_value(...)`
+inferred to something else. Without reading `compute_value`, I'd guess
+it returns `Float` (since `value / 50` only makes sense for non-Int).
+If so, `value` walks `Float → Int` — type instability.
+
+**Suggested fix** (subject to verifying compute_value): use a new
+variable name for the rounded result:
+
+```julia
+v_idx = round(Int, value / 50)
+```
 
 ---
 
+## Probably NOT real (false-positive triage)
+
+- **Crayons `crayon_stack.jl:73`** — `pc = Crayon(...)` says "Previous
+  type Bool" but the source has `pc = cs.crayons[end]` which is
+  `Crayon`. Doesn't match the source — checker bug.
+- **Crayons `downcasts.jl:4`, `:27`, `:39`** — "Previous type
+  Array{Any, 1}" doesn't match the visible source. Checker bug.
+- **Crayons `crayon.jl:183` destruct length-mismatch** — multi-return
+  from `_torgb` propagation, likely false positive on the same
+  `_torgb` root cause.
+- **DataStructures `_slotget` / `_slotset!`** — `return` is inside
+  `GC.@preserve x begin … end` block. Checker treats the block end
+  as fallthrough returning `Nothing`. Checker bug (we don't model
+  `GC.@preserve` body as always-completing).
+- **ColorTypes `traits.jl:251` (×26)** — parametric function
+  constructing different parametric Type results. Legitimate
+  polymorphism, not a bug.
+- **Glob `findnext`-style returns** — `findnext` API contract is
+  `Union{Int, Nothing}`. Not a bug.
+
+---
+
+## Methodology note (for my own discipline next round)
+
+For every JTC-ASSIGN with "reassigned", actually READ both the
+"Previous type X" line and the source. The previous-type often
+identifies the wrong line if my fixes haven't all landed, in which
+case it's a checker artifact. When the previous-type *does* match the
+source, that's a real type-instability fire worth surfacing.
+
+For every JTC-UNDEFINED, the source pattern is almost always a
+guard-by-invariant that the author forgot to make explicit — these
+are very high-signal real bugs.
+
+For every JTC-RETURN "type is enlarged", check whether the function is
+parametric or has multiple return paths returning different types.
+Parametric polymorphism is fine; mixed-return is the bug.

@@ -19,6 +19,17 @@ function makeConstVal(@nospecialize val)
 end
 
 function makeType(@nospecialize val)
+    # Core.Compiler.InterConditional / Conditional are narrowing-aware
+    # lattice elements the upstream inferencer uses to carry "this Bool
+    # tells me something about variable X" — semantically Bool everywhere
+    # it leaves the Compiler's inference loop. Collapse to plain Bool at
+    # the seam so it doesn't poison downstream dispatch / assignment
+    # checks (which would see e.g. `&(::InterConditional, ::InterConditional)`
+    # as having no matching method, or reject storing it into a Bool field).
+    if val isa Type && (val <: Core.Compiler.InterConditional ||
+                        val <: Core.Compiler.Conditional)
+        return CompileType(false, nothing, Bool)
+    end
     if Base.issingletontype(val)
         CompileType(true, val.instance, val)
     elseif val isa DataType && val.name == Type.body.name

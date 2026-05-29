@@ -84,45 +84,7 @@ subsequent block with `expr.head in (:for, :comprehension,
 
 ---
 
-## 3. Crayons v4.x — `macro.jl:99-101` — `tok_hex` walks across `AbstractString → SubString → String`
-
-**Severity**: Type instability (performance, not correctness).
-
-```julia
-function _parse_color_string(token::AbstractString)
-    if length(token) >= 6
-        tok_hex = token                                    # AbstractString
-        startswith(token, "#") && (tok_hex = token[2:end]) # SubString
-        !startswith(token, "0x") && (tok_hex = "0x" * tok_hex) # String
-        nhex = tryparse(UInt32, tok_hex)
-        ...
-```
-
-**Diagnostic**:
-```
-error[JTC-ASSIGN]: reassigned type String is incompatible
-   --> .../Crayons/u3AH8/src/macro.jl:99:48 (×3)
-```
-
-`tok_hex`'s type changes across the three conditional reassignments:
-- Line 99: `token` — `AbstractString` parameter
-- Line 100: `token[2:end]` — `SubString{T}` for the underlying T
-- Line 101: `"0x" * tok_hex` — `String` (concatenation result)
-
-The runtime contract of `tryparse(UInt32, ::AbstractString)` is the
-same for all three, so this works — but the inferencer sees `tok_hex`
-as a Union and the downstream `tryparse` call dispatches dynamically.
-
-**Fix**: normalise the prefix once at the top, build a single `String`:
-
-```julia
-s = startswith(token, "#") ? String(token[2:end]) : String(token)
-tok_hex = startswith(s, "0x") ? s : "0x" * s
-```
-
----
-
-## 4. Crayons v4.x — `crayon.jl:135` — `_torgb` body and declared return disagree
+## 3. Crayons v4.x — `crayon.jl:135` — `_torgb` body and declared return disagree
 
 **Severity**: Latent type instability, masked by implicit `convert`
 at return annotation. Fragile but currently working.

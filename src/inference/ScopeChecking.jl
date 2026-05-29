@@ -256,7 +256,19 @@ function analyzeScopeVariable(ctx::ScopeInfoContext, ast::JuAST)::ScopeInfoConte
            )
         return ctx
     elseif ast.head == :generator
-        reportASTError(ctx.ctx, ast, "Generator syntax doesn't support")
+        # Generator (`expr for x in iter`) appears inside `:comprehension`,
+        # `Type[expr for x in iter]`, and bare-collection calls like
+        # `collect(expr for x in iter)`. Full scope handling would create
+        # a child scope for the iteration variables (#86); for now we
+        # just recurse into the children so the method as a whole
+        # registers and we get at least partial coverage. The iteration
+        # vars won't appear in the analyzed scope — usage inside the
+        # body will look unbound to the checker — but that's a partial-
+        # diagnostic outcome instead of an outright reject.
+        for i in ast.args
+            analyzeScopeVariable(ctx, i)
+        end
+        return ctx
     elseif (ast.head == :block || 
            ast.head == :tuple ||
            ast.head == :quote || 

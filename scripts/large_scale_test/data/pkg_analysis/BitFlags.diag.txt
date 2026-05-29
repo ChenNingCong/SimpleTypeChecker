@@ -1,42 +1,3 @@
-error[JTC-SYNTAX]: Function is empty
-   --> /home/chenningcong/.julia/packages/BitFlags/WsHfz/src/BitFlags.jl:12:1
-    |
- 12 | function namemap end
-    | ^^^^^^^^^^^^^^^^^^^^
-    |
-error[JTC-SYNTAX]: Function is empty
-   --> /home/chenningcong/.julia/packages/BitFlags/WsHfz/src/BitFlags.jl:13:1
-    |
- 13 | function haszero end
-    | ^^^^^^^^^^^^^^^^^^^^
-    |
-Type{UInt32}
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/BitFlags/WsHfz/src/BitFlags.jl:245:33
-     |
- 245 |     if length(x) == 1 && isexpr(x[1], :block)
-     |                                 ^^^^ this argument has type Any
-     |
-help: guard with `isa` (or `if-elseif` on each variant) before the call
-Type{UInt64}
-
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/BitFlags/WsHfz/src/BitFlags.jl:245:33
-     |
- 245 |     if length(x) == 1 && isexpr(x[1], :block)
-     |                                 ^^^^ this argument has type Any
-     |
-help: guard with `isa` (or `if-elseif` on each variant) before the call
-Type{UInt8}
-
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/BitFlags/WsHfz/src/BitFlags.jl:245:33
-     |
- 245 |     if length(x) == 1 && isexpr(x[1], :block)
-     |                                 ^^^^ this argument has type Any
-     |
-help: guard with `isa` (or `if-elseif` on each variant) before the call
-
 error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
    --> /home/chenningcong/.julia/packages/BitFlags/WsHfz/src/BitFlags.jl:30:38
     |
@@ -44,51 +5,6 @@ error[JTC-DEEP-DISPATCH]: call triggers deep dynamic dispatch
     |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this call triggers dynamic dispatch deeper in the tree
     |
 help: set `ctx.printDispatchTrace = true` before runCheck! to see the unresolved :call sites
-Type{UInt32}
-
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/BitFlags/WsHfz/src/BitFlags.jl:270:23
-     |
- 270 |         elseif isexpr(s, (:(=), :kw), 2) && (e = s::Expr; e.args[1] isa Symbol)
-     |                       ^ argument `s` has type Any
-     |
-note: `s` became Any here
-   --> /home/chenningcong/.julia/packages/BitFlags/WsHfz/src/BitFlags.jl:263:14
-     |
- 263 |     for s in syms
-     |              ---- Nothing
-     |
-help: guard with `s isa T` (or `if-elseif` on each variant) before the call
-Type{UInt64}
-
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/BitFlags/WsHfz/src/BitFlags.jl:270:23
-     |
- 270 |         elseif isexpr(s, (:(=), :kw), 2) && (e = s::Expr; e.args[1] isa Symbol)
-     |                       ^ argument `s` has type Any
-     |
-note: `s` became Any here
-   --> /home/chenningcong/.julia/packages/BitFlags/WsHfz/src/BitFlags.jl:263:14
-     |
- 263 |     for s in syms
-     |              ---- Nothing
-     |
-help: guard with `s isa T` (or `if-elseif` on each variant) before the call
-Type{UInt8}
-
-error[JTC-DISPATCH]: call has an argument of abstract type
-   --> /home/chenningcong/.julia/packages/BitFlags/WsHfz/src/BitFlags.jl:270:23
-     |
- 270 |         elseif isexpr(s, (:(=), :kw), 2) && (e = s::Expr; e.args[1] isa Symbol)
-     |                       ^ argument `s` has type Any
-     |
-note: `s` became Any here
-   --> /home/chenningcong/.julia/packages/BitFlags/WsHfz/src/BitFlags.jl:263:14
-     |
- 263 |     for s in syms
-     |              ---- Nothing
-     |
-help: guard with `s isa T` (or `if-elseif` on each variant) before the call
 
 error[JTC-ISA]: rhs Symbol is not a valid splitted target
    --> /home/chenningcong/.julia/packages/BitFlags/WsHfz/src/BitFlags.jl:227:7
@@ -104,11 +20,18 @@ error[JTC-ISA]: can't split type Expr to Type{Symbol}
      |       ^^^^^^^^^^^^^^^^^^^^
      |
 
-error[JTC-METHOD]: more than one matching method for string(::String, ::Symbol, ::String, ::Any)
-   --> /home/chenningcong/.julia/packages/BitFlags/WsHfz/src/BitFlags.jl:133:14
+error[JTC-METHOD]: no matching method for *(::String, ::Nothing)
+   --> /home/chenningcong/.julia/packages/BitFlags/WsHfz/src/BitFlags.jl:135:19
      |
- 133 |     errmsg = "invalid argument for BitFlag $typename: $s"
-     |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 135 |         errmsg *= "; " * msg
+     |                   ^^^^^^^^^^
+     |
+
+error[JTC-METHOD]: no matching method for *(::String, ::Nothing)
+   --> /home/chenningcong/.julia/packages/BitFlags/WsHfz/src/BitFlags.jl:135:19
+     |
+ 135 |         errmsg *= "; " * msg
+     |                   ^^^^^^^^^^
      |
 
 error[JTC-METHOD]: no matching method for *(::String, ::Nothing)
@@ -124,46 +47,18 @@ error[JTC-METHOD]: no matching method for *(::String, ::Nothing)
  135 |         errmsg *= "; " * msg
      |                   ^^^^^^^^^^
      |
-
-error[JTC-METHOD]: more than one matching method for string(::String, ::Symbol, ::String, ::Any)
-   --> /home/chenningcong/.julia/packages/BitFlags/WsHfz/src/BitFlags.jl:133:14
-     |
- 133 |     errmsg = "invalid argument for BitFlag $typename: $s"
-     |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-     |
-
-error[JTC-METHOD]: no matching method for *(::String, ::Nothing)
-   --> /home/chenningcong/.julia/packages/BitFlags/WsHfz/src/BitFlags.jl:135:19
-     |
- 135 |         errmsg *= "; " * msg
-     |                   ^^^^^^^^^^
-     |
-
-error[JTC-METHOD]: no matching method for *(::String, ::Nothing)
-   --> /home/chenningcong/.julia/packages/BitFlags/WsHfz/src/BitFlags.jl:135:19
-     |
- 135 |         errmsg *= "; " * msg
-     |                   ^^^^^^^^^^
-     |
-Type{Main.__S__.Flag1}
-Type{Main.__S__.Flag5}
-Type{Main.__S__.Flag6}
-Type{Main.__S__.Flag10}
-Type{Main.__S__.Flag9}
 
 
 [STATS]
 package: BitFlags
 version: 0.1.9
 test_outcome: test_failed
-mis_harvested: 34
+mis_harvested: 21
 files_added: 1
-methods_checked: 26
-errors: 15
-elapsed_sec: 1.3
-class InferenceErrorFunCallArgs: 6
+methods_checked: 13
+errors: 7
+elapsed_sec: 0.43
 class InferenceErrorFunCall: 4
-class InferenceErrorStringConstructor: 2
 class InferenceErrorTopLevelDispatch: 1
 class InferenceErrorMismatchedSplit: 1
 class InferenceErrorIsaLHSBadType: 1

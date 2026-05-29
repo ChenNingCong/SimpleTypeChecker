@@ -10,24 +10,6 @@ error[JTC-SYNTAX]: Invalid argument definition
  156 | function Base.iterate(di::Iterators.Reverse{<:Deque}, (cb, i) = (di.itr.rear, di.itr.rear.back))
      |                                                       ^^^^^^^
      |
-error[JTC-SYNTAX]: Not a valid function definition, function f end and anoymous function is not supported yet
-   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/robin_dict.jl:46:1
-    |
- 46 | function RobinDict{K,V}(kv) where V where K
-    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |
-error[JTC-SYNTAX]: Not a valid function definition, function f end and anoymous function is not supported yet
-   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/robin_dict.jl:54:1
-    |
- 54 | function RobinDict{K,V}(ps::Pair...) where V where K
-    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |
-error[JTC-SYNTAX]: Not a valid function definition, function f end and anoymous function is not supported yet
-   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/robin_dict.jl:354:1
-     |
- 354 | function _get!(default::Callable, h::RobinDict{K,V}, key::K) where V where K
-     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-     |
 error[JTC-SYNTAX]: Invalid argument definition
    --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/sorted_container_iteration.jl:587:31
      |
@@ -228,20 +210,6 @@ error[JTC-RETURN]: return type is enlarged
 Previous type is Ptr{UInt8}, /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/swiss_dict.jl:134:16
 Current type is Nothing, /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/swiss_dict.jl:131:86
 
-error[JTC-TYPE]: fail to construct type SortedDict{Any, Any, Any}
-   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/sorted_dict.jl:51:5
-    |
- 51 |     SortedDict{K,D,Ord}(o)
-    |     ^^^^^^^^^^^^^^^^^^^
-    |
-
-error[JTC-TYPE]: fail to construct type SortedSet{Any, Any}
-   --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/sorted_set.jl:43:5
-    |
- 43 |     SortedSet{K,Ord}(o)
-    |     ^^^^^^^^^^^^^^^^
-    |
-
 error[JTC-DISPATCH]: call has an argument of abstract type
    --> /home/chenningcong/.julia/packages/DataStructures/9m6yb/src/int_set.jl:162:53
      |
@@ -255,14 +223,13 @@ help: guard with `isa` (or `if-elseif` on each variant) before the call
 package: DataStructures
 version: 0.19.4
 test_outcome: test_failed
-mis_harvested: 70
+mis_harvested: 23
 files_added: 38
-methods_checked: 86
-errors: 19
-elapsed_sec: 2.33
+methods_checked: 80
+errors: 17
+elapsed_sec: 2.01
 class InferenceErrorFunCallArgs: 6
 class InferenceErrorFunCall: 3
-class InferenceErrorApplyTypeFailure: 2
 class InferenceErrorReturnEnlargeType: 2
 class UndefRefError: 2
 class InferenceErrorSetFieldTypeIncompatible: 2

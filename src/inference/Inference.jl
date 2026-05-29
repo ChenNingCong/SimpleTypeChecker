@@ -2869,8 +2869,12 @@ function prepareToplevelFunction(ctx::GlobalContext, ast::JuAST)::FunDef
         reportASTError(ctx, ast, "Function is empty")
     end
     body = ast.args[2]
-    # TODO ：handle multiple where ? or maybe just disallow it!!!
-    if f.head == :where
+    # Loop over nested where layers: `function f(x) where V where K end`
+    # parses as `where V (where K (call))`, two peels needed. The previous
+    # `if` only peeled once, leaving f.head == :where and tripping the
+    # "Not a valid function definition" path. Each layer contributes its
+    # own sparam(s).
+    while f.head == :where
         # `where T` and `where T<:Bound` produce f.args = [sig, sparam].
         # `where {T<:Bound, S}` produces f.args = [sig, braces(sparam, ...)] —
         # the braces wrap the parameter list. Materialize a Vector{JuAST}
@@ -3254,6 +3258,14 @@ function collectToplevelFunction!(ctx::GlobalContext, rel::Dict{Vector{Symbol}, 
             collectToplevelFunction!(ctx, rel, newmod, i)
         end
     elseif ast.head == :function
+        # `function f end` — forward declaration with no body or args.
+        # The binding is created at Julia load time; we have nothing to
+        # check. Silently skip so packages like BitFlags
+        # (`function namemap end`, `function haszero end`) don't trip
+        # "Function is empty".
+        if length(ast.args) < 2
+            return
+        end
         isFunc = true
     elseif ast.head == :(=)
         f = ast.args[1]

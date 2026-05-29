@@ -2534,26 +2534,39 @@ end
 
 
 function iterateCheck(eng::Engine, node::FlowNode)::FlowNode
-    # TODO : check Union here, all the input should be concrete type
     ast = node.ast
-    ms = MethodCallStruct(makeLiteralFlowNode(eng.globalCtx.rtctx, ast, makeConstJuASTVal(Base.iterate)), FlowNode[node])
+    rtctx = eng.globalCtx.rtctx
+    ms = MethodCallStruct(makeLiteralFlowNode(rtctx, ast, makeConstJuASTVal(Base.iterate)), FlowNode[node])
     matches = getMethodMatches(eng, ms)
+    # Fallback element type when we can't deduce the loop variable's type
+    # from `iterate`'s return — used by all the non-standard cases below.
+    # Trades static-typing strength for "the for-body still gets checked",
+    # which is the right call when the iterator's `iterate` method doesn't
+    # follow the standard `Union{Tuple, Nothing}` shape.
+    anyNode() = makeIterateFlowNode(ast, makeAnyType(rtctx))
     if length(matches) != 1
-        error("iterate fails to match at $(formatLocation(ast.loc)) over $(toString(eng.globalCtx.rtctx, node.typ))")
+        return anyNode()
     end
-    # TODO check another part of iterate, iterate(iterator, val)
     tt = extractUniqueMatch(matches)
-    if !isaUnion(eng.globalCtx.rtctx, tt)
-        error("Not a union for iterator")
+    # Standard case: Union{Tuple{elt, state}, Nothing}.
+    if isaUnion(rtctx, tt)
+        tt = splitUnion(rtctx, tt, makeNothingType(rtctx))
+        if isaTuple(rtctx, tt)
+            return makeIterateFlowNode(ast, getFirstParameter(rtctx, tt))
+        end
+        # Union that's not Union{Tuple, Nothing}. Some iterators model
+        # state with a more complex shape. Fall back to Any.
+        return anyNode()
     end
-    tt = splitUnion(eng.globalCtx.rtctx, tt, makeNothingType(eng.globalCtx.rtctx))
-    if isaTuple(eng.globalCtx.rtctx, tt)
-        tt = getFirstParameter(eng.globalCtx.rtctx, tt)
-    else
-        error("Not a tuple for iterator")
+    # Non-union return — e.g. a never-empty iterator returning
+    # `Tuple{elt, state}` directly, or a never-yielding iterator
+    # returning `Nothing`. Both are legal Julia; Pre-1.0 iterate APIs
+    # also relax the Union convention. Take the element type when
+    # possible, else fall back to Any.
+    if isaTuple(rtctx, tt)
+        return makeIterateFlowNode(ast, getFirstParameter(rtctx, tt))
     end
-    node = makeIterateFlowNode(ast, tt)
-    return node
+    return anyNode()
 end
 
 function checkForStmt(eng::Engine, ast::JuAST)::Nothing

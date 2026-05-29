@@ -10,3 +10,6 @@
 # reproducible (~30s) and binaries are large (~8MB) — don't track them.
 /bin/build/
 scripts/large_scale_test/data
+# but keep the per-package analysis (small, valuable, hand-curated)
+!scripts/large_scale_test/data/pkg_analysis
+!scripts/large_scale_test/data/pkg_analysis/**

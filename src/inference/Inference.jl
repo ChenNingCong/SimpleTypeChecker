@@ -2824,6 +2824,18 @@ function constructParam(ctx::GlobalContext, ast::JuAST)::Argument
             end
         end
     end
+    # Vararg slurp at the definition site: `f(args...)` parses as
+    # `Expr(:..., x)`, `f(args::T...)` as `Expr(:..., Expr(::, x, T))`.
+    # We don't fully model vararg-tuple binding in the checker yet, but
+    # accepting the syntactic shape (treating the inner Argument as if
+    # it were a single positional) lets the method register and the body
+    # get checked. Drops the vararg-ness; user-visible cost is that the
+    # checker thinks `args` has type T instead of `Tuple{T...}`.
+    if ast.head == :(...)
+        if length(ast.args) >= 1
+            ast = ast.args[1]
+        end
+    end
     if ast.head == :(::)
         if length(ast.args) == 1
             typ = Just(ast.args[1])

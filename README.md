@@ -1,182 +1,160 @@
-SimpleTypeChecker is an experimental Julia package designed to enforce C-style programming in Julia language. Note : it won't save you if your codes already contain a lot of messy dynamic dispatch. It's more appropriate for developing new codes from scratch.
-See demo below for an example usage.
+# SimpleTypeChecker
 
-# Installation
+A static type checker for Julia. Designed to enforce a C-style
+"concrete-types-everywhere" discipline on new code. Best when your
+codebase has not yet accumulated heavy dynamic dispatch — it isn't a
+retrofit tool for messy code.
+
+## Install
+
 ```julia
 pkg> add https://github.com/ChenNingCong/SimpleTypeChecker
 ```
 
-# Usage
+Julia 1.12+ is required.
+
+## Quick start
+
 ```julia
-ctx = SimpleTypeChecker.Inference.GlobalContext()
-SimpleTypeChecker.API.addFile!(ctx, mod, filepath)
-SimpleTypeChecker.API.runCheck!(ctx;checkSyntax=true)
-SimpleTypeChecker.API.@nocheck fun
-SimpleTypeChecker.API.check(ctx, f, tt)
+using YourPackage
+using SimpleTypeChecker
+SimpleTypeChecker.API.checkPackage(YourPackage)
 ```
-SimpleTypeChecker provides several APIs to check all the functions in a file. To use this function, firstly import/include the module you want to check, then call `ctx = SimpleTypeChecker.Inference.GlobalContext()` to construct a context for type inference. Use `SimpleTypeChecker.API.addFile!(ctx, mod, filepath)` to add all the files you want to check into the context. Here `mod` is the module you just evaled and `filepath` is the filepath (*absolute path*) where the module is defined. Finally call `runCheck!` to check the context. By default we will check unsupported syntax. If you want to ignore unsupported sytnax error, use `checkSyntax = false`.
 
-If you have a function that is highly dynamic or uses some features that SimpleTypeChecker doesn't support, and you are certain the function is type stable, then you can use `SimpleTypeChecker.API.@nocheck fun` to skip the checking of that particular function. If you don't want to import SimpleTypeChecker, then using any macro (`@inline`, `@inbounds`) is sufficient, because currently we skip checking of any macro. 
+That's it. Diagnostics print to stderr in a rustc-shape format:
 
-Currently, only functions with concrete type annotation can be checked. If you want to check individual specializations like `sum(x::AbstractArray)` and `println(io::IO, x)`, use `SimpleTypeChecker.check(ctx, f, tt)`. `SimpleTypeChecker.check` accepts parameters like `code_warntype` and `code_typed`, `SimpleTypeChecker.check(ctx, sin, (Float64,))`. If you find this too complicated, then you can create a `main` function and put all the specializations in that `main` function. `SimpleTypeChecker` will recur into the subprocedure calls automatically.
-
-# Demo
-1. SimpleTypeChecker is checked against itself, the following code checks almost all the codes of SimpleTypeChecker (some codes interact with Julia's compiler so they simply can't be statically-typed)
-```julia
-import SimpleTypeChecker
-# firstly we get the package directory of SimpleTypeChecker
-const path = abspath(joinpath(splitdir(pathof(SimpleTypeChecker))[1], ".."))
-ctx = SimpleTypeChecker.Inference.GlobalContext()
-SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.SyntaxAdaptor, joinpath(path, "src/syntax/TreeQuery.jl"))
-SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/inference/InferenceDefinition.jl"))
-SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/inference/Inference.jl"))
-SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/inference/InferenceErrorUtility.jl"))
-SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/inference/InferenceError.jl"))
-SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Inference, joinpath(path, "src/inference/ScopeChecking.jl"))
-SimpleTypeChecker.API.addFile!(ctx, SimpleTypeChecker.Server, joinpath(path, "src/server/SimpleHTTPServer.jl"))
-SimpleTypeChecker.API.runCheck!(ctx)
 ```
-2. You can check the `test/case/case.jl` of SimpleTypeChecker's test cases, which includes some common program errors.
+error[JTC-ASSIGN]: reassigned type Float64 is incompatible
+   --> .../utils.jl:37:9
+   |
+37 |         s += σ^2
+   |         ^^^^^^^
+   |
+note: previous type is Int64, from .../utils.jl:34:5
+```
+
+For one-off spot-checks (à la `code_warntype`):
+
 ```julia
-import SimpleTypeChecker
-# firstly we get the package directory of SimpleTypeChecker
-const path = abspath(joinpath(splitdir(pathof(SimpleTypeChecker))[1], ".."))
-const testpath = abspath(joinpath(path, "test/case/case.jl"))
-include(testpath)
 ctx = SimpleTypeChecker.Inference.GlobalContext()
-SimpleTypeChecker.API.addFile!(ctx, CaseTest, joinpath(path, testpath))
+SimpleTypeChecker.API.addFile!(ctx, YourPackage, "/path/to/file.jl")
 SimpleTypeChecker.API.runCheck!(ctx)
 ```
 
-For example, if you check `test/case/case.jl`, you will get a long list of error message:
-```
-────────────────────────────────────────────────────────────────
-Checking MethodInstance for Main.CaseTest.f26()
+### What gets auto-checked
 
-/home/chenningcong/.julia/packages/SimpleTypeChecker/tu1RO/test/case/case.jl:225:11
- UndefinedError: variable y is potentially unitialized here
-    y
+`checkPackage` / `addFile!` only **auto-queues** method definitions
+whose declared signature is fully concrete — every argument type is a
+leaf type, with no `where T` (`UnionAll`) and no abstract supertype
+(`AbstractArray`, `Number`, `Union{…}`). The "C-style signature" set.
+A method like:
 
-────────────────────────────────────────────────────────────────
-Checking MethodInstance for Main.CaseTest.f27()
-
-/home/chenningcong/.julia/packages/SimpleTypeChecker/tu1RO/test/case/case.jl:235:15
- UndefinedError: variable z is potentially unitialized here
-    z
-
-────────────────────────────────────────────────────────────────
-Checking MethodInstance for Main.CaseTest.f30()
-
-/home/chenningcong/.julia/packages/SimpleTypeChecker/tu1RO/test/case/case.jl:267:13
- TypeError: 2-th paramter of type application (a.k.a parameterized type) is not a constant
-    Vector{Int, x}
-
-────────────────────────────────────────────────────────────────
-```
-
-# Internal
-The idea is simple : SimpleTypeChecker performs type inference on Julia's AST (instead of lowered IR) and also rely on Julia's type inferencer
-1. SimpleTypeChecker reads the method definitions from the file you provide, and use `JuliaSyntax` to parse the file and construct a loseless AST (a.k.a AST with precise location information)
-2. For each method AST `f`, SimpleTypeCheck walk through the AST and check common errors. If it encounters a function calls to another function `g`, then it calls Julia's builtin type inferencer to get the return type of `g`
-
-Note : we need to rely on Julia's builtin type inferencer, because we don't have AST for every method definition (especially those in Base library). Also, inference for recursive function is generally undeciable, adding recursive check in SimpleTypeChecker will complicate a lot of thing.
-
-# Limitation
-Currently there are many limitations, like we don't support destruct assignment in for-loop (`for (x, v) in x`).
-Some of them are temporal and will be removed in the future, but at least the following limitations are permanent. They are critial parts of SimpleTypeChecker's design and can't be simply removed by clever engineer efforts.
-
-In summary, these limitations are the prices in exchange for a better error reporting.
-
----
->Function calls with abstract parameters (including `Union{...}, Any, Integer, where`) are unconditionally disallowed, whether there is only one matching method, whether the function is a commonly used one (like `==(Any, Any)`), etc.
-
-Reason:
-Sometimes abstract calls are intended, like
 ```julia
-struct A
-val::Union{Int, Nothing}
+f(x::Vector{Float64}, n::Int) = ...     # ✓ auto-checked
+g(x::AbstractArray) = ...               # ✗ skipped (abstract)
+h(x::T) where T<:Number = ...           # ✗ skipped (UnionAll)
+```
+
+For methods that aren't auto-checked, queue specific specializations
+explicitly with `check(ctx, f, tt)` (where `tt` is a tuple of types,
+NOT a `Tuple{…}` type):
+
+```julia
+ctx = SimpleTypeChecker.Inference.GlobalContext()
+SimpleTypeChecker.API.addFile!(ctx, YourPackage, "src/utils.jl")
+SimpleTypeChecker.API.check(ctx, YourPackage.g, (Vector{Float64},))
+SimpleTypeChecker.API.check(ctx, YourPackage.h, (Float64,))
+```
+
+Or write a `main`-function driver that calls every entry point with
+concrete arguments — the checker recurses through the call sites
+inside, so each call inside `main` seeds checking of that
+specialization:
+
+```julia
+function main()
+    YourPackage.g(rand(10))
+    YourPackage.h(3.14)
 end
-# a.val isa Union, an abstract type
-copy(a::A) = A(a.val)
+SimpleTypeChecker.API.check(ctx, main, ())
 ```
-So there is simply no way to tell whether an abstract call is intended or not. Then the only solution is to ban abstract calls everywhere.
 
-Workaround:
-Wrap the abstract values in a struct. Only pass the wrapper and manipulate the wrapper with interface methods (In the future, SimpleTypeChecker may directly support `MLStyle.jl`'s pattern matching and algebraic types, so we don't need to wrap and dewrap them manually).
+For batch harvesting from a real test run (the recommended path for
+analyzing parametric packages), see
+[`docs/harvesting_method_instances.md`](docs/harvesting_method_instances.md).
 
----
->Limited type calculations and constant propagation, no heap analysis, no complicated type narrowing (only a single `isa`)
+### Opting out a method
 
-Reason:
+To skip a method the checker can't model:
 
-Such analyses require nontrivial bidirectional flow analysis. One immediate consequence of such complicated analyses is that it's hard to precisely locate where the error is. Codebases in Julia are generally loosely typed. If there is an error somewhere, the this error may gradually propagate to other codes. That's why it's painful to debug type instability, because you need to recurse into a long function chains and context to seek the real source of bug.
-
-Workaround:
-
-Do calculations in short unchecked functions
-
----
-> Unable to distinguish errors caused by `::` and implicit convertion, like `push!([1,2,3], "1")`.
-
-Reason:
-
-`push!([1,2,3], "1")` is a totally valid function call. Honestly speaking, should this be considered as compile time error at all?
-
-Workaround:
-Almost impossible to workaround. Currently my thought:
-1. Use a whitelist. Only the functions in the whitelist can return `Union{}`, like `error`.
-2. Check functions recursively and only trust Julia's compiler when we don't have AST (this solve the problem if you have a return type assertion on a method, but the method is inferred as `Union{}`)
-3. Manually provide *interface* definition for commonly used container in Base library. (Much like typeclass in Haskell, if type parameters don't satisfy the constraint, then immediately raise error)
-
----
-
-> Scope of variable in if-block and interpretation of `local x::Int` is vague.
-
-Reason:
-Julia has no scoped if block, which raises some interesting problems of variable in if-block. Should the following case be treated as type instability?
 ```julia
-function f(y::Bool)
-    if y
-        x = 1
-        print(x)
-    else
-        x = 1.0
-        print(x)
-    end
+SimpleTypeChecker.API.@nocheck function highly_dynamic(x)
+    # …body uses splat/eval/generators — checker won't recurse here
 end
 ```
 
-If we perform basic-block specializations and view two x as individual unrelated copies of value 1 and 1.0, then this code is type stable. SimpleTypeChecker can actually detect it and allow it (as long as if x is not used in following branch), but I choose to ban this case. So automatically merge of different types are prohibited. This is to prevent the following case:
+## Documentation
 
-```julia
-function f(y::Bool)
-    if y
-        x = 1
-        println(x)
-        # many more codes here...
-    elseif somecond
-        # ... 
-    else
-        # accidentally name a string as x
-        x = "1"
-    end
-    # more code here...
-    # abstract call !!!
+- [`docs/usage.md`](docs/usage.md) — full usage guide, including
+  context flags (`permitRequiredKwargs`, `permitCustomGetproperty`,
+  `deepDispatchCheck`), the three entry-point shapes, and CI
+  integration.
+- [`docs/error_codes.md`](docs/error_codes.md) — what each `JTC-…`
+  code means, when it's a real bug vs a checker limitation, and how
+  to suppress.
+- [`docs/syntax.md`](docs/syntax.md) — supported / unsupported AST
+  shapes. Read this before opening a "false positive" issue — it's
+  probably an unsupported form with a known workaround.
+- [`docs/harvesting_method_instances.md`](docs/harvesting_method_instances.md) — for
+  accurate analysis of parametric code: harvest concrete
+  `MethodInstance`s from a real test run (Pelenitsyn-style) and feed
+  them in.
+- [`docs/trim_integration.md`](docs/trim_integration.md) — combine
+  with `juliac --trim` either as a build target (ship a standalone
+  `sttc-check` binary) or as an alternative MI-harvesting source.
+- [`docs/checker_limitations.md`](docs/checker_limitations.md) —
+  known false-positive classes and their fix status.
+- [`docs/package_bugs.md`](docs/package_bugs.md) — real bugs the
+  checker has surfaced in published packages (treat as a sanity check
+  for whether the checker is finding what it should).
+- [`docs/isolation.md`](docs/isolation.md) — the membrane design
+  separating analyzer / driver. Read this if you want to embed the
+  checker.
+- [`docs/ts_checker_algorithm.md`](docs/ts_checker_algorithm.md) —
+  the inference algorithm itself.
 
-    # error reports here, too late
-    print(x)
-end
-```
+## How it works (briefly)
 
-What if I want to construct a Union type? then use a typed slot:
-```julia
-function f(y::Bool)
-    local x::Union{Int, Nothing}
-    if y
-        x = 1
-    else
-        x = nothing
-    end
-end
-```
+1. SimpleTypeChecker reads each method definition from the source files
+   via JuliaSyntax and builds a lossless AST.
+2. For each method, it walks the AST and tracks the type of every
+   local variable / expression. When it hits a function call into code
+   it has no AST for (e.g. `Base`), it asks Julia's own type inferencer
+   for the return type.
+3. Diagnostics fire when the static type analysis sees something that
+   doesn't fit — incompatible reassignment, abstract-arg dispatch,
+   property access on a non-concrete type, etc.
 
+Inference for recursive functions is generally undecidable, so we
+deliberately do not recurse into bodies — Julia's type inferencer is
+the oracle at the boundary.
+
+## Limitations (the permanent ones)
+
+These are by design — they're the price for clean, source-located
+diagnostics. The README's older revisions discussed each of these in
+depth; the short version:
+
+- **Abstract-arg calls are unconditionally rejected.** Wrap abstract
+  values in a struct, manipulate via interface methods.
+- **No heap analysis, no complex narrowing.** Single `isa` /
+  `=== nothing` narrowing only. Do calculations in short
+  `@nocheck` functions if you need more.
+- **No implicit `convert` modeling.** `push!([1,2,3], "1")` is a
+  legitimate Julia call — we don't try to flag it.
+- **`if`-block scope is unified.** `if y; x = 1 else x = "1" end`
+  fires `JTC-IF` (type enlarged). Use a typed slot:
+  `local x::Union{Int, String}` to make the union explicit.
+
+The full reasoning lives in the older READMEs at `git log -- README.md`
+if you're curious about the design history.
